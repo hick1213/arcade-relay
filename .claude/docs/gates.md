@@ -52,7 +52,8 @@ CONCERNSの場合、修正すべき箇所を優先度順の箇条書きで示せ
 3. **スケール・向き** — MANIFEST の `bbox_authoring_m`（authoring-time 計測。記録漏れは不合格）が想定サイズ（ヒト型 1.6–2.0m 相当。UE は cm 換算）に収まり、前方軸・アップ軸が正しいか
 4. **リグ（rigged 資産のみ）** — ボーン数が仕様内、バインドポーズ正常、指定アニメクリップが全て存在するか
 5. **スタイル一致** — レンダリングプレビュー（Blender headless レンダリング。取込済みならエンジン内スクリーンショットでも可）を design/art-bible.json のコンセプト画・パレットに照らして画風ブレが無いか
-6. **provenance/plan_tier** — MANIFEST に `plan_tier` 実測値と `license` があるか。`shippable: false` ルート（state/asset-routing.json）由来・`cost_estimated: true`・fal 経由 Meshy（ライセンス継承未検証）は指摘として明示する
+6. **provenance/plan_tier** — MANIFEST に `plan_tier` 実測値と `license` があるか。表記条項プロバイダ（Ideogram / Hunyuan3D / ElevenLabs 等 — assets-config.md「Provenance」）由来の資産に `license_note` が転記されているか（欠落は指摘）。`shippable: false` ルート（state/asset-routing.json）由来・`cost_estimated: true`・fal 経由 Meshy（ライセンス継承未検証）は指摘として明示する
+全資産種別共通の追加観点: **MANIFEST provenance** — 当該バッチの MANIFEST 行に必須フィールド（assets-config.md「Provenance」）が揃い、表記条項プロバイダ（Ideogram / Hunyuan3D / ElevenLabs 等）由来の資産に `license_note` が転記されているか。欠落は指摘として明示する（prototype フェーズには FullQA 資産監査が無く、AR-ASSET がバッチ単位の唯一の provenance 検査点）。
 不合格資産は理由と再生成指示（プロンプト修正案）を付けよ。
 
 **※ エンジン取込後検証（AR-ASSET の後段・Integrate 実施者の責務）**: FBX のエンジン取込成功・取込後バウンディングボックス・アニメ再生（unity: Humanoid Avatar 生成成功=`Avatar.isValid` / unreal: IK Retargeter マッピング成功）は Unity/UE の起動を要するため、AssetGen 並走レーンの AR-ASSET では判定対象外（単一インスタンスロック — 各 tech-stack 文書）。これらは **Integrate（直列区間）実施者が機械検証し、構造化返却で workflow に報告する**。失敗・縮退（Humanoid→Generic 等）は workflow が未解決事項として蓄積し Checkpoint で必ず人間に提示する（MANIFEST 注記だけで済ませない）。
@@ -78,13 +79,13 @@ game/ を実際にビルド・起動・操作して判定せよ。**実行手段
 
 共通判定観点:
 1. **起動** — build成功、エンジン相当の console/ログエラー0で起動するか
-2. **コアループ** — design/gdd.md 記載の操作でコアループが1周できるか（開始→挑戦→結果→リスタート）。加えて**必須シーン遷移 `Title → Menu → Game → Result → Menu` が実操作（unity/unreal は自動テストの入力擬似発行）で1周できること**（contract §11 の正準フロー。Menu のプレイ開始・アウトゲーム表示・設定・終了導線の実在も確認）
+2. **コアループ** — design/gdd.md 記載の操作でコアループが1周できるか（開始→挑戦→結果→リスタート）。加えて**必須シーン遷移 `Title → Menu → Game → Result → Menu` が実操作（unity/unreal は自動テストの入力擬似発行）で1周できること**（contract §11 の正準フロー。Menu のプレイ開始・アウトゲーム表示・設定・終了導線の実在も確認）。**設定の実効性** — 音量設定の変更が実際の音声出力（phaser: `sound.volume` / unity: `AudioListener.volume` または AudioMixer / unreal: SoundMix）に反映され、再起動相当の後も値が復元されることを自動テストで検証する（**表示だけの設定 UI は不合格** — E3 で音量スライダーが Game 中 BGM に非反映のまま通過した再発防止）
 3. **受け入れ条件** — 対象ストーリー（state/stories.yaml）の acceptance を1つずつ実操作（unity/unreal は自動テストによる入力発行）で検証
 4. **ピラー検証** — 実プレイ感が P-xx を裏切っていないか（例: 「爽快感」ピラーなのに操作遅延がある等）
 5. **メタ進行の永続化** — (a) ラン結果の保存 → プロセス再起動相当（新規インスタンス生成＋ディスク/ストレージからの再ロード）→ 値が復元されることを自動テストで検証、(b) 破損セーブデータを与えた場合に黙って初期化せず `.bak` 退避＋`[SaveCorruption]` 明示エラーログ1回＋既定値復旧＋`recovered` フラグが UI 層に伝播されることを検証（contract §6。破損ケースには「パース不能データ」に加え**「valid JSON/ロード可能だがスキーマ不正（必須フィールド欠落・型不正）」を最低1件含める**。テストは実ユーザーのセーブ先を汚さない一時パスを使う — 各 tech-stack 文書「セーブ / 永続化」）
 
 証跡（スクリーンショット/録画/テスト結果XML・JSON）を qa/evidence/ に保存し、qa/report.md に結果を書け。
-**視覚証跡の目視義務（全エンジン共通）**: 撮影した各スクリーンショットは必ず Read で目視し、対象（モデル・UI 文字）が実際に写っていることを確認する。黒画面・文字欠落・ピンク（マテリアル欠落）は不合格。目視の前に機械検知を先行させる: `magick identify -format "%[fx:mean]" <shot>.png` が 0.02 未満または 0.98 超なら黒/白飛びの疑い（SUSPECT_BLANK）として撮影方式を切替えて再撮影する。**証跡ファイルが実在しない・0バイト・目視未実施の PASS は判定無効**。Game シーンのスクリーンショットは**コアループの主要オブジェクト（プレイヤー/設置物と、敵等の対抗要素 — そのゲームに存在するもの）が実際に写っているフレーム**で撮影する（自動テストで配置・スポーンを進めてから撮影。開始直後の空盤面は不可）。
+**視覚証跡の目視義務（全エンジン共通）**: 撮影した各スクリーンショットは必ず Read で目視し、対象（モデル・UI 文字）が実際に写っていることを確認する。黒画面・文字欠落・ピンク（マテリアル欠落）は不合格。目視の前に機械検知を先行させる: `magick identify -format "%[fx:mean]" <shot>.png` が 0.02 未満または 0.98 超なら黒/白飛びの疑い（SUSPECT_BLANK）として撮影方式を切替えて再撮影する。**UI 文字可読性の機械検査（retro-e2 指摘2 — E2 で Menu「プレイ開始」が装飾に埋没した再発防止）**: Title/Menu/Result の主要操作テキスト（プレイ開始・リスタート等）と HUD 数値は、スクリーンショットからテキスト領域を `magick <shot>.png -crop <WxH+X+Y>` で切り出し `magick identify -format "%[fx:standard_deviation]"` を計測、0.05 未満は低コントラスト疑い（SUSPECT_LOW_CONTRAST）として目視で可読性を個別判定する。不可読（背景・装飾への埋没）は不合格とし qa/report.md に記録する。**証跡ファイルが実在しない・0バイト・目視未実施の PASS は判定無効**。Game シーンのスクリーンショットは**コアループの主要オブジェクト（プレイヤー/設置物と、敵等の対抗要素 — そのゲームに存在するもの）が実際に写っているフレーム**で撮影する（自動テストで配置・スポーンを進めてから撮影。開始直後の空盤面は不可）。
 QA fix で判明した環境起因の一般則（エンジン/テストランナーの落とし穴）は、qa/report.md への記録に加えて tech-stack 文書の「既知の落とし穴」節へ**即時追記**する（節が無いエンジン文書では新設して追記。qa-lead → fix 担当 engineer の責務。run 成果物だけに埋めない）。
 
 ## CD-CHECKPOINT（creative-director → Checkpoint A/B/C 提示前）
