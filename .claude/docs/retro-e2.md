@@ -1,49 +1,49 @@
-# E2 評価ラン ふりかえり（2026-07-10〜15 / unity / Crystal Vanguard）— ハーネス改善バックログ
+# E2 评估 run 复盘（2026-07-10～15 / unity / Crystal Vanguard）— harness 改进待办
 
-> E2（unity 実走）で観測した問題と、人間フィードバック（2026-07-15）を受けた改善検討。
-> ここは**提案の置き場**であり規約ではない。採用時は contract.md を先に更新し参照側を追随させる（絶対規約1）。
+> 在 E2（unity 实跑）中观测到的问题，以及基于人类反馈（2026-07-15）的改进探讨。
+> 此处是**提案的存放处**，不是规范。采用时先更新 contract.md 再让引用侧跟进（绝对规范1）。
 
-## 結果サマリ
+## 结果摘要
 
-- 完走: brief → Checkpoint A → プロトタイプ（S-01〜11）→ Checkpoint B → 本実装+ブラッシュアップ（S-12〜33）→ Checkpoint C 受領
-- QA: 33/33 acceptance・EditMode 181/181・PlayMode 142/142・重大バグ0・実コスト $2.95/$100
-- E1 で機能しなかったゲート群（視覚証跡目視・縮退エスカレーション・開示チャネル・Setup 機械検証）は全て実働を確認
+- 完整跑通: brief → Checkpoint A → 原型（S-01～11）→ Checkpoint B → 正式实现+打磨（S-12～33）→ Checkpoint C 验收
+- QA: 33/33 acceptance、EditMode 181/181、PlayMode 142/142、重大 bug 0、实际成本 $2.95/$100
+- E1 中未起作用的 Gate 群（视觉证据目视、降级上报、披露渠道、Setup 机器验证）全部确认实际运作
 
-## 人間フィードバック起点の検討課題（優先）
+## 源于人类反馈的探讨课题（优先）
 
-### 1. Build Phase の並列化（所要時間が長すぎる）
+### 1. Build Phase 的并行化（所需时间过长）
 
-観測: Phase 2 Build ≈ 6h（11 stories 直列）、Phase 3 ≈ 9h+9h（22 stories 直列）。1 story あたり実装+CR-CODE 2周+検証で 30〜60 分。直列化の理由は「同一コードベースのコンフリクト回避」だが、実測ではボトルネックは (a) story の直列実行 (b) story ごとの Unity 検証（EditMode+Build で毎回 3〜8 分）。
+观测: Phase 2 Build ≈ 6h（11 stories 串行）、Phase 3 ≈ 9h+9h（22 stories 串行）。每个 story 的实现+CR-CODE 2轮+验证需 30～60 分钟。串行化的理由是「避免同一代码库的冲突」，但实测的瓶颈是 (a) story 的串行执行 (b) 每个 story 的 Unity 验证（EditMode+Build 每次 3～8 分钟）。
 
-検討案（コスト小→大）:
-- **A. assignee レーン並列（推奨・最小変更）**: gameplay-engineer と ui-engineer の story を2レーン並走。所有パスがほぼ排他（Systems+Components vs Ui+Scenes）で、共有は GameConfig.cs/Types.cs のみ（既に「自ストーリーに必要な定数の追記のみ」規約あり）。E2 でも AssetGen 並走との git 競合はリトライで実害なしだった。workflow 変更: buildStories を assignee で分割し parallel() 2レーン・レーン内直列。期待短縮 30〜40%。
-- **B. 検証のバッチ化**: story ごとの EditMode+Build を「実装2〜3件ごと」または「レーン合流点」にまとめる（コンパイル検証は EditMode 1回で全体を兼ねるため冗長度が高い）。失敗時の切り分けが粗くなるトレードオフは、失敗時のみ二分探索で個別再検証する規約で緩和。期待短縮 20〜30%。
-- **C. 依存グラフ並列**: tech-director が stories.yaml に `depends_on: [S-xx]` を宣言し、独立 story を最大N並列。git worktree 分離は Unity では Library 複製コスト（数GB・初回インポート数分）と単一インスタンスロックの制約が重く、**worktree 分離は非推奨**。同一ツリー並列は A の一般化として実装可能だが競合レビュー（同一ファイル編集検出）を Setup で機械化する必要あり。
-- 注意: Unity 起動を伴う工程（検証・取込・QA）は現行どおり**必ず直列**（単一インスタンスロック — tech-stack-unity.md）。並列化はコード編集と review agent に限る。
-- **実装済み（2026-07-21）**: 案A+B を prototype.js / full-build.js に実装した。assignee 2レーン並走（レーン内直列・LANE_RULE で担当領域/共有ファイル/stories.yaml のピンポイント Edit を強制）+ レーン中はエンジン検証禁止（EP.laneVerifyLine — phaser は typecheck のみ可）+ レーン合流後の batchVerify（直列・失敗は story コミット単位で切り分け、記録は state/reviews/batch-verify.md）。正本規約は各 tech-stack 文書の検証節に追記済み。案C（依存グラフ並列）は未実装のまま（次回検討）。
+探讨方案（成本 小→大）:
+- **A. assignee lane 并行（推荐、最小变更）**: 让 gameplay-engineer 与 ui-engineer 的 story 以2条 lane 并行。所有路径几乎互斥（Systems+Components vs Ui+Scenes），共享的只有 GameConfig.cs/Types.cs（已有「仅追加写入自己 story 所需常量」的规范）。E2 中与 AssetGen 并行的 git 冲突通过重试也没有实际损害。workflow 变更: 把 buildStories 按 assignee 拆分，parallel() 2条 lane、lane 内串行。预期缩短 30～40%。
+- **B. 验证的批处理化**: 把每个 story 的 EditMode+Build 汇总到「每实现 2～3 件」或「lane 合流点」（编译验证由 EditMode 1次即可覆盖整体，冗余度高）。失败时切分变粗的权衡，通过「仅在失败时用二分查找逐个重新验证」的规范缓解。预期缩短 20～30%。
+- **C. 依赖图并行**: tech-director 在 stories.yaml 中声明 `depends_on: [S-xx]`，独立 story 最多 N 并行。git worktree 分离在 Unity 中 Library 复制成本（数GB、首次导入数分钟）与单实例锁的约束沉重，**不推荐 worktree 分离**。同一树并行可作为 A 的一般化实现，但需要在 Setup 中把冲突审查（同一文件编辑检测）机械化。
+- 注意: 伴随 Unity 启动的工序（验证、导入、QA）按现行**必须串行**（单实例锁 — tech-stack-unity.md）。并行化仅限于代码编辑与 review agent。
+- **已实现（2026-07-21）**: 方案A+B 已在 prototype.js / full-build.js 中实现。assignee 2条 lane 并行（lane 内串行、以 LANE_RULE 强制负责领域/共享文件/stories.yaml 的精确 Edit）+ lane 中禁止引擎验证（EP.laneVerifyLine — phaser 仅允许 typecheck）+ lane 合流后的 batchVerify（串行、失败以 story 提交为单位切分，记录在 state/reviews/batch-verify.md）。权威来源规范已追加写入各 tech-stack 文档的验证节。方案C（依赖图并行）仍未实现（下次探讨）。
 
-### 2. AA 品質ギャップ — Unity 機能別スキル/専門知識の分割（エフェクト・UI・UX）
+### 2. AA 品质差距 — Unity 按功能划分的 skill/专业知识（特效、UI、UX）
 
-観測: ブラッシュアップ後も見た目は「プロトタイプ+装飾」域。原因は engineer agent が汎用 C# 実装者であり、Unity の高品質表現機能（Timeline / Animator ステートマシン設計 / VFX Graph / Shader Graph / Cinemachine / UI Toolkit アニメーション / DOTween 級のイージング設計）の**専門知識をプロンプトに持っていない**こと。E2 では Bloom+ParticleSystem+コードtweenの素朴な組合せに留まり、Menu 装飾では可読性劣化（プレイ開始文字の埋没）も発生した。
+观测: 打磨后外观仍停留在「原型+装饰」的区域。原因是 engineer agent 是通用 C# 实现者，**提示词中不具备** Unity 高品质表现功能（Timeline / Animator 状态机设计 / VFX Graph / Shader Graph / Cinemachine / UI Toolkit 动画 / DOTween 级的缓动设计）的专业知识。E2 中止步于 Bloom+ParticleSystem+代码 tween 的朴素组合，Menu 装饰中还发生了可辨识性劣化（开始游戏文字被埋没）。
 
-検討案:
-- **A. 機能別ナレッジ文書 + 参照注入（最小変更・contract 変更不要）**: `.claude/docs/unity-craft/` に機能別ガイド（timeline.md / animator.md / vfx.md / ui-motion.md / cinemachine.md / shader.md）を置き、tech-stack-unity.md から参照。ui-engineer / gameplay-engineer の「参照ドキュメント」に該当ガイドを追加し、polish story の acceptance に「該当ガイドの技法を最低1つ適用」を要求。
-- **B. スキル化（ユーザー案）**: `/unity-vfx` `/unity-ui-motion` 等のスキルを新設し、workflow の Polish フェーズから agent(prompt, {agentType}) でなく Skill 起動で依頼。**contract §3 がスキル6個固定のため contract 改訂が必須**。スキルは人間も単独起動できる利点（「この画面だけ磨いて」）がある。
-- **C. 専門 agent 追加（vfx-artist / ux-designer）**: contract §2 の10体固定の改訂が必要。レビュー系（AR-ASSET/QA-PLAY）との責務境界の再設計コストが最大。
-- 推奨順: A を即時（次ラン前）、B は A の効果測定後に contract 改訂込みで、C は保留。
-- 併せて gates.md QA-PLAY に「UI 文字の可読性の機械検査」（装飾適用後のテキスト領域コントラスト計測）を追加すべき — E2 で装飾が可読性を壊した実例が出たため（Menu「プレイ開始」）。
+探讨方案:
+- **A. 按功能划分的知识文档 + 引用注入（最小变更、无需变更 contract）**: 在 `.claude/docs/unity-craft/` 放置按功能划分的指南（timeline.md / animator.md / vfx.md / ui-motion.md / cinemachine.md / shader.md），从 tech-stack-unity.md 引用。在 ui-engineer / gameplay-engineer 的「参考文档」中添加相应指南，在 polish story 的 acceptance 中要求「至少应用1项相应指南的技法」。
+- **B. skill 化（用户方案）**: 新设 `/unity-vfx` `/unity-ui-motion` 等 skill，从 workflow 的 Polish 阶段不用 agent(prompt, {agentType}) 而通过启动 Skill 来委托。**由于 contract §3 固定为6个 skill，必须修订 contract**。skill 有人类也可单独启动的优点（「只打磨这个画面」）。
+- **C. 追加专业 agent（vfx-artist / ux-designer）**: 需要修订 contract §2 固定的10个。与审查系（AR-ASSET/QA-PLAY）的职责边界重新设计成本最大。
+- 推荐顺序: A 立即（下次 run 前），B 在测量 A 的效果后连同 contract 修订一起，C 保留。
+- 同时应在 gates.md QA-PLAY 中添加「UI 文字可辨识性的机器检查」（应用装饰后文本区域的对比度测量）— 因为 E2 中出现了装饰破坏可辨识性的实例（Menu「开始游戏」）。
 
-## E2 で観測したその他の問題（ハーネス改善候補）
+## E2 中观测到的其他问题（harness 改进候选）
 
-3. **長時間 run の中断耐性**: API セッション上限で Phase2×2・Phase3×1 回中断。resume はプロンプト連鎖（commitHash 埋め込み等）によりキャッシュ分岐し、大量再実行が発生した。対策案: (a) workflow プロンプトから可変値（commit hash・累積 findings）を外し「state ファイルを読め」に置換してキャッシュ命中率を上げる (b) フェーズ単位のチェックポイント返却（Setup 後・Build 後に一旦 return し、スキルが次フェーズを別 run として起動する分割実行モード）。
-4. **署名断（1Password）への運用**: 署名エージェント断でコミット不能でも実装は継続できたが、(a) CR-CODE の「commit hash 固定レビュー」が機能せず process-blocker が多発 (b) 未コミット250件が worktree 全損リスクに。対策案: 検証コマンド節に「署名不能時は `git stash create` で無署名スナップショット SHA を作り、レビュー対象をそれに固定する」を追加（履歴を汚さず対象固定可能・バイパスにならない）。
-5. **bookkeep と agent 規約の衝突**: CR-CODE MAX_ITER 到達時の「done+注記」更新指示を implementer が Must-NOT-Do を根拠に拒否（S-01/S-08 が review 固着）。review-loops.md のエスカレーション仕様と agent 定義の整合を取る（どちらかに「MAX_ITER 到達エスカレーション時は done+注記が正」と明記）。
-6. **AR-ASSET の iteration 番号管理**: workflow が「iteration 1」とハードコードした依頼を出し、既存履歴（iteration 4 まで）と矛盾 → reviewer が自力補正した。workflow は state/reviews/<artifact>.md の既存 iteration 数を数えてから依頼すべき（または「次番号は履歴から自分で採番せよ」に統一）。
-7. **Workflow args の文字列化**: ランナーが args を JSON 文字列で渡すケースを実測 → 3スクリプトに正規化を実装済み（恒久化済み・完了）。
-8. **資産ファイル命名の系統逸脱**: design/assets.md がテンプレ例の `img-` 系で起票され、rules/assets.md の `sprite-/ui-/...` プレフィクスと不一致のまま全画像に波及。templates/assets.md のファイル名ガイドに正プレフィクスの例を明記して起票時点で防ぐ。
-9. **Ideogram 表記条項の MANIFEST 記録**: ライセンスフラグとしては提示されたが MANIFEST 行の license_note に未記録のまま完走。assets-config.md の Provenance 節に「プロバイダ固有の表記条項は license_note に転記必須」を追加。
-10. **must-replace の解消経路**: MDL-02（quadruped リグ）は Meshy 422/Tripo 403 で詰み、承認済み代替で完走した。ルーティング表に「quadruped リグは Tripo が第一想定（Meshy は humanoid のみ実績）」の注記と、Tripo クレジット残高の preflight 表示を追加すると意思決定が早い。
+3. **长时间 run 的中断耐受性**: 因 API 会话上限中断 Phase2×2、Phase3×1 次。resume 因提示词链（嵌入 commitHash 等）导致缓存分叉，发生大量重复执行。对策方案: (a) 从 workflow 提示词中去掉可变值（commit hash、累积 findings），替换为「读 state 文件」以提高缓存命中率 (b) 以阶段为单位返回 checkpoint（Setup 后、Build 后先 return，由 skill 把下一阶段作为另一个 run 启动的分割执行模式）。
+4. **签名中断（1Password）的运维**: 签名 agent 中断导致无法提交时实现仍可继续，但 (a) CR-CODE 的「固定 commit hash 审查」失效，process-blocker 频发 (b) 未提交的250件面临 worktree 全损风险。对策方案: 在验证命令节添加「无法签名时用 `git stash create` 创建无签名快照 SHA，把审查对象固定到它」（不污染历史即可固定对象、不构成绕过）。
+5. **bookkeep 与 agent 规范的冲突**: CR-CODE 达到 MAX_ITER 时的「done+注记」更新指示被 implementer 以 Must-NOT-Do 为依据拒绝（S-01/S-08 固着在 review）。使 review-loops.md 的上报规格与 agent 定义一致（在其中一方明确写「达到 MAX_ITER 上报时 done+注记为正确」）。
+6. **AR-ASSET 的 iteration 编号管理**: workflow 发出硬编码「iteration 1」的委托，与已有历史（到 iteration 4）矛盾 → reviewer 自行修正。workflow 应先统计 state/reviews/<artifact>.md 的已有 iteration 数再委托（或统一为「下一个编号由你自己从历史中分配」）。
+7. **Workflow args 的字符串化**: 实测到 runner 以 JSON 字符串传递 args 的情形 → 已在3个脚本中实现规范化（已永久化、完成）。
+8. **资产文件命名的体系偏离**: design/assets.md 以模板示例的 `img-` 系起草，与 rules/assets.md 的 `sprite-/ui-/...` 前缀不一致并波及全部图像。在 templates/assets.md 的文件名指引中明确写出正确前缀的示例，在起草时点防止。
+9. **Ideogram 标注条款的 MANIFEST 记录**: 作为许可标志已展示，但 MANIFEST 行的 license_note 中未记录便跑完了。在 assets-config.md 的 Provenance 节添加「提供方特有的标注条款必须转记到 license_note」。
+10. **must-replace 的解决路径**: MDL-02（quadruped rig）因 Meshy 422/Tripo 403 陷入死局，以已批准的替代品跑完。在路由表中添加「quadruped rig 以 Tripo 为第一预期（Meshy 仅有 humanoid 实绩）」的注记，以及 Tripo 积分余额的 preflight 显示，可加快决策。
 
-## 完了済み（E2 中にハーネスへ反映した恒久修正）
+## 已完成（E2 期间反映到 harness 的永久修正）
 
-- workflows の args 正規化 / Setup の Title・Menu・メタ進行 story 機械検証+実体突合 / AR-ASSET disclosures チャネル / 証跡実在の独立検証と verdict 降格 / [BLOCKER] 前置 / 生成レーンの .env source 規約 / パス限定 git add の徹底
+- workflows 的 args 规范化 / Setup 的 Title、Menu、元进度 story 机器验证+实体核对 / AR-ASSET disclosures 渠道 / 证据实际存在的独立验证与 verdict 降级 / [BLOCKER] 前置 / 生成 lane 的 .env source 规范 / 彻底执行限定路径的 git add

@@ -1,76 +1,76 @@
 ---
 name: forge-concept
-description: Phase 1（企画・設計）を concept-design.js ワークフローで自律実行し、Checkpoint A（企画設計承認）を人間に提示して stage を concept にする。
-argument-hint: "[review-mode 上書き（full|lean|solo・省略時 state/review-mode.txt）]"
+description: 用 concept-design.js workflow 自主执行 Phase 1（策划与设计），向人类展示 Checkpoint A（策划设计批准）并把 stage 设为 concept。
+argument-hint: "[review-mode 覆盖（full|lean|solo、省略时用 state/review-mode.txt）]"
 allowed-tools: Read, Glob, Grep, Write, Edit, Bash, Workflow, Task, AskUserQuestion, SendUserFile, PushNotification
 ---
 
-# /forge-concept — Phase 1: 企画・設計（自律）
+# /forge-concept — Phase 1: 策划与设计（自主）
 
-brief を入力に concept / gdd / art-bible / assets manifest を自律生成し、Checkpoint A で人間承認を得る。
+以 brief 为输入自主生成 concept / gdd / art-bible / assets manifest，在 Checkpoint A 取得人类批准。
 
-## Phase 0: 前提チェック
+## Phase 0: 前提检查
 
-| 前提 | 確認 | 無い場合の対応 |
+| 前提 | 确认 | 不存在时的处理 |
 |---|---|---|
-| `design/brief.md` | Read で存在確認 | 「brief がありません。先に `/forge-brainstorm` を実行してください」と案内して**停止** |
-| `state/asset-routing.json` | Read で存在確認 | 「preflight 未実施です。先に `/forge` を実行してください」と案内して**停止**（key image 生成がルーティング表に依存する） |
-| `state/engine.txt` | Read（無ければ `phaser` として扱う） | unity/unreal の場合は `state/engine-info.json` も確認し、無ければ「エンジン preflight 未実施です。先に `/forge` を実行してください」と案内して**停止** |
-| `state/review-mode.txt` | Read | 無ければ既定 `lean` を使う（ファイルは作らなくてよい） |
-| `state/stage.txt` | Read | `concept` 以降なら「Phase 1 は完了済みです。再実行すると design/ 配下を上書きします」と警告し、AskUserQuestion で続行可否を確認 |
+| `design/brief.md` | 用 Read 确认存在 | 提示「没有 brief。请先执行 `/forge-brainstorm`」并**停止** |
+| `state/asset-routing.json` | 用 Read 确认存在 | 提示「preflight 未执行。请先执行 `/forge`」并**停止**（key image 生成依赖路由表） |
+| `state/engine.txt` | Read（不存在则按 `phaser` 处理） | unity/unreal 时也确认 `state/engine-info.json`，不存在则提示「引擎 preflight 未执行。请先执行 `/forge`」并**停止** |
+| `state/review-mode.txt` | Read | 不存在则使用默认 `lean`（无需创建文件） |
+| `state/stage.txt` | Read | 若为 `concept` 之后则警告「Phase 1 已完成。重新执行将覆盖 design/ 下的内容」，并用 AskUserQuestion 确认是否继续 |
 
-`$ARGUMENTS` に `full|lean|solo` があれば**今回のみ**それを reviewMode として使う（`state/review-mode.txt` は書き換えない）。
+若 `$ARGUMENTS` 中有 `full|lean|solo`，**仅本次**将其用作 reviewMode（不改写 `state/review-mode.txt`）。
 
-## Phase 1: ワークフロー起動
+## Phase 1: 启动工作流
 
-Workflow ツールで起動する:
+用 Workflow 工具启动:
 
 - scriptPath: `.claude/workflows/concept-design.js`
-- args: `{"briefPath": "design/brief.md", "reviewMode": "<Phase 0 で決めた mode>", "engine": "<state/engine.txt の値。無ければ phaser>"}`
+- args: `{"briefPath": "design/brief.md", "reviewMode": "<Phase 0 决定的 mode>", "engine": "<state/engine.txt 的值。不存在则为 phaser>"}`
 
-起動後ユーザーに伝える: 「Phase 1 をバックグラウンドで開始しました。完了すると通知が届きます。実行中の進捗は `/workflows` で確認できます。」
+启动后告知用户: 「Phase 1 已在后台开始。完成后会收到通知。执行中的进度可用 `/workflows` 查看。」
 
-**ポーリング禁止**。完了通知が来るまで待つ。ワークフロー内の produce→review→revise ループ（DR-CONCEPT / DR-GDD / AR-BIBLE、review-loops.md）はスクリプト側の責務であり、このスキルからは介入しない。実行中の verdict 都度提示は行わない。reviewMode=`full` の場合、ワークフローが戻り値に蓄積した verdictHistory（全ループの verdict 履歴）を Phase 3 の Checkpoint A 提示に全件含める（contract §9）。
+**禁止轮询**。等待完成通知。workflow 内的 produce→review→revise 循环（DR-CONCEPT / DR-GDD / AR-BIBLE、review-loops.md）是脚本侧的职责，本 skill 不介入。不在执行中逐次展示 verdict。reviewMode=`full` 时，将 workflow 在返回值中累积的 verdictHistory（全部循环的 verdict 历史）全部包含在 Phase 3 的 Checkpoint A 展示中（contract §9）。
 
-## Phase 2: 完了確認
+## Phase 2: 完成确认
 
-完了通知を受けたら戻り値を読む。**失敗終了の場合**: エラー内容と `/workflows` のログ参照方法を報告し、`state/stage.txt` は変更せずに停止（再実行は `/forge-concept`）。
+收到完成通知后读取返回值。**失败结束时**: 报告错误内容与 `/workflows` 的日志查看方法，不更改 `state/stage.txt` 并停止（重新执行用 `/forge-concept`）。
 
-成功時、pipeline.yaml の必須成果物を Glob/Read で実在確認する:
+成功时，用 Glob/Read 确认 pipeline.yaml 的必需产出物实际存在:
 `design/concept.md` `design/gdd.md` `design/art-bible.md` `design/art-bible.json` `design/assets.md`
-欠けがあればワークフロー失敗として扱い停止する。
+有缺失则视为 workflow 失败并停止。
 
-## Phase 3: Checkpoint A 提示
+## Phase 3: Checkpoint A 展示
 
-戻り値の Checkpoint A 素材を以下の形に整形する:
+将返回值的 Checkpoint A 材料整理为以下形式:
 
-1. **要約**（5分で判断できる分量）: 何を作る企画か（1段落）／ピラー P-xx 一覧／コアループ1文
-2. **成果物パス**: 上記5ファイル
-3. **Key image 候補**: 戻り値記載の候補画像を **SendUserFile（display: render）で表示**する。ここで承認された1枚が `design/art-bible.json` のスタイルロックの基準になる旨を添える
-4. **未解決指摘**: レビューループが MAX_ITER 到達で持ち越した指摘（`state/reviews/*.md` 由来）。隠さず全件列挙
-5. **レビュー履歴（reviewMode=`full` のみ）**: 戻り値の verdictHistory（gate / artifact / iteration / verdict / findings 要約）を全件提示する
+1. **摘要**（5 分钟内可判断的篇幅）: 要做什么策划（1 段）／支柱 P-xx 一览／核心循环 1 句
+2. **产出物路径**: 上述 5 个文件
+3. **Key image 候选**: 将返回值记载的候选图像**用 SendUserFile（display: render）显示**。附注: 此处批准的 1 张将成为 `design/art-bible.json` 风格锁定的基准
+4. **未解决问题**: 评审循环到达 MAX_ITER 而遗留的问题（来自 `state/reviews/*.md`）。不隐瞒，全部列举
+5. **评审历史（仅 reviewMode=`full`）**: 全部展示返回值的 verdictHistory（gate / artifact / iteration / verdict / findings 摘要）
 
-提示と同時に **PushNotification** を送る（例: 「ArcadeRelay: Checkpoint A（企画設計承認）の準備ができました」）。
+展示的同时发送 **PushNotification**（例: 「ArcadeRelay: Checkpoint A（策划设计批准）已准备就绪」）。
 
-### reviewMode = solo の場合
+### reviewMode = solo 时
 
-**停止しない**。上記の提示と PushNotification のみ行い、key image は候補の第1位を採用したものとして Phase 5 へ直行する。
+**不停止**。仅进行上述展示与 PushNotification，key image 视为采用候选第 1 位，直接进入 Phase 5。
 
-## Phase 4: 承認ループ（full / lean のみ）
+## Phase 4: 批准循环（仅 full / lean）
 
-AskUserQuestion で判断を仰ぐ。選択肢:
-「承認（この内容で Phase 2 へ）」「Key image を別候補に差し替えて承認（どれかは Other で指定）」「修正指示（内容は Other に記入）」
+用 AskUserQuestion 请求判断。选项:
+「批准（按此内容进入 Phase 2）」「将 Key image 替换为其他候选后批准（用 Other 指定哪一张）」「修改指示（内容填入 Other）」
 
-- **承認** → Phase 5 へ。
-- **Key image 差し替え** → 選ばれた候補を基準に `design/art-bible.json` を更新するよう **Task で art-director に指示**し、更新後 Phase 5 へ。
-- **修正指示** → 次の手順（**再提示は1回まで**）:
-  1. 指示全文を `state/checkpoint-a-feedback.md` に Write（日時・対象成果物を明記）
-  2. 対象に応じて Task で producer に反映させる: concept.md / gdd.md → `game-designer`、art-bible / key image → `art-director`、assets.md → `art-director`（review-loops.md の対応表に従う）
-  3. 修正後の成果物で Phase 3 の提示を再実施し、再度 AskUserQuestion
-  4. 2回目も承認されない場合: 残指摘を `state/checkpoint-a-feedback.md` に追記し、AskUserQuestion で「未解決を持ち越して承認する / ここで中断する（stage 据え置き）」の二択を確認。中断なら停止
+- **批准** → 进入 Phase 5。
+- **替换 Key image** → **用 Task 指示 art-director** 以所选候选为基准更新 `design/art-bible.json`，更新后进入 Phase 5。
+- **修改指示** → 按以下步骤（**重新展示最多 1 次**）:
+  1. 将指示全文 Write 到 `state/checkpoint-a-feedback.md`（明确日期时间与目标产出物）
+  2. 根据目标用 Task 让 producer 反映: concept.md / gdd.md → `game-designer`、art-bible / key image → `art-director`、assets.md → `art-director`（按 review-loops.md 的对应表）
+  3. 用修改后的产出物重新执行 Phase 3 的展示，再次 AskUserQuestion
+  4. 第 2 次仍未获批准时: 将剩余问题追加写入 `state/checkpoint-a-feedback.md`，用 AskUserQuestion 确认「带着未解决事项批准 / 在此中断（stage 保持不变）」二选一。中断则停止
 
-## Phase 5: 状態更新と次案内
+## Phase 5: 状态更新与下一步指引
 
-1. `state/stage.txt` に `concept` の1語のみを Write
-2. `state/active.md` を更新: 現在地=「Checkpoint A 承認済み（solo 時は自動通過）」、次アクション=「/forge-prototype」、未解決事項=持ち越し指摘
-3. 案内: 「Checkpoint A を通過しました。次は `/forge-prototype` で遊べる縦串を作ります。」
+1. 向 `state/stage.txt` 仅 Write `concept` 一个词
+2. 更新 `state/active.md`: 当前位置=「Checkpoint A 已批准（solo 时为自动通过）」、下一步操作=「/forge-prototype」、未解决事项=遗留问题
+3. 指引: 「已通过 Checkpoint A。接下来用 `/forge-prototype` 制作可玩的垂直切片。」

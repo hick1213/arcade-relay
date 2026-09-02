@@ -2,72 +2,72 @@
 
 ## Harness (ArcadeRelay)
 
-### 依存グラフ並列（retro-e2 案C — 案A+B の次段）
-**What:** stories.yaml に `depends_on: [S-xx]` を宣言し、独立 story を assignee 跨ぎで最大 N 並列化する（実装済みの assignee 2レーンの一般化）。
-**Why:** 案A+B（assignee レーン並走 + 検証バッチ化）は 2026-07-21 実装済み。さらに縮めるには依存グラフが要る。
-**Context:** 設計案は `.claude/docs/retro-e2.md` 並列化節の案C。worktree 分離は Unity では非推奨（Library 複製コスト + 単一インスタンスロック）。同一ツリー並列には競合レビュー（同一ファイル編集検出）の Setup 機械化が必要。
+### 依赖图并行（retro-e2 方案C — 方案A+B 的下一阶段）
+**What:** 在 stories.yaml 中声明 `depends_on: [S-xx]`，将独立 story 跨 assignee 最多并行 N 路（已实现的 assignee 2 lane 的一般化）。
+**Why:** 方案A+B（assignee lane 并行 + 验证批处理化）已于 2026-07-21 实现。要进一步缩短需要依赖图。
+**Context:** 设计方案见 `.claude/docs/retro-e2.md` 并行化节的方案C。worktree 分离在 Unity 中不推荐（Library 复制成本 + 单实例锁）。同一树内并行需要把竞争审查（同一文件编辑检测）机械化到 Setup 中。
 **Effort:** L
 **Priority:** P3
-**Depends on:** E3 ランでの案A+B 実測（レーン競合率・batch-verify 失敗率）
+**Depends on:** E3 run 中方案A+B 的实测（lane 竞争率、batch-verify 失败率）
 
-### Unity 職能スキル群（Timeline / Animator / VFX / UI 装飾）
-**What:** Unity の各機能（Timeline, Animator, Particle/VFX Graph, UI 装飾/トゥイーン）ごとの専門スキルを作り、Build Phase の該当 story で起動する。
-**Why:** ユーザーフィードバック「AA レベルには程遠い。特にエフェクト・UI・UX 面。Unity の各機能のスキルを作ってそれぞれ依頼するのがいい」。汎用 gameplay/ui-engineer では表現の引き出しが浅い。
-**Context:** スキル候補と分担案は `.claude/docs/retro-e2.md` の craft-skill 節。
+### Unity 职能 skill 群（Timeline / Animator / VFX / UI 装饰）
+**What:** 为 Unity 的各功能（Timeline, Animator, Particle/VFX Graph, UI 装饰/tween）分别制作专门 skill，并在 Build Phase 的对应 story 中启动。
+**Why:** 用户反馈「距离 AA 水准还很远。特别是特效、UI、UX 方面。最好为 Unity 的各功能制作 skill 并分别委托」。通用的 gameplay/ui-engineer 的表现手段储备太浅。
+**Context:** skill 候选与分工方案见 `.claude/docs/retro-e2.md` 的 craft-skill 节。
 **Effort:** XL
 **Priority:** P2
 **Depends on:** None
 
-### P-1: クールダウン系の generation-ID 化
-**What:** AutoAttackDriver 等のクールダウン管理を pooled 再利用に耐える generation-ID（rent 世代カウンタ）方式へ移行するか、現行リセット方式で十分かを調査する。
-**Why:** adversarial レビュー INVESTIGATE 項目 P-1。pooled 再利用で前 life のタイマー参照が理論上残り得る（現行テストでは非再現）。
+### P-1: 冷却类的 generation-ID 化
+**What:** 调查 AutoAttackDriver 等的冷却管理是否应迁移到能承受 pooled 复用的 generation-ID（rent 世代计数器）方式，还是现行重置方式已足够。
+**Why:** adversarial 审查 INVESTIGATE 项目 P-1。pooled 复用时前一 life 的计时器引用理论上可能残留（现行测试中未复现）。
 **Effort:** M
 **Priority:** P3
 **Depends on:** None
 
-### 並走レーン規律の実走検証（E3 検証負債）
-**What:** レーン規律（LANE_RULE / laneVerify / パス指定 commit / hash 実証検証）の agent 遵守率と batch-verify 失敗率・レーン競合率を E3 ランで実測し、逸脱があればプロンプトではなく機械強制（hook / ツール制限）へ昇格する。
-**Why:** DSL スタブテストはスクリプト側分岐を検証するが、プロンプト強制の遵守はライブ実行でしか測れない（/ship coverage 監査 GAPS 4・6）。
+### 并行 lane 纪律的实跑验证（E3 验证负债）
+**What:** 在 E3 run 中实测 lane 纪律（LANE_RULE / laneVerify / 指定路径 commit / hash 实证验证）的 agent 遵守率与 batch-verify 失败率、lane 竞争率，若有偏离则从提示词升级为机械强制（hook / 工具限制）。
+**Why:** DSL stub 测试验证脚本侧分支，但提示词强制的遵守只能通过实际运行来测量（/ship coverage 审计 GAPS 4、6）。
 **Effort:** M
 **Priority:** P2
-**Depends on:** E3 ラン実施
+**Depends on:** E3 run 实施
 
-### agent 返却文字列のシェルコマンドテンプレート埋め込み（adversarial 2026-07-30）
-**What:** workflow プロンプトが `git commit -m "... — <bug.title>"` / `"<story.title>"` の形で agent 返却文字列をコミットコマンド例へ直埋めしており、`"` や `$( )` を含む title が引用を破る。`-F` ファイル方式への変更かサニタイズ指示を検討する。
-**Why:** adversarial レビュー INVESTIGATE（2026-07-30・v0.4.1.0 出荷時に持ち越し）。既存経路で diff 起源ではないが、判定プロンプト注入対策（同 PR で修正）と同族の trust boundary。
+### agent 返回字符串嵌入 shell 命令模板（adversarial 2026-07-30）
+**What:** workflow 提示词以 `git commit -m "... — <bug.title>"` / `"<story.title>"` 的形式将 agent 返回字符串直接嵌入到 commit 命令示例中，含 `"` 或 `$( )` 的 title 会破坏引用。考虑改为 `-F` 文件方式或加入清洗指示。
+**Why:** adversarial 审查 INVESTIGATE（2026-07-30、v0.4.1.0 发布时遗留）。属于既有路径而非 diff 起源，但与判定提示词注入对策（同 PR 中修正）同族的 trust boundary。
 **Effort:** S
 **Priority:** P2
 **Depends on:** None
 
-### unresolvedFindings の順序非決定性と resume キャッシュ分岐（adversarial 2026-07-30）
-**What:** 並走レーンの push 順は interleaving 依存で、resume 再走時に CD-CHECKPOINT / finalize プロンプトの直列化文字列が変わりキャッシュ外れ→再判定が起き得る。プロンプト焼き込み直前の安定 sort か、再判定許容の割り切りかを判断する。
-**Why:** adversarial レビュー INVESTIGATE（2026-07-30）。E3 実測の「キャッシュ分岐連鎖 ≈1h 浪費」の面を並走 push サイト増加が広げる可能性。
+### unresolvedFindings 的顺序非确定性与 resume 缓存分叉（adversarial 2026-07-30）
+**What:** 并行 lane 的 push 顺序依赖 interleaving，resume 重跑时 CD-CHECKPOINT / finalize 提示词的序列化字符串会变化，导致缓存失效→重新判定。需判断是在提示词固化前做稳定 sort，还是接受重新判定。
+**Why:** adversarial 审查 INVESTIGATE（2026-07-30）。并行 push 站点的增加可能扩大 E3 实测「缓存分叉连锁 ≈1h 浪费」的影响面。
 **Effort:** S
 **Priority:** P3
 **Depends on:** None
 
-### P-5: UrpShaderUtil warn-once の観測性
-**What:** UrpShaderUtil の shader フォールバック warn-once が縮退発生の観測を妨げないか調査し、必要なら発生カウントを QA レポートへ集約する。
-**Why:** adversarial レビュー INVESTIGATE 項目 P-5。warn-once は spam 防止と観測性のトレードオフ。
+### P-5: UrpShaderUtil warn-once 的可观测性
+**What:** 调查 UrpShaderUtil 的 shader fallback warn-once 是否会妨碍对降级发生的观测，必要时将发生计数汇总到 QA 报告。
+**Why:** adversarial 审查 INVESTIGATE 项目 P-5。warn-once 是防 spam 与可观测性的权衡。
 **Effort:** S
 **Priority:** P3
 **Depends on:** None
 
 ## Completed
 
-### W-3: 資産種別の contract §8 機械同期（GEN_SCHEMA assetKind 改め）
-**What:** 実態調査の結果 assetKind は GEN_SCHEMA に既に無く、真のドリフト面は full-build.js の MODEL_WORDS 語彙判定だった。Replan プロンプトに資産種別タグ（[MDL]/[ANM]/[IMG]/[SFX]/[BGM]）付与を義務化してタグ第一・語彙 fallback の振り分けに変更し、`.claude/tests/workflows/contract-sync.test.mjs` が contract §8 の ID 種別・状態語彙とスクリプト再掲の同期を機械検証する。2D エンジンで 3D 判定 story が両バッチから脱落するケースも [BLOCKER] 蓄積化。
+### W-3: 资产类别与 contract §8 的机械同步（原 GEN_SCHEMA assetKind）
+**What:** 实态调查的结果是 assetKind 早已不在 GEN_SCHEMA 中，真正的漂移面是 full-build.js 的 MODEL_WORDS 词汇判定。改为在 Replan 提示词中强制附加资产类别标签（[MDL]/[ANM]/[IMG]/[SFX]/[BGM]），以标签优先、词汇 fallback 的方式分派，并由 `.claude/tests/workflows/contract-sync.test.mjs` 机械验证 contract §8 的 ID 类别、状态词汇与脚本复述的同步。2D 引擎中被判定为 3D 的 story 从两个批次都脱落的情况也纳入 [BLOCKER] 累积。
 **Completed:** v0.4.1.0 (2026-07-30)
 
-### Workflow resume の二重適用ガード（adversarial M-8b）
-**What:** IDEMPOTENT_RULE（作業前に既存コミット・定数・注記・MANIFEST を確認し重複追記しない）を full-build.js / prototype.js の impl / fix / close / bookkeep / integrate プロンプトへ前置。prototype.js の bookkeep に「既に done なら何もしない」冪等文言を移植し、fix-qa label を bug 単位（`fix-qa-r<N>-<assignee>-<idx>`）に一意化。
+### Workflow resume 的重复应用防护（adversarial M-8b）
+**What:** 将 IDEMPOTENT_RULE（工作前确认既有 commit、常量、注记、MANIFEST，不重复追加写入）前置到 full-build.js / prototype.js 的 impl / fix / close / bookkeep / integrate 提示词。把「已 done 则什么都不做」的幂等措辞移植到 prototype.js 的 bookkeep，并把 fix-qa label 按 bug 单位（`fix-qa-r<N>-<assignee>-<idx>`）唯一化。
 **Completed:** v0.4.1.0 (2026-07-30)
 
-### レーン/トラック例外・エラー経路の無記録解消（監査 2026-07-29）
-**What:** parallel() の例外 null 潰しでレーン中断が未解決事項に載らない穴を laneSafe（thunk 内 catch → [BLOCKER] 蓄積）で全 parallel サイト（Build/Polish/AssetGen/FullQA）に適用。full-build.js の close/fix/replan-gdd/QA fix/cd-fix/drift 空 failedAssets、prototype.js の CD 再判定 null、concept-design.js の CD fix null の無記録経路を解消。DSL テスト 31→59 件（concept-design.test.mjs / contract-sync.test.mjs 新設）。
+### 消除 lane/track 异常与错误路径的无记录问题（审计 2026-07-29）
+**What:** 用 laneSafe（在 thunk 内 catch → [BLOCKER] 累积）在所有 parallel 站点（Build/Polish/AssetGen/FullQA）堵住 parallel() 把异常压成 null 导致 lane 中断不进入未解决事项的漏洞。消除 full-build.js 的 close/fix/replan-gdd/QA fix/cd-fix/drift 空 failedAssets、prototype.js 的 CD 再判定 null、concept-design.js 的 CD fix null 的无记录路径。DSL 测试 31→59 件（新设 concept-design.test.mjs / contract-sync.test.mjs）。
 **Completed:** v0.4.1.0 (2026-07-30)
 
-### Build Phase の並列化（retro-e2 案A+B）
-**What:** prototype.js / full-build.js の story 実装を assignee 2レーン（gameplay/ui）並走にし、エンジン検証をレーン合流後のバッチ検証区間（直列・story 単位切り分け付き）へ集約した。
-**Why:** ユーザーフィードバック「Build Phase はとても時間がかかっている」。E2 実測 Build ≈ 6h / Phase 3 ≈ 9h+9h の主因が story 直列 × story ごとの Unity 検証（3〜8 分）だった。期待短縮 5〜6 割。DSL スタブテスト（.claude/tests/workflows/・15件）で batchVerify 全分岐とレーン分配を機械検証済み。
+### Build Phase 的并行化（retro-e2 方案A+B）
+**What:** 将 prototype.js / full-build.js 的 story 实现改为 assignee 2 lane（gameplay/ui）并行，并把引擎验证集中到 lane 合流后的批处理验证区间（串行、带 story 单位切分）。
+**Why:** 用户反馈「Build Phase 非常耗时」。E2 实测 Build ≈ 6h / Phase 3 ≈ 9h+9h 的主因是 story 串行 × 每个 story 的 Unity 验证（3～8 分钟）。预期缩短 5～6 成。已通过 DSL stub 测试（.claude/tests/workflows/、15 件）机械验证 batchVerify 的全部分支与 lane 分配。
 **Completed:** v0.3.0.0 (2026-07-21)

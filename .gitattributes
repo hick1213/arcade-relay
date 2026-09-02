@@ -12,7 +12,7 @@
 *.webm binary
 *.m4a binary
 
-# 3D / エンジン資産
+# 3D / 引擎资产
 *.glb binary
 *.fbx binary
 *.blend binary

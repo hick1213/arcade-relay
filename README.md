@@ -163,7 +163,7 @@ npm run build
 ```
 
 On unity (marker: `game/ProjectSettings/ProjectVersion.txt`) or unreal (marker:
-`game/ForgeGame.uproject`), run the commands from the "検証コマンド" section of
+`game/ForgeGame.uproject`), run the commands from the "验证命令" section of
 `.claude/docs/tech-stack-unity.md` or `.claude/docs/tech-stack-unreal.md`
 (batchmode build plus EditMode/PlayMode tests, or BuildCookRun plus Automation
 tests).

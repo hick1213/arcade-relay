@@ -1,178 +1,178 @@
-# ArcadeRelay Contract — 命名・ID・パスの単一情報源
+# ArcadeRelay Contract — 命名、ID、路径的单一事实来源
 
-> **このファイルが全コンポーネント（agents / skills / workflows / hooks / rules / templates）の整合性の背骨。**
-> ここに無い名前・ID・パスを発明しない。変更時は必ずここを先に更新し、参照側を追随させる。
+> **本文件是所有组件（agents / skills / workflows / hooks / rules / templates）一致性的脊梁。**
+> 不要自创此处没有的名称、ID、路径。修改时务必先更新此处，再让引用方跟进。
 
-## 1. パイプラインとステージ
+## 1. 流水线与阶段
 
-ステージ値（`state/stage.txt` に保存。この5値のみ）:
+stage 值（保存在 `state/stage.txt`。仅此 5 值）:
 
 ```
 brief → concept → prototype → build → done
 ```
 
-| stage | 意味 | 到達条件 |
+| stage | 含义 | 达成条件 |
 |---|---|---|
-| `brief` | ブレスト完了、brief確定 | `design/brief.md` 存在 |
-| `concept` | Phase1完了、Checkpoint A承認済み | `design/concept.md` + `gdd.md` + `art-bible.md` 承認 |
-| `prototype` | Phase2完了、Checkpoint B通過 | 遊べる縦串 + `state/checkpoint-b-feedback.md` |
-| `build` | Phase3完了、Checkpoint C到達 | フルQA合格 |
-| `done` | 受け渡し完了 | — |
+| `brief` | 头脑风暴完成，brief 已确定 | `design/brief.md` 存在 |
+| `concept` | Phase1 完成，Checkpoint A 已批准 | `design/concept.md` + `gdd.md` + `art-bible.md` 已批准 |
+| `prototype` | Phase2 完成，Checkpoint B 已通过 | 可玩的垂直切片 + `state/checkpoint-b-feedback.md` |
+| `build` | Phase3 完成，到达 Checkpoint C | 完整 QA 合格 |
+| `done` | 交付完成 | — |
 
-## 2. エージェント名（`.claude/agents/<name>.md`・この10体のみ）
+## 2. agent 名（`.claude/agents/<name>.md`、仅此 10 个）
 
 Producer: `creative-director` `tech-director` `game-designer` `art-director` `audio-designer` `gameplay-engineer` `ui-engineer`
 Reviewer: `design-reviewer` `art-reviewer` `qa-lead`
 
-コードレビューは新規agentを作らず、既存の `pr-review-toolkit:code-reviewer` / `pr-review-toolkit:silent-failure-hunter` を使う。
+代码审查不新建 agent，使用现有的 `pr-review-toolkit:code-reviewer` / `pr-review-toolkit:silent-failure-hunter`。
 
-## 3. スキル名（`.claude/skills/<name>/SKILL.md`・この6つのみ）
+## 3. skill 名（`.claude/skills/<name>/SKILL.md`、仅此 6 个）
 
-公開名は ArcadeRelay だが、既存運用との互換性のためコマンド名前空間は `forge` を維持する。
+公开名称为 ArcadeRelay，但为与现有运用兼容，命令命名空间保持为 `forge`。
 
 `forge` `forge-brainstorm` `forge-concept` `forge-prototype` `forge-build` `forge-status`
 
-## 4. Workflowスクリプト（`.claude/workflows/<name>.js`・この3つのみ）
+## 4. Workflow 脚本（`.claude/workflows/<name>.js`、仅此 3 个）
 
-| script | 起動元スキル | args（JSON） | 終端 |
+| script | 调用方 skill | args（JSON） | 终点 |
 |---|---|---|---|
-| `concept-design.js` | `/forge-concept` | `{briefPath, reviewMode, engine?}` | Checkpoint A素材を返す |
-| `prototype.js` | `/forge-prototype` | `{reviewMode, engine?, checkpointAFeedbackPath?}` | Checkpoint B素材を返す |
-| `full-build.js` | `/forge-build` | `{reviewMode, engine?, checkpointBFeedbackPath}` | Checkpoint C素材を返す |
+| `concept-design.js` | `/forge-concept` | `{briefPath, reviewMode, engine?}` | 返回 Checkpoint A 材料 |
+| `prototype.js` | `/forge-prototype` | `{reviewMode, engine?, checkpointAFeedbackPath?}` | 返回 Checkpoint B 材料 |
+| `full-build.js` | `/forge-build` | `{reviewMode, engine?, checkpointBFeedbackPath}` | 返回 Checkpoint C 材料 |
 
-Workflowスクリプト内から harness agent を使う時は `agent(prompt, {agentType: '<agent名>'})`（§2の名前をそのまま使う）。
-`engine` は §11 の3値のいずれか。**Workflowスクリプトはファイルを読めないため、起動元スキルが `state/engine.txt` を読んで渡す**。省略時は `phaser`（後方互換）。
+在 Workflow 脚本内使用 harness agent 时，用 `agent(prompt, {agentType: '<agent名>'})`（直接使用 §2 的名称）。
+`engine` 为 §11 的 3 值之一。**Workflow 脚本无法读取文件，因此由调用方 skill 读取 `state/engine.txt` 并传入**。省略时为 `phaser`（向后兼容）。
 
-## 5. ゲートID・判定形式
+## 5. Gate ID 与判定格式
 
-判定を返すagentは**応答の1行目**に必ず:
+返回判定的 agent 必须在**响应的第 1 行**写:
 
 ```
 <GATE-ID>: APPROVE | CONCERNS | REJECT
 ```
 
-| Gate ID | 判定者 | 対象 |
+| Gate ID | 判定者 | 对象 |
 |---|---|---|
 | `DR-CONCEPT` | design-reviewer | design/concept.md |
 | `DR-GDD` | design-reviewer | design/gdd.md |
 | `AR-BIBLE` | art-reviewer | design/art-bible.md + key image |
-| `AR-ASSET` | art-reviewer | 生成資産（個別/バッチ） |
-| `CR-CODE` | (既存コードレビュー) | game/ のコード変更（エンジン別対象パスは §11） |
-| `QA-PLAY` | qa-lead | 動くgame/のプレイテスト |
-| `CD-CHECKPOINT` | creative-director | Checkpoint A/B/C 提示前の最終判定 |
+| `AR-ASSET` | art-reviewer | 生成资产（单个/批次） |
+| `CR-CODE` | (现有代码审查) | game/ 的代码变更（按引擎区分的对象路径见 §11） |
+| `QA-PLAY` | qa-lead | 运行中的 game/ 的试玩测试 |
+| `CD-CHECKPOINT` | creative-director | Checkpoint A/B/C 展示前的最终判定 |
 
-review→revise の最大反復数と合格基準は `.claude/docs/review-loops.md` に定義。
+review→revise 的最大迭代数与合格标准定义在 `.claude/docs/review-loops.md`。
 
-## 6. 成果物パス（生成物はすべてリポジトリ相対でこの場所）
+## 6. 产出物路径（生成物全部位于仓库相对的以下位置）
 
 ```
-design/brief.md            # ブレスト出力（ゲーム像・制約・参照作品）
-design/concept.md          # ピラー P-xx を含む企画書
-design/gdd.md              # ゲームデザインドキュメント（P-xx参照）
-design/art-bible.md        # アートバイブル（人間可読）
-design/art-bible.json      # 機械可読スタイルロック（style block/palette/参照crop/style_codes）
-design/assets.md           # 資産マニフェスト（生成仕様: 種別/プロンプト/サイズ/提供者ルート）
-design/refs/               # key image候補・参照画像・crop置き場（art-bible.json が参照）
-docs/architecture.md       # ゲームアーキテクチャ（シーン/レベル構成・システム境界）
-docs/conventions.md        # このゲーム固有のコード規約
-game/                      # 自己完結ゲームプロジェクト（中身はエンジン別 — §11）
-game/assets/MANIFEST.jsonl # 生成provenance（engine=phaser のみ。1行1資産: provider/model/prompt/seed/cost_usd/sha256/license。表記条項プロバイダは license_note 必須 — assets-config.md「Provenance」）
-game/_generated/           # raw生成資産＋MANIFEST.jsonl（engine=unity/unreal のみ — §11。macOSの大文字小文字非区別FSで game/Assets と game/assets が衝突するため分離）
-qa/report.md               # プレイテスト報告
-qa/evidence/               # スクリーンショット・録画等の証跡
+design/brief.md            # 头脑风暴输出（游戏形象、约束、参考作品）
+design/concept.md          # 含支柱 P-xx 的策划书
+design/gdd.md              # 游戏设计文档（引用 P-xx）
+design/art-bible.md        # 美术圣经（人类可读）
+design/art-bible.json      # 机器可读的风格锁定（style block/palette/参考 crop/style_codes）
+design/assets.md           # 资产清单（生成规格: 类别/提示词/尺寸/提供方路由）
+design/refs/               # key image 候选、参考图像、crop 存放处（art-bible.json 引用）
+docs/architecture.md       # 游戏架构（场景/关卡构成、系统边界）
+docs/conventions.md        # 本游戏特有的代码规范
+game/                      # 自包含游戏项目（内容按引擎区分 — §11）
+game/assets/MANIFEST.jsonl # 生成 provenance（仅 engine=phaser。1 行 1 资产: provider/model/prompt/seed/cost_usd/sha256/license。标注条款提供方必须有 license_note — assets-config.md「Provenance」）
+game/_generated/           # 原始生成资产＋MANIFEST.jsonl（仅 engine=unity/unreal — §11。因 macOS 大小写不敏感的文件系统中 game/Assets 与 game/assets 会冲突，故分离）
+qa/report.md               # 试玩测试报告
+qa/evidence/               # 截图、录像等证据
 ```
 
-MANIFEST.jsonl の正本パス（エンジン別・§11 の表と一致）:
-`phaser` → `game/assets/MANIFEST.jsonl` / `unity`・`unreal` → `game/_generated/MANIFEST.jsonl`
+MANIFEST.jsonl 的权威路径（按引擎区分，与 §11 的表一致）:
+`phaser` → `game/assets/MANIFEST.jsonl` / `unity`、`unreal` → `game/_generated/MANIFEST.jsonl`
 
-メタ進行セーブデータ（**実行時生成物** — リポジトリ成果物ではない。実装規約の正本は各 tech-stack 文書「セーブ / 永続化」節）:
+元进度存档数据（**运行时生成物** — 不是仓库产出物。实现规范的权威来源为各 tech-stack 文档的「存档 / 持久化」节）:
 
-| engine | 保存先（実行時） | 形式 |
+| engine | 保存位置（运行时） | 格式 |
 |---|---|---|
-| `phaser` | `localStorage` キー `arcaderelay-save` | JSON（先頭フィールド `save_version` 必須） |
-| `unity` | `Application.persistentDataPath/save.json` | JSON（`save_version` 必須・`.tmp` 経由のアトミック書込） |
-| `unreal` | `USaveGame` スロット `ForgeGameSave`（実体 `Saved/SaveGames/`） | UPROPERTY シリアライズ（`SaveVersion` フィールド必須） |
+| `phaser` | `localStorage` 键 `arcaderelay-save` | JSON（首字段 `save_version` 必需） |
+| `unity` | `Application.persistentDataPath/save.json` | JSON（`save_version` 必需、经 `.tmp` 的原子写入） |
+| `unreal` | `USaveGame` 槽 `ForgeGameSave`（实体 `Saved/SaveGames/`） | UPROPERTY 序列化（`SaveVersion` 字段必需） |
 
-- セーブ破損時は**黙って初期化しない**: 破損 = パース失敗・`save_version` 欠落・未来版・**スキーマ検証失敗（必須フィールド欠落・型不正）**のいずれか。生データを `.bak` へ退避 → `[SaveCorruption]` プレフィクスの明示エラーログ1回 → 既定値で再生成し UI 層へ `recovered` フラグを伝播（各エンジンの rules/ が強制。QA-PLAY 観点5 が検証。フィールド単位で既定値に埋めて握り潰す実装も違反）。
-- `save_version` より新しい版のデータはマイグレーションせず破損相当として扱う（暗黙ダウングレード禁止）。
+- 存档损坏时**不得静默初始化**: 损坏 = 解析失败、`save_version` 缺失、未来版本、**schema 验证失败（必需字段缺失、类型不正）**中的任一。将原始数据备份保存到 `.bak` → 输出 1 次带 `[SaveCorruption]` 前缀的显式错误日志 → 以默认值重新生成并向 UI 层传播 `recovered` 标志（各引擎的 rules/ 强制。QA-PLAY 要点5 验证。按字段逐个填入默认值静默吞掉的实现也属违规）。
+- 比 `save_version` 更新的版本的数据不做迁移，视同损坏处理（禁止隐式降级）。
 
-## 7. 状態ファイル（`state/`）
+## 7. 状态文件（`state/`）
 
 ```
-state/stage.txt                    # §1 の5値のいずれか1語のみ
-state/review-mode.txt              # full | lean | solo の1語のみ
-state/active.md                    # セッションハンドオフ（現在地/次アクション/未解決事項）
-state/stories.yaml                 # ストーリー一覧（下記スキーマ）
-state/reviews/<artifact>.md        # レビュー履歴（artifact例: concept, gdd, art-bible, s-03, qa, batch-verify）
-state/reviews/checkpoint-a.md      # CD-CHECKPOINT 履歴（Checkpoint A）
-state/reviews/checkpoint-b.md      # CD-CHECKPOINT 履歴（Checkpoint B）
-state/reviews/checkpoint-c.md      # CD-CHECKPOINT 履歴（Checkpoint C）
-state/checkpoint-a-feedback.md     # Checkpoint A の人間フィードバック
-state/checkpoint-b-feedback.md     # Checkpoint B の人間フィードバック
-state/session-log.txt              # セッション終了ログ（hook追記・追記のみ）
-state/budget.txt                   # 資産生成の予算上限USD（数値のみ。既定 20）
-state/asset-routing.json           # preflight結果（プロバイダルーティング表）
-state/engine.txt                   # §11 の3値のいずれか1語のみ。無ければ phaser として扱う（後方互換）
-state/engine-info.json             # エンジンpreflight結果（解決済みエディタ/エンジンのパス・バージョン。§11）
+state/stage.txt                    # 仅 §1 的 5 值之一，1 个词
+state/review-mode.txt              # 仅 full | lean | solo 之一，1 个词
+state/active.md                    # 会话交接（当前位置/下一步操作/未解决事项）
+state/stories.yaml                 # story 一览（下述 schema）
+state/reviews/<artifact>.md        # 审查历史（artifact 例: concept, gdd, art-bible, s-03, qa, batch-verify）
+state/reviews/checkpoint-a.md      # CD-CHECKPOINT 历史（Checkpoint A）
+state/reviews/checkpoint-b.md      # CD-CHECKPOINT 历史（Checkpoint B）
+state/reviews/checkpoint-c.md      # CD-CHECKPOINT 历史（Checkpoint C）
+state/checkpoint-a-feedback.md     # Checkpoint A 的人类反馈
+state/checkpoint-b-feedback.md     # Checkpoint B 的人类反馈
+state/session-log.txt              # 会话结束日志（hook 追加写入、仅追加）
+state/budget.txt                   # 资产生成的预算上限 USD（仅数值。默认 20）
+state/asset-routing.json           # preflight 结果（提供方路由表）
+state/engine.txt                   # 仅 §11 的 3 值之一，1 个词。不存在则视为 phaser（向后兼容）
+state/engine-info.json             # 引擎 preflight 结果（已解析的编辑器/引擎路径、版本。§11）
 ```
 
-`stories.yaml` スキーマ:
+`stories.yaml` schema:
 
 ```yaml
 stories:
-  - id: S-01              # 安定ID。振り直し禁止
-    title: "プレイヤー移動"
-    pillar: P-01           # design/concept.md のピラーIDを必ず参照
-    assignee: gameplay-engineer   # §2 のagent名
+  - id: S-01              # 稳定 ID。禁止重新分配
+    title: "玩家移动"
+    pillar: P-01           # 必须引用 design/concept.md 的支柱 ID
+    assignee: gameplay-engineer   # §2 的 agent 名
     phase: prototype       # prototype | build
     status: todo           # todo | in-progress | review | done
-    acceptance: "..."      # 検証可能な受け入れ条件
+    acceptance: "..."      # 可验证的验收条件
 ```
 
-時刻記入規約: `state/`・`qa/` 等リポジトリ成果物へ記す日時は必ず `date -u +%Y-%m-%dT%H:%M:%SZ` の実行出力を貼る（推測・記憶による時刻記入は禁止 — E3 で実時系列と5時間ズレの実績）。
+时刻记录规范: 写入 `state/`、`qa/` 等仓库产出物的日期时间，必须粘贴 `date -u +%Y-%m-%dT%H:%M:%SZ` 的执行输出（禁止凭推测、记忆记录时刻 — E3 中有与实际时间线偏差 5 小时的实例）。
 
-## 8. 安定ID形式
+## 8. 稳定 ID 格式
 
-- ピラー: `P-01`〜（design/concept.md で定義。3〜5個。全成果物がこれを参照）
-- ストーリー: `S-01`〜（state/stories.yaml で定義）
-- 資産: `IMG-01`〜（画像）/ `SFX-01`〜（効果音）/ `BGM-01`〜（音楽）/ `MDL-01`〜（3Dモデル。リグ・テクスチャ込み）/ `ANM-01`〜（スケルタルアニメーション）（design/assets.md で定義。MDL/ANM は engine=unity/unreal のみ使用）
-- メタ進行: `ACH-01`〜（実績）/ `UNL-01`〜（アンロック対象。キャラ・ステージ・スキン共通）/ `UPG-01`〜（ラン間アップグレード）（design/gdd.md「メタ進行（アウトゲーム）」節で定義。engine 不問）
-- ID は削除・振り直し禁止。廃止時は status/注記で示す。
-- design/assets.md の資産状態語彙（この5値のみ）: `planned | generated | approved | rejected | must-replace`
+- 支柱: `P-01`～（在 design/concept.md 中定义。3～5 个。所有产出物都引用它）
+- story: `S-01`～（在 state/stories.yaml 中定义）
+- 资产: `IMG-01`～（图像）/ `SFX-01`～（音效）/ `BGM-01`～（音乐）/ `MDL-01`～（3D 模型。含 rig、贴图）/ `ANM-01`～（骨骼动画）（在 design/assets.md 中定义。MDL/ANM 仅在 engine=unity/unreal 时使用）
+- 元进度: `ACH-01`～（成就）/ `UNL-01`～（解锁对象。角色、关卡、皮肤通用）/ `UPG-01`～（跨局升级）（在 design/gdd.md「元进度（游戏外）」节中定义。不限 engine）
+- ID 禁止删除、重新分配。废止时用 status/注记表示。
+- design/assets.md 的资产状态词汇（仅此5值）: `planned | generated | approved | rejected | must-replace`
 
-## 9. review-mode の意味（全スキル・workflow共通）
+## 9. review-mode 的含义（所有 skill、workflow 通用）
 
-| mode | Checkpoint A/B/C | 成果物レビューloop |
+| mode | Checkpoint A/B/C | 产出物审查 loop |
 |---|---|---|
-| `full` | 停止して人間承認 | 自動。workflowが全verdict履歴を蓄積し、完了後のCheckpoint提示で全件を人間に提示 |
-| `lean`（既定） | 停止して人間承認 | 自動（MAX到達時のみ人間へ） |
-| `solo` | 停止しない（通知のみで続行） | 自動 |
+| `full` | 停止并由人类批准 | 自动。workflow 累积所有 verdict 历史，完成后在 Checkpoint 展示时将全部内容提交给人类 |
+| `lean`（默认） | 停止并由人类批准 | 自动（仅到达 MAX 时交给人类） |
+| `solo` | 不停止（仅通知并继续） | 自动 |
 
-## 10. アセット生成ルーティング（詳細は assets-config.md）
+## 10. 资产生成路由（详情见 assets-config.md）
 
-環境変数: `FAL_KEY` `ELEVENLABS_API_KEY` `RETRO_DIFFUSION_API_KEY`（任意: `IDEOGRAM_API_KEY` `OPENAI_API_KEY` `MESHY_API_KEY` `TRIPO_API_KEY`。予算初期値: `ASSET_BUDGET_USD` → `state/budget.txt`）
-3D資産（engine=unity/unreal）: **Primary は Meshy**。`MESHY_API_KEY` が有効なら **Meshy 直API を第一候補**（Meshy は Free プランに API キー発行が無いため、キー有効 ≒ Pro 以上 = 商用可）、`FAL_KEY` 経由の `fal-ai/meshy/*` を第二候補（Meshy の二重化 — 単一障害点を作らない）。両方失敗する資産種別のみ Hunyuan3D/TRELLIS/Rodin/Tripo に落とす。3D 案件（engine=unity/unreal）で `MESHY_API_KEY` 未設定は**準必須の欠落**として preflight が警告し `notes` に記録する — ルーティングの詳細は assets-config.md の 3D 節
-生成レーンは **API を呼び出す Bash 呼び出しに限り**、冒頭で `set -a; source .env 2>/dev/null; set +a` を実行してから curl する（サブエージェントのシェルにはキーが継承されないため）。検証・後処理（ffmpeg / npx / python 等のサードパーティ CLI を走らせるステップ）では source しない — 子プロセスへの全キー継承＝サプライチェーン露出を避ける。キー値の出力・記録は禁止。
-preflight結果は `state/asset-routing.json`（`checks.*` の実測 `plan_tier`・ルート別 `shippable`・`notes[]` を含む — スキーマ正本は forge スキル Phase 1）に書き出し、生成時はそれに従う（生成中の再判定禁止）。**`shippable: false` のルートで生成した資産は必ず未解決事項として蓄積し Checkpoint で人間に提示する**（MANIFEST 注記だけで済ませない）。
+环境变量: `FAL_KEY` `ELEVENLABS_API_KEY` `RETRO_DIFFUSION_API_KEY`（可选: `IDEOGRAM_API_KEY` `OPENAI_API_KEY` `MESHY_API_KEY` `TRIPO_API_KEY`。预算初始值: `ASSET_BUDGET_USD` → `state/budget.txt`）
+3D 资产（engine=unity/unreal）: **Primary 为 Meshy**。若 `MESHY_API_KEY` 有效则**以 Meshy 直连 API 为第一候选**（Meshy 的 Free 计划不发放 API 密钥，因此密钥有效 ≒ Pro 以上 = 可商用），经 `FAL_KEY` 的 `fal-ai/meshy/*` 为第二候选（Meshy 的双路冗余 — 不制造单点故障）。仅对两者都失败的资产类别降到 Hunyuan3D/TRELLIS/Rodin/Tripo。3D 项目（engine=unity/unreal）中 `MESHY_API_KEY` 未设置视为**准必需的缺失**，由 preflight 警告并记录到 `notes` — 路由详情见 assets-config.md 的 3D 节
+生成 lane **仅限调用 API 的 Bash 调用**，在开头执行 `set -a; source .env 2>/dev/null; set +a` 后再 curl（子 agent 的 shell 不继承密钥）。验证、后处理（运行 ffmpeg / npx / python 等第三方 CLI 的步骤）不 source — 避免向子进程继承全部密钥＝供应链暴露。禁止输出、记录密钥值。
+preflight 结果写出到 `state/asset-routing.json`（含 `checks.*` 的实测 `plan_tier`、按路由的 `shippable`、`notes[]` — schema 权威来源为 forge skill 的 Phase 1），生成时遵循它（禁止生成中重新判定）。**用 `shippable: false` 的路由生成的资产必须作为未解决事项累积，并在 Checkpoint 展示给人类**（不得只以 MANIFEST 注记了事）。
 
-## 11. エンジン（`state/engine.txt`・この3値のみ）
+## 11. 引擎（`state/engine.txt`、仅此 3 值）
 
 ```
 phaser | unity | unreal
 ```
 
-| engine | 次元 | tech-stack 正本 | プロジェクトマーカー | コード規約 rule | コード対象パス（CR-CODE） |
+| engine | 维度 | tech-stack 权威来源 | 项目标记 | 代码规范 rule | 代码对象路径（CR-CODE） |
 |---|---|---|---|---|---|
 | `phaser` | 2D | `.claude/docs/tech-stack.md` | `game/package.json` | `rules/gameplay-code.md` + `rules/ui-code.md` | `game/src/**` |
 | `unity` | 3D | `.claude/docs/tech-stack-unity.md` | `game/ProjectSettings/ProjectVersion.txt` | `rules/unity-code.md` | `game/Assets/Scripts/**`（.cs） |
 | `unreal` | 3D | `.claude/docs/tech-stack-unreal.md` | `game/ForgeGame.uproject` | `rules/unreal-code.md` | `game/Source/**`（.cpp/.h） |
 
-規則:
+规则:
 
-- **選択**: `/forge-brainstorm` の最初の質問（実行環境）で確定し、`state/engine.txt` に1語で保存＋ `design/brief.md` に明記する。以降のフェーズでの変更禁止。
-- **既定**: `state/engine.txt` が無ければ `phaser`（既存2Dパイプラインの後方互換。既存プロジェクトは無変更で動く）。
-- **unity/unreal は 3D 専用**として扱う（Unity 2D 等はスコープ外。2D は phaser を使う）。
-- **エンジンpreflight**: brainstorm でエンジン確定後、スキルがエンジン実体を検証して `state/engine-info.json` に書き出す（unity: Unity Hub CLI で最新インストール済みエディタを解決 / unreal: `RunUAT.sh` の実在確認）。以後のビルド・QA はこのパスを使う（実行中の再解決禁止）。スキーマ:
+- **选择**: 在 `/forge-brainstorm` 的第一个问题（运行环境）中确定，以 1 个词保存到 `state/engine.txt`＋在 `design/brief.md` 中明确记载。之后的阶段禁止变更。
+- **默认**: `state/engine.txt` 不存在则为 `phaser`（现有 2D 流水线的向后兼容。现有项目无需修改即可运行）。
+- **unity/unreal 视为 3D 专用**（Unity 2D 等不在范围内。2D 使用 phaser）。
+- **引擎 preflight**: 在 brainstorm 中确定引擎后，skill 验证引擎实体并写出到 `state/engine-info.json`（unity: 用 Unity Hub CLI 解析最新的已安装编辑器 / unreal: 确认 `RunUAT.sh` 实际存在）。之后的构建、QA 使用此路径（禁止执行中重新解析）。schema:
 
 ```json
 {
@@ -183,12 +183,12 @@ phaser | unity | unreal
 }
 ```
 
-（unreal の場合: `binary` = `RunUAT.sh` のフルパス、加えて `ue_root` = `/Users/Shared/Epic Games/UE_5.x` のエンジンルートを必須で持つ）
+（unreal 的情况: `binary` = `RunUAT.sh` 的完整路径，另外必须有 `ue_root` = `/Users/Shared/Epic Games/UE_5.x` 的引擎根目录）
 
-- **検証コマンドの正本**: 各 tech-stack 文書の「## 検証コマンド」節。スキル・workflow・agent はコマンドをハードコードせず、engine に対応する tech-stack 文書の同節を読む（workflow スクリプト内の定型プロンプトは例外的に engine 別プロファイル定数として持ってよいが、内容は tech-stack 文書と一致させる）。
-- **生成資産の置き場**: raw 生成物＋MANIFEST は phaser=`game/assets/`、unity/unreal=`game/_generated/`。エンジン取込先は unity=`game/Assets/Resources/Generated/`（`Resources.Load` 方式。AssetKeys の値は Resources 相対パス — tech-stack-unity.md「資産の取り扱い」）、unreal=`game/Content/Generated/`（取込後も raw と MANIFEST は残す＝provenance の正本）。
-- **unreal のプロジェクト名は `ForgeGame` 固定**（`game/ForgeGame.uproject`。マーカー検査とビルドコマンドを機械化するため）。
-- **エンジン非依存コアの線引き**（tech-stack.md「将来のエンジン非依存化に向けた線引き」の一般化）: ゲームロジックはエンジンAPI非依存の純粋コード層（phaser: `game/src/systems/` / unity: `game/Assets/Scripts/Systems/`（MonoBehaviour 非依存の pure C#）/ unreal: `game/Source/ForgeGame/Systems/`（UObject 非依存の pure C++。ただし基本型は可））に置き、エンジン依存はシーン/コンポーネント層に閉じ込める。
-- **必須シーン集合（全エンジン共通・全ゲーム必須）**: `Boot / Title / Menu / Game / Result` の5状態。phaser=`BootScene/TitleScene/MenuScene/GameScene/ResultScene`、unity=`Assets/Scenes/` の5シーン、unreal=`Content/Maps/` のレベル分割または状態遷移（どちらでも可。ただし5状態すべての実在と遷移を Automation テストで検証可能にすること — 「単一レベルだから Title/Menu 省略」は不可）。正準フロー: `Boot → Title → Menu → Game → Result → { Game（リスタート） | Menu }`。Menu の必須要素はプレイ開始・アウトゲーム表示（アンロック/実績/統計）・設定（音量・操作表示）・終了導線（ui-engineer の責務）。**Title と Menu のストーリーが `assignee: ui-engineer` で state/stories.yaml に存在しない分解は不合格**（workflow の Setup が機械検証し tech-director に差し戻す）。
-- **prototype 縦串の必須スコープに「環境の最低限ビジュアル」を含める**（`assignee: gameplay-engineer` の story として発行する。地面/背景の可視化・ライト・カメラ構図の確定 — engine=phaser（2D）は背景の可視化+画面レイアウト確定で可。engine=unity/unreal はプレースホルダ地形でも可視の地面必須）— Checkpoint B の体感評価を成立させるため。対応 story が state/stories.yaml に存在しない分解は不合格（workflow の Setup が機械検証）。
-- **メタ進行（アウトゲーム）必須**: design/gdd.md に「メタ進行（アウトゲーム）」節が必須（templates/gdd.md。ハイスコア/ベストタイム+統計=全ゲーム必須、通貨/アンロック/実績/ラン間アップグレードから2つ以上選択。DR-GDD 観点6 が判定）。ロジックはエンジン非依存コア層のサブフォルダ（phaser: `game/src/systems/meta/` / unity: `game/Assets/Scripts/Systems/Meta/` / unreal: `game/Source/ForgeGame/Systems/Meta/`）に、永続化 I/O は**永続化層**（phaser: `game/src/persistence/` / unity: `game/Assets/Scripts/Persistence/` / unreal: `game/Source/ForgeGame/Persistence/` — UObject/MonoBehaviour/ブラウザ API を許す唯一の I/O 層）に閉じる。セーブ規約は §6。
+- **验证命令的权威来源**: 各 tech-stack 文档的「## 验证命令」节。skill、workflow、agent 不硬编码命令，而是读取与 engine 对应的 tech-stack 文档的同一节（workflow 脚本内的定型提示词可例外地作为按引擎区分的 profile 常量持有，但内容须与 tech-stack 文档一致）。
+- **生成资产的存放位置**: 原始生成物＋MANIFEST 为 phaser=`game/assets/`、unity/unreal=`game/_generated/`。引擎导入目标为 unity=`game/Assets/Resources/Generated/`（`Resources.Load` 方式。AssetKeys 的值为 Resources 相对路径 — tech-stack-unity.md「资产处理」）、unreal=`game/Content/Generated/`（导入后仍保留 raw 与 MANIFEST＝provenance 的权威来源）。
+- **unreal 的项目名固定为 `ForgeGame`**（`game/ForgeGame.uproject`。为了将标记检查与构建命令机械化）。
+- **引擎无关核心的边界划分**（tech-stack.md「面向未来引擎无关化的边界划分」的一般化）: 游戏逻辑放在不依赖引擎 API 的纯代码层（phaser: `game/src/systems/` / unity: `game/Assets/Scripts/Systems/`（不依赖 MonoBehaviour 的 pure C#）/ unreal: `game/Source/ForgeGame/Systems/`（不依赖 UObject 的 pure C++。但基本类型可用）），引擎依赖封闭在场景/组件层。
+- **必需场景集合（所有引擎通用、所有游戏必需）**: `Boot / Title / Menu / Game / Result` 5 个状态。phaser=`BootScene/TitleScene/MenuScene/GameScene/ResultScene`、unity=`Assets/Scenes/` 的 5 个场景、unreal=`Content/Maps/` 的关卡拆分或状态转换（两者皆可。但必须使 5 个状态全部实际存在且其转换可由 Automation 测试验证 — 不允许「因为是单一关卡所以省略 Title/Menu」）。标准流程: `Boot → Title → Menu → Game → Result → { Game（重新开始） | Menu }`。Menu 的必需要素为开始游玩、游戏外显示（解锁/成就/统计）、设置（音量、操作显示）、退出入口（ui-engineer 的职责）。**Title 与 Menu 的 story 未以 `assignee: ui-engineer` 存在于 state/stories.yaml 的分解不合格**（workflow 的 Setup 机械验证并退回给 tech-director）。
+- **prototype 垂直切片的必需范围包含「环境的最低限度视觉表现」**（作为 `assignee: gameplay-engineer` 的 story 发布。地面/背景的可视化、光照、相机构图的确定 — engine=phaser（2D）为背景可视化+画面布局确定即可。engine=unity/unreal 即使是占位地形也必须有可见的地面）— 为了使 Checkpoint B 的体感评估成立。对应 story 不存在于 state/stories.yaml 的分解不合格（workflow 的 Setup 机械验证）。
+- **元进度（游戏外）必需**: design/gdd.md 必须有「元进度（游戏外）」节（templates/gdd.md。最高分/最佳时间+统计=所有游戏必需，从货币/解锁/成就/跨局升级中选择 2 个以上。DR-GDD 要点6 判定）。逻辑放在引擎无关核心层的子文件夹（phaser: `game/src/systems/meta/` / unity: `game/Assets/Scripts/Systems/Meta/` / unreal: `game/Source/ForgeGame/Systems/Meta/`），持久化 I/O 封闭在**持久化层**（phaser: `game/src/persistence/` / unity: `game/Assets/Scripts/Persistence/` / unreal: `game/Source/ForgeGame/Persistence/` — 唯一允许 UObject/MonoBehaviour/浏览器 API 的 I/O 层）。存档规范见 §6。

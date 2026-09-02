@@ -1,25 +1,25 @@
-# ArcadeRelay パイプライン定義
-# /forge-status と hooks/session-start.sh が読む「現在地と次」の情報源。
-# stage 値と成果物パスは contract.md §1/§6 と一致していること。
-# artifacts の engine フィールド: 記載があればその engine（contract.md §11 / state/engine.txt）
-# の時のみ必須。無記載は全 engine 共通。engine.txt が無ければ phaser として評価する。
+# ArcadeRelay 流水线定义
+# /forge-status 与 hooks/session-start.sh 读取的「当前位置与下一步」信息源。
+# stage 值与产出物路径必须与 contract.md §1/§6 一致。
+# artifacts 的 engine 字段: 若有记载则仅在该 engine（contract.md §11 / state/engine.txt）
+# 时必需。未记载则所有 engine 通用。engine.txt 不存在时按 phaser 评估。
 
 pipeline:
   - stage: brief
-    title: "ブレスト"
+    title: "头脑风暴"
     command: /forge-brainstorm
-    mode: interactive          # 唯一の対話フェーズ
+    mode: interactive          # 唯一的交互阶段
     artifacts:
       - path: design/brief.md
         required: true
     next: concept
 
   - stage: concept
-    title: "企画・設計（Phase 1・自律）"
+    title: "策划与设计（Phase 1、自主）"
     command: /forge-concept
     mode: autonomous
     workflow: .claude/workflows/concept-design.js
-    checkpoint: A              # 完成した企画＋設計を人間承認
+    checkpoint: A              # 由人类批准完成的策划＋设计
     artifacts:
       - path: design/concept.md
         required: true
@@ -34,11 +34,11 @@ pipeline:
     next: prototype
 
   - stage: prototype
-    title: "プロトタイプ（Phase 2・自律）"
+    title: "原型（Phase 2、自主）"
     command: /forge-prototype
     mode: autonomous
     workflow: .claude/workflows/prototype.js
-    checkpoint: B              # 遊べる縦串を提示、1回フィードバック
+    checkpoint: B              # 展示可玩的垂直切片，收集一次反馈
     artifacts:
       - path: docs/architecture.md
         required: true
@@ -60,11 +60,11 @@ pipeline:
     next: build
 
   - stage: build
-    title: "本実装・仕上げ（Phase 3・自律）"
+    title: "正式实现与打磨（Phase 3、自主）"
     command: /forge-build
     mode: autonomous
     workflow: .claude/workflows/full-build.js
-    checkpoint: C              # 完成品受け渡し
+    checkpoint: C              # 成品交付
     artifacts:
       - path: qa/report.md
         required: true

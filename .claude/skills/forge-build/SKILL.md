@@ -1,93 +1,93 @@
 ---
 name: forge-build
-description: Phase 3（本実装・仕上げ）を full-build.js ワークフローで自律実行し、Checkpoint C（完成品受け渡し）を行って stage を build → done にする。
-argument-hint: "[review-mode 上書き（full|lean|solo・省略時 state/review-mode.txt）]"
+description: 用 full-build.js workflow 自主执行 Phase 3（正式实现与打磨），进行 Checkpoint C（成品交付）并把 stage 从 build 推进到 done。
+argument-hint: "[review-mode 覆盖（full|lean|solo、省略时用 state/review-mode.txt）]"
 allowed-tools: Read, Glob, Grep, Write, Edit, Bash, Workflow, Task, AskUserQuestion, SendUserFile, PushNotification
 ---
 
-# /forge-build — Phase 3: 本実装・仕上げ（自律）
+# /forge-build — Phase 3: 正式实现与打磨（自主）
 
-Checkpoint B のフィードバックを消化して全ストーリーを実装し、アセット本生成・フル QA を経て完成品を受け渡す。
+消化 Checkpoint B 的反馈并实现全部 story，经过资产正式生成与完整 QA 后交付成品。
 
-## Phase 0: 前提チェック
+## Phase 0: 前提检查
 
-| 前提 | 確認 | 無い場合の対応 |
+| 前提 | 确认 | 不存在时的处理 |
 |---|---|---|
-| `state/checkpoint-b-feedback.md` | Read で存在確認 | 「Checkpoint B が未実施です。先に `/forge-prototype` を実行してください」と案内して**停止**（full-build.js の必須入力） |
-| `docs/architecture.md` `docs/conventions.md` `state/stories.yaml` `qa/report.md` ＋ エンジンのプロジェクトマーカー（contract §11） | Glob で全件存在確認 | 欠けがあれば `/forge-prototype` へ案内して停止 |
-| `state/engine.txt` | Read（無ければ `phaser`） | unity/unreal の場合は `state/engine-info.json` の binary 実在も確認し、無ければ `/forge` のエンジン preflight へ案内して**停止** |
-| `state/asset-routing.json` | Read で存在確認 | 「preflight 未実施です。先に `/forge` を実行してください」と案内して**停止**（アセット本生成がルーティング表に最も強く依存する） |
-| `state/stage.txt` | Read | `concept` 以前なら `/forge-prototype` へ案内して停止。`build`/`done` なら再実行の上書き警告を出し AskUserQuestion で続行可否を確認 |
-| `state/review-mode.txt` | Read | 無ければ既定 `lean` |
-| `state/budget.txt` | Read | 無ければ既定 `20`（USD）として扱う |
+| `state/checkpoint-b-feedback.md` | 用 Read 确认存在 | 提示「Checkpoint B 未执行。请先执行 `/forge-prototype`」并**停止**（full-build.js 的必需输入） |
+| `docs/architecture.md` `docs/conventions.md` `state/stories.yaml` `qa/report.md` ＋ 引擎的项目标记（contract §11） | 用 Glob 确认全部存在 | 有缺失则指引到 `/forge-prototype` 并停止 |
+| `state/engine.txt` | Read（不存在则为 `phaser`） | unity/unreal 时也确认 `state/engine-info.json` 的 binary 实际存在，不存在则指引到 `/forge` 的引擎 preflight 并**停止** |
+| `state/asset-routing.json` | 用 Read 确认存在 | 提示「preflight 未执行。请先执行 `/forge`」并**停止**（资产正式生成对路由表的依赖最强） |
+| `state/stage.txt` | Read | 若为 `concept` 之前则指引到 `/forge-prototype` 并停止。若为 `build`/`done` 则给出重新执行的覆盖警告，并用 AskUserQuestion 确认是否继续 |
+| `state/review-mode.txt` | Read | 不存在则默认 `lean` |
+| `state/budget.txt` | Read | 不存在则按默认 `20`（USD）处理 |
 
-`$ARGUMENTS` に `full|lean|solo` があれば今回のみ reviewMode として使う。
+若 `$ARGUMENTS` 中有 `full|lean|solo`，仅本次用作 reviewMode。
 
-## Phase 1: ワークフロー起動
+## Phase 1: 启动工作流
 
-Workflow ツールで起動する:
+用 Workflow 工具启动:
 
 - scriptPath: `.claude/workflows/full-build.js`
-- args: `{"reviewMode": "<mode>", "engine": "<state/engine.txt の値。無ければ phaser>", "checkpointBFeedbackPath": "state/checkpoint-b-feedback.md"}`
+- args: `{"reviewMode": "<mode>", "engine": "<state/engine.txt 的值。不存在则为 phaser>", "checkpointBFeedbackPath": "state/checkpoint-b-feedback.md"}`
 
-起動後ユーザーに伝える: 「Phase 3 をバックグラウンドで開始しました。アセット本生成とフル QA を含むため最長のフェーズです。完了すると通知が届きます。進捗は `/workflows` で確認できます。」**ポーリング禁止**、完了通知を待つ。AR-ASSET / CR-CODE / QA-PLAY / CD-CHECKPOINT の各ループはスクリプト側の責務。実行中の verdict 都度提示は行わない。reviewMode=`full` の場合、ワークフローが戻り値に蓄積した verdictHistory（全ループの verdict 履歴）を Phase 3 の Checkpoint C 提示に全件含める（contract §9）。予算超過見込みでワークフローが人間判断を要求してきた場合は AskUserQuestion で中継する（続行/生成打ち切り）。
+启动后告知用户: 「Phase 3 已在后台开始。由于包含资产正式生成与完整 QA，这是最长的阶段。完成后会收到通知。进度可用 `/workflows` 查看。」**禁止轮询**，等待完成通知。AR-ASSET / CR-CODE / QA-PLAY / CD-CHECKPOINT 的各循环是脚本侧的职责。不在执行中逐次展示 verdict。reviewMode=`full` 时，将 workflow 在返回值中累积的 verdictHistory（全部循环的 verdict 历史）全部包含在 Phase 3 的 Checkpoint C 展示中（contract §9）。若 workflow 因预计超出预算而请求人类判断，用 AskUserQuestion 中转（继续/中止生成）。
 
-## セッション断からの再開（retro-e3 指摘3）
+## 从会话中断恢复（retro-e3 问题3）
 
-ワークフロー実行中にセッションが断たれた場合の正式手順:
+workflow 执行中会话中断时的正式步骤:
 
-1. まず state/（`state/stories.yaml` の status・`state/active.md`・`state/stage.txt`）と `git log` で**最後に完了したフェーズ境界**（Replan 完了 / レーン合流+batchVerify 完了 / Integrate（3D 取込）完了 / Polish batchVerify 完了 / QA round N 完了）を特定する。
-2. **第一選択は尾部再構成**: 残工程だけを同一プロンプト・同一スキーマで新規 Workflow として起動する（インライン tail script）。
-3. `resumeFromRunId` の直行再開は、未完了 agent の再実行結果が変わるとキャッシュ分岐が連鎖し重複コミット・重複作業を生むリスクがある（E3 実測: 約 1h の浪費）— **完了直後の再開（分岐面が小さい）に限って使う**。
-4. いずれの場合も再開前に `git log --oneline -20` で重複コミットの有無を確認する。
+1. 首先通过 state/（`state/stories.yaml` 的 status、`state/active.md`、`state/stage.txt`）与 `git log` 确定**最后完成的阶段边界**（Replan 完成 / lane 合流+batchVerify 完成 / Integrate（3D 导入）完成 / Polish batchVerify 完成 / QA round N 完成）。
+2. **首选是尾部重构**: 仅将剩余工序以相同提示词、相同 schema 作为新 Workflow 启动（内联 tail script）。
+3. 用 `resumeFromRunId` 直接恢复时，若未完成 agent 的重新执行结果发生变化，会引发缓存分叉连锁，产生重复提交、重复工作的风险（E3 实测: 浪费约 1h）— **仅限于刚完成后的恢复（分叉面小）时使用**。
+4. 无论哪种情况，恢复前都用 `git log --oneline -20` 确认有无重复提交。
 
-## Phase 2: 完了確認
+## Phase 2: 完成确认
 
-完了通知の戻り値を読む。**失敗終了**: エラーと `/workflows` のログ参照を報告し、stage は変更せず停止。
+读取完成通知的返回值。**失败结束**: 报告错误与 `/workflows` 的日志查看方法，不更改 stage 并停止。
 
-成功時、必須成果物を実在確認する: `qa/report.md`（更新済み）と MANIFEST.jsonl（エンジン別正本パス — contract §6: phaser=`game/assets/MANIFEST.jsonl` / unity・unreal=`game/_generated/MANIFEST.jsonl`。以下 `$MANIFEST`）。
-さらに Bash で engine の tech-stack 文書「検証コマンド」の build 相当が exit 0 であることを確認する（phaser: `cd game && npm run build` / unity: `ForgeBuild.BuildMac` batchmode / unreal: BuildCookRun フル）。欠落・失敗はワークフロー失敗として停止。
+成功时，确认必需产出物实际存在: `qa/report.md`（已更新）与 MANIFEST.jsonl（引擎别权威路径 — contract §6: phaser=`game/assets/MANIFEST.jsonl` / unity、unreal=`game/_generated/MANIFEST.jsonl`。以下称 `$MANIFEST`）。
+再用 Bash 确认 engine 的 tech-stack 文档「验证命令」中 build 相当的命令 exit 0（phaser: `cd game && npm run build` / unity: `ForgeBuild.BuildMac` batchmode / unreal: 完整 BuildCookRun）。缺失、失败则视为 workflow 失败并停止。
 
-## Phase 3: Checkpoint C 提示（完成品受け渡し）
+## Phase 3: Checkpoint C 展示（成品交付）
 
-以下を整形して提示する:
+整理并展示以下内容:
 
-1. **遊び方**（エンジン別 — tech-stack 文書の dev/preview 行）:
-   - phaser: `cd game && npm install && npm run dev`（開発） / `cd game && npm run build && npm run preview`（本番ビルド）
-   - unity: `open game/Build/ForgeGame.app`（ビルド済み） / Unity エディタで game/ を開いて Play
-   - unreal: `open game/Build/Mac/ForgeGame.app`（パッケージ済み）
-   操作方法（design/gdd.md 準拠）を要約して添える
-2. **QA 結果**: `qa/report.md` を **SendUserFile** で送付し、QA-PLAY 最終判定と `qa/evidence/` の代表スクリーンショット 2〜3 枚を表示する
-3. **コスト合計**: Bash で `$MANIFEST` の全行の `cost_usd` を合算する（例: `jq -s 'map(.cost_usd) | add' "$MANIFEST"`。jq 不可なら Read して集計）。`合計 $X.XX / 予算 $<state/budget.txt>` の形で提示
-4. **ライセンスフラグ一覧**: MANIFEST の `license` / `must_replace` を集計し、以下を提示する:
-   - `must_replace: true` の資産（placeholder-nc 等・出荷前要差し替え）の件数とファイル一覧
-   - ElevenLabs 使用時: 「Studio Games」条項（商用×マルチプラットフォーム出荷は Enterprise 相談要）
-   - Ideogram 使用時: アプリ内 AI 生成表記条項
-   - 3D 資産使用時: Hunyuan3D の Territory 除外（EU/英国/韓国）・Meshy/Tripo のプラン条件（assets-config.md）
-   - unreal の場合: UE EULA（エンジンコード/コンテンツの生成AI入力禁止・ロイヤリティ 5%/$1M 超過分）
-   - 共通: 米国では純 AI 出力の著作権が不確定（MANIFEST の人間関与記録が防御材料）
-5. **未解決事項**: 各レビューループの持ち越し指摘・妥協点・CD-CHECKPOINT が列挙した既知の課題を隠さず全件
-6. **レビュー履歴（reviewMode=`full` のみ）**: 戻り値の verdictHistory（gate / artifact / iteration / verdict / findings 要約）を全件提示する
+1. **游玩方法**（按引擎 — tech-stack 文档的 dev/preview 行）:
+   - phaser: `cd game && npm install && npm run dev`（开发） / `cd game && npm run build && npm run preview`（生产构建）
+   - unity: `open game/Build/ForgeGame.app`（已构建） / 在 Unity 编辑器中打开 game/ 并 Play
+   - unreal: `open game/Build/Mac/ForgeGame.app`（已打包）
+   附上操作方法（依据 design/gdd.md）的摘要
+2. **QA 结果**: 用 **SendUserFile** 发送 `qa/report.md`，显示 QA-PLAY 最终判定与 `qa/evidence/` 的代表性截图 2～3 张
+3. **成本合计**: 用 Bash 合计 `$MANIFEST` 全部行的 `cost_usd`（例: `jq -s 'map(.cost_usd) | add' "$MANIFEST"`。jq 不可用则 Read 后汇总）。以 `合计 $X.XX / 预算 $<state/budget.txt>` 的形式展示
+4. **许可标记一览**: 汇总 MANIFEST 的 `license` / `must_replace`，展示以下内容:
+   - `must_replace: true` 的资产（placeholder-nc 等、发布前必须替换）的件数与文件一览
+   - 使用 ElevenLabs 时: 「Studio Games」条款（商用×多平台发布需咨询 Enterprise）
+   - 使用 Ideogram 时: 应用内 AI 生成标注条款
+   - 使用 3D 资产时: Hunyuan3D 的 Territory 排除（EU/英国/韩国）、Meshy/Tripo 的套餐条件（assets-config.md）
+   - unreal 时: UE EULA（禁止将引擎代码/内容作为生成式 AI 输入、$1M 超出部分 5% 版税）
+   - 共通: 在美国纯 AI 输出的著作权不确定（MANIFEST 中的人类参与记录是防御材料）
+5. **未解决事项**: 各评审循环遗留的问题、妥协点、CD-CHECKPOINT 列举的已知问题，不隐瞒，全部列出
+6. **评审历史（仅 reviewMode=`full`）**: 全部展示返回值的 verdictHistory（gate / artifact / iteration / verdict / findings 摘要）
 
-提示と同時に **PushNotification** を送る（例: 「ArcadeRelay: Checkpoint C — ゲームが完成しました」）。
-提示が完了したら `state/stage.txt` に `build` の1語のみを Write する。
+展示的同时发送 **PushNotification**（例: 「ArcadeRelay: Checkpoint C — 游戏已完成」）。
+展示完成后向 `state/stage.txt` 仅 Write `build` 一个词。
 
-## Phase 4: 受領確認
+## Phase 4: 验收确认
 
-- **full / lean**: AskUserQuestion で確認。選択肢: 「受領する（完了）」「修正を依頼する（内容を Other に記入）」。
-  - **受領** → Phase 5 へ。
-  - **修正依頼** → 次を行って停止:
-    1. **スキル自身が** `state/checkpoint-b-feedback.md` へ以下を**追記**する（Edit で末尾に追加。既存内容の上書き禁止）:
+- **full / lean**: 用 AskUserQuestion 确认。选项: 「验收（完成）」「请求修改（内容填入 Other）」。
+  - **验收** → 进入 Phase 5。
+  - **修改请求** → 执行以下操作后停止:
+    1. **由 skill 自身**向 `state/checkpoint-b-feedback.md` **追加写入**以下内容（用 Edit 添加到末尾。禁止覆盖现有内容）:
        ```markdown
-       ## Checkpoint C 修正依頼（<ISO8601 — `date -u +%Y-%m-%dT%H:%M:%SZ` の実行出力（推測記入禁止 — contract §7）>）
-       <修正依頼の内容全文>
+       ## Checkpoint C 修改请求（<ISO8601 — `date -u +%Y-%m-%dT%H:%M:%SZ` 的执行输出（禁止推测填写 — contract §7）>）
+       <修改请求的内容全文>
        ```
-    2. 内容の要約を `state/active.md` の未解決事項にも記録する
-    3. 案内: 「stage は `build` のまま。`/forge-build` を再実行すると、いま追記したフィードバックが反映されます」
-- **solo**: 停止しない。提示・通知のみで受領扱いとし Phase 5 へ（未解決事項は提示内容に全て含まれていること）。
+    2. 将内容摘要也记录到 `state/active.md` 的未解决事项
+    3. 指引: 「stage 保持为 `build`。重新执行 `/forge-build` 时，刚追加写入的反馈将被反映」
+- **solo**: 不停止。仅展示与通知即视为已验收，进入 Phase 5（未解决事项须全部包含在展示内容中）。
 
-## Phase 5: 完了処理
+## Phase 5: 完成处理
 
-1. `state/stage.txt` に `done` の1語のみを Write
-2. `state/active.md` を更新: 現在地=「done・受け渡し完了」、次アクション=「なし（チューニングはエンジン別 config 正本で完結 — contract §11: phaser=game/src/config.ts / unity=GameConfig.cs / unreal=GameConfig.h）」、未解決事項=ライセンスフラグと must_replace 一覧
-3. 締めの案内: 遊び方コマンドを再掲し、「パラメータ調整はエンジン別 config 正本（phaser: `game/src/config.ts` / unity: `game/Assets/Scripts/GameConfig.cs` / unreal: `game/Source/ForgeGame/GameConfig.h`）だけで完結します」と伝える
+1. 向 `state/stage.txt` 仅 Write `done` 一个词
+2. 更新 `state/active.md`: 当前位置=「done、交付完成」、下一步操作=「无（调参在引擎别 config 权威来源中即可完成 — contract §11: phaser=game/src/config.ts / unity=GameConfig.cs / unreal=GameConfig.h）」、未解决事项=许可标记与 must_replace 一览
+3. 收尾指引: 复述游玩方法命令，并告知「参数调整仅在引擎别 config 权威来源（phaser: `game/src/config.ts` / unity: `game/Assets/Scripts/GameConfig.cs` / unreal: `game/Source/ForgeGame/GameConfig.h`）中即可完成」

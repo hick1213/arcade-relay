@@ -1,22 +1,22 @@
-// ArcadeRelay Phase 1: brief → 企画・設計一式（concept / gdd / art-bible / assets）
-// 起動元: /forge-concept（contract.md §4）。args = {briefPath, reviewMode, engine?}（engine は contract §11 の3値。省略時 phaser）
-// レビューループは .claude/docs/review-loops.md の対応表・MAX_ITER に厳密準拠。
-// ゲート判定プロンプトは .claude/docs/gates.md をIDで参照（本文コピー禁止＝ドリフト防止）。
+// ArcadeRelay Phase 1: brief → 策划、设计全套（concept / gdd / art-bible / assets）
+// 调用方: /forge-concept（contract.md §4）。args = {briefPath, reviewMode, engine?}（engine 为 contract §11 的3个值之一。省略时为 phaser）
+// 评审循环严格遵循 .claude/docs/review-loops.md 的对应表与 MAX_ITER。
+// Gate 判定提示词通过 ID 引用 .claude/docs/gates.md（禁止复制正文＝防止漂移）。
 
 export const meta = {
   name: 'concept-design',
-  description: 'Phase 1: brief から企画・設計一式を produce→review→revise ループで自律生成し、Checkpoint A 素材を返す',
+  description: 'Phase 1: 从 brief 通过 produce→review→revise 循环自主生成策划、设计全套，并返回 Checkpoint A 材料',
   phases: [
-    { title: 'Concept', detail: 'game-designer が design/concept.md を起草 → DR-CONCEPT レビューループ（最大3回）' },
-    { title: 'GDD', detail: 'game-designer が design/gdd.md を起草 → DR-GDD レビューループ（最大3回）' },
-    { title: 'ArtBible', detail: 'key image 候補4枚生成 → art-reviewer ランク付け → art-bible.md/.json 起草 → AR-BIBLE レビューループ（最大3回）' },
-    { title: 'Assets', detail: 'art-director が design/assets.md の骨格＋画像セクションを先行作成 → audio-designer が音声セクションを追記（直列2段）' },
-    { title: 'Final', detail: 'creative-director が CD-CHECKPOINT 判定。REJECT なら指示に従い1回だけ修正して再判定' }
+    { title: 'Concept', detail: 'game-designer 起草 design/concept.md → DR-CONCEPT 评审循环（最多3次）' },
+    { title: 'GDD', detail: 'game-designer 起草 design/gdd.md → DR-GDD 评审循环（最多3次）' },
+    { title: 'ArtBible', detail: '生成4张 key image 候选 → art-reviewer 排序 → 起草 art-bible.md/.json → AR-BIBLE 评审循环（最多3次）' },
+    { title: 'Assets', detail: 'art-director 先行创建 design/assets.md 的骨架＋图像章节 → audio-designer 追加写入音频章节（串行2段）' },
+    { title: 'Final', detail: 'creative-director 进行 CD-CHECKPOINT 判定。若为 REJECT 则按指示仅修正1次后重新判定' }
   ]
 };
 
 // ---------------------------------------------------------------------------
-// スキーマ定義
+// schema 定义
 // ---------------------------------------------------------------------------
 
 const REVIEW_SCHEMA = {
@@ -26,7 +26,7 @@ const REVIEW_SCHEMA = {
     findings: {
       type: 'array',
       items: { type: 'string' },
-      description: '優先度順の具体的指摘。APPROVE の場合は空配列'
+      description: '按优先级排列的具体问题。APPROVE 时为空数组'
     }
   },
   required: ['verdict', 'findings']
@@ -40,14 +40,14 @@ const KEY_IMAGE_SCHEMA = {
       items: {
         type: 'object',
         properties: {
-          path: { type: 'string', description: 'design/refs/ 配下の候補ファイルパス（リポジトリ相対）' },
+          path: { type: 'string', description: 'design/refs/ 下的候选文件路径（仓库相对路径）' },
           kind: { type: 'string', enum: ['image', 'style-description'] },
-          note: { type: 'string', description: 'スタイル方向性の一言メモ' }
+          note: { type: 'string', description: '风格方向的一句话备注' }
         },
         required: ['path', 'kind']
       }
     },
-    degraded: { type: 'boolean', description: '画像生成キー無しでローカル縮退（スタイル記述のみ）になったか' }
+    degraded: { type: 'boolean', description: '是否因无图像生成密钥而本地降级（仅风格描述）' }
   },
   required: ['candidates', 'degraded']
 };
@@ -58,9 +58,9 @@ const RANK_SCHEMA = {
     ranking: {
       type: 'array',
       items: { type: 'string' },
-      description: '候補ファイルパスを良い順に並べたもの'
+      description: '按优劣顺序排列的候选文件路径'
     },
-    rationale: { type: 'string', description: 'ランク付けの根拠（1位の採用理由を含む）' }
+    rationale: { type: 'string', description: '排序依据（含第1名的采用理由）' }
   },
   required: ['ranking', 'rationale']
 };
@@ -72,7 +72,7 @@ const CD_SCHEMA = {
     findings: {
       type: 'array',
       items: { type: 'string' },
-      description: '人間に提示すべき懸念・既知の課題（CONCERNS/REJECT 時）'
+      description: '应向人类展示的顾虑、已知问题（CONCERNS/REJECT 时）'
     },
     fixes: {
       type: 'array',
@@ -80,54 +80,54 @@ const CD_SCHEMA = {
         type: 'object',
         properties: {
           assignee: { type: 'string', enum: ['game-designer', 'art-director', 'audio-designer'] },
-          artifact: { type: 'string', description: '修正対象の成果物パス（contract.md §6 のパスのみ）' },
-          instruction: { type: 'string', description: '具体的な修正指示' }
+          artifact: { type: 'string', description: '修正对象的产出物路径（仅限 contract.md §6 的路径）' },
+          instruction: { type: 'string', description: '具体的修正指示' }
         },
         required: ['assignee', 'artifact', 'instruction']
       },
-      description: 'REJECT 時の修正指示リスト。APPROVE/CONCERNS では空配列'
+      description: 'REJECT 时的修正指示列表。APPROVE/CONCERNS 时为空数组'
     }
   },
   required: ['verdict', 'findings', 'fixes']
 };
 
 // ---------------------------------------------------------------------------
-// transient エラー（safety classifier 一時失敗等）への1回だけの自動リトライ（retro-e3 指摘5）。
-// label に -retry を付けて opts を変える = キャッシュキーが変わり、失敗結果の replay を避ける。
-// リトライ後も null なら従来どおり呼び出し側がエスカレーションする
+// 对 transient 错误（safety classifier 临时失败等）仅自动重试1次（retro-e3 问题5）。
+// 给 label 加上 -retry 并改变 opts = 缓存键改变，避免 replay 失败结果。
+// 重试后仍为 null 则照旧由调用方上报
 // ---------------------------------------------------------------------------
 async function agentR(prompt, opts) {
   let r = await agent(prompt, opts);
   if (r === null) {
-    log('agent null（transient の可能性）→ 1回リトライ: ' + ((opts && opts.label) || ''));
-    // 盲目再実行の禁止: 初回呼び出しが「作業完了後に構造化応答だけ喪失」した可能性があるため、
-    // 完了済み作業（コミット・資産生成・課金 API 呼び出し）の重複実行を防ぐ resume ガードを前置する
-    const guarded = '【リトライ実行】直前の同一タスク呼び出しが構造化応答を失って中断した可能性がある。作業開始前に既存の成果（git log の直近コミット・生成済みファイル・MANIFEST 追記）を確認し、完了済みの操作（コミット・資産生成・課金 API 呼び出し）は繰り返すな。未完了分のみ実行し、全て完了済みなら再実行せず結果の構造化返却のみを行え。\n\n' + prompt;
+    log('agent 为 null（可能是 transient）→ 重试1次: ' + ((opts && opts.label) || ''));
+    // 禁止盲目重跑: 首次调用可能是「作业完成后仅丢失了结构化响应」，
+    // 因此前置 resume 守卫，防止已完成的作业（提交、资产生成、计费 API 调用）被重复执行
+    const guarded = '【重试执行】前一次相同任务的调用可能因丢失结构化响应而中断。开始作业前先确认已有成果（git log 的最近提交、已生成文件、MANIFEST 追加写入），已完成的操作（提交、资产生成、计费 API 调用）不得重复。仅执行未完成部分；若全部已完成则不要重新执行，只返回结果的结构化响应。\n\n' + prompt;
     r = await agent(guarded, Object.assign({}, opts, { label: (((opts && opts.label) || 'agent') + '-retry') }));
   }
   return r;
 }
 
 // ---------------------------------------------------------------------------
-// reviewLoop ヘルパー（review-loops.md の共通形を実装）
-// producer作業 → reviewer判定（state/reviews/<artifact>.md への追記は reviewer agent の責務）→
-// 非APPROVE なら producer に revise 指示（最終 iteration でも revise してからエスカレーション）→
-// 最大 maxIter 回 → 未解決指摘は unresolved に蓄積（パイプラインは止めない）
-// 全 verdict は verdictHistory に蓄積し戻り値へ含める（review-mode=full の完了後提示素材）
+// reviewLoop 辅助函数（实现 review-loops.md 的通用形式）
+// producer 作业 → reviewer 判定（向 state/reviews/<artifact>.md 追加写入是 reviewer agent 的责任）→
+// 非 APPROVE 则指示 producer 进行 revise（最后一次 iteration 也先 revise 再上报）→
+// 最多 maxIter 次 → 未解决问题累积到 unresolved（不停止流水线）
+// 全部 verdict 累积到 verdictHistory 并包含在返回值中（review-mode=full 完成后的展示材料）
 // ---------------------------------------------------------------------------
 
 async function reviewLoop(opts) {
   const {
     gateId,          // 'DR-CONCEPT' 等（contract.md §5）
-    reviewArtifact,  // state/reviews/<artifact>.md の <artifact>（例: 'concept'）
-    artifactPaths,   // レビュー対象ファイルパスの配列
-    producerType,    // revise を行う agent 名（contract.md §2）
-    reviewerType,    // 判定を行う agent 名（contract.md §2）
-    phaseTitle,      // agent opts の phase ラベル
-    maxIter,         // review-loops.md の MAX_ITER
-    producerContextPaths, // revise 時に producer が参照すべきファイルパス
-    unresolved,      // 未解決指摘の蓄積先（呼び出し元の配列）
-    verdictHistory   // 全 verdict の蓄積先（呼び出し元の配列）
+    reviewArtifact,  // state/reviews/<artifact>.md 中的 <artifact>（例: 'concept'）
+    artifactPaths,   // 评审对象文件路径的数组
+    producerType,    // 执行 revise 的 agent 名（contract.md §2）
+    reviewerType,    // 执行判定的 agent 名（contract.md §2）
+    phaseTitle,      // agent opts 的 phase 标签
+    maxIter,         // review-loops.md 的 MAX_ITER
+    producerContextPaths, // revise 时 producer 应参考的文件路径
+    unresolved,      // 未解决问题的累积目标（调用方的数组）
+    verdictHistory   // 全部 verdict 的累积目标（调用方的数组）
   } = opts;
 
   const reviewFile = 'state/reviews/' + reviewArtifact + '.md';
@@ -136,19 +136,19 @@ async function reviewLoop(opts) {
   for (let i = 1; i <= maxIter; i++) {
     const review = await agentR(
       [
-        'あなたは Gate ' + gateId + ' の判定者である。',
-        '1. .claude/docs/gates.md の「' + gateId + '」セクションを読み、その観点で対象を批評せよ。',
-        '2. 対象成果物: ' + artifactPaths.join(' / ') + '（各ファイルを自分で読むこと。関連コンテキスト: ' + producerContextPaths.join(' / ') + '）。',
-        '3. 判定を ' + reviewFile + ' に .claude/docs/review-loops.md の追記形式で必ず追記せよ（## ' + gateId + ' iteration ' + i + ' — <verdict>、日時ISO8601、指摘要約。「対応:」欄は空で残す。日時は `date -u +%Y-%m-%dT%H:%M:%SZ` の実行出力を使う — 推測記入禁止）。',
-        '4. 応答の1行目は「' + gateId + ': APPROVE|CONCERNS|REJECT」とし、構造化返却の verdict / findings にも同じ判定と指摘を入れよ。',
-        'findings は優先度順・修正可能な具体指摘のみ。APPROVE なら空配列。'
+        '你是 Gate ' + gateId + ' 的判定者。',
+        '1. 阅读 .claude/docs/gates.md 的「' + gateId + '」章节，按其要点批评对象。',
+        '2. 对象产出物: ' + artifactPaths.join(' / ') + '（各文件须自行阅读。相关上下文: ' + producerContextPaths.join(' / ') + '）。',
+        '3. 务必将判定以 .claude/docs/review-loops.md 的追加写入格式追加写入 ' + reviewFile + '（## ' + gateId + ' iteration ' + i + ' — <verdict>、日期时间 ISO8601、问题摘要。「处理:」栏留空。日期时间使用 `date -u +%Y-%m-%dT%H:%M:%SZ` 的执行输出 — 禁止凭推测填写）。',
+        '4. 响应的第1行为「' + gateId + ': APPROVE|CONCERNS|REJECT」，并在结构化返回的 verdict / findings 中填入相同的判定与问题。',
+        'findings 仅限按优先级排列、可修正的具体问题。APPROVE 时为空数组。'
       ].join('\n'),
       { agentType: reviewerType, label: gateId + ' review #' + i, phase: phaseTitle, schema: REVIEW_SCHEMA }
     );
 
     if (!review) {
-      log(gateId + ' iteration ' + i + ': reviewer が応答せず（skip/error）。判定不能として続行');
-      unresolved.push(gateId + ': iteration ' + i + ' で reviewer が応答せず判定不能');
+      log(gateId + ' iteration ' + i + ': reviewer 未响应（skip/error）。视为无法判定并继续');
+      unresolved.push(gateId + ': iteration ' + i + ' 中 reviewer 未响应，无法判定');
       break;
     }
 
@@ -161,34 +161,34 @@ async function reviewLoop(opts) {
       verdict: review.verdict,
       findings: review.findings || []
     });
-    log(gateId + ' iteration ' + i + ': ' + review.verdict + (count ? '（指摘 ' + count + ' 件）' : ''));
+    log(gateId + ' iteration ' + i + ': ' + review.verdict + (count ? '（问题 ' + count + ' 项）' : ''));
 
     if (review.verdict === 'APPROVE') {
       return { verdict: 'APPROVE', iterations: i };
     }
 
-    // 非APPROVE は最終 iteration でも revise を1回実行してからエスカレーション（review-loops.md の共通形）
+    // 非 APPROVE 即使在最后一次 iteration 也先执行1次 revise 再上报（review-loops.md 的通用形式）
     const revised = await agentR(
       [
-        'Gate ' + gateId + ' の判定が ' + review.verdict + ' だった。成果物を revise せよ。',
-        '1. ' + reviewFile + ' を読み、最新の「## ' + gateId + ' iteration ' + i + '」の指摘を確認せよ。',
-        '2. 対象: ' + artifactPaths.join(' / ') + ' を修正せよ。参照コンテキスト: ' + producerContextPaths.join(' / ') + '。',
-        '3. 各指摘への対応/見送り＋理由を ' + reviewFile + ' の該当 iteration の「対応:」欄に追記せよ（黙殺禁止）。'
+        'Gate ' + gateId + ' 的判定为 ' + review.verdict + '。请 revise 产出物。',
+        '1. 阅读 ' + reviewFile + '，确认最新的「## ' + gateId + ' iteration ' + i + '」中的问题。',
+        '2. 修正对象: ' + artifactPaths.join(' / ') + '。参考上下文: ' + producerContextPaths.join(' / ') + '。',
+        '3. 将对各问题的处理/暂不处理＋理由追加写入 ' + reviewFile + ' 中对应 iteration 的「处理:」栏（禁止无视）。'
       ].join('\n'),
       { agentType: producerType, label: gateId + ' revise #' + i, phase: phaseTitle, effort: 'high' }
     );
 
     if (!revised) {
-      log(gateId + ' iteration ' + i + ': revise が実行されず（producer skip/error）');
-      unresolved.push(gateId + ': iteration ' + i + ' の revise が実行されず（producer skip/error）');
+      log(gateId + ' iteration ' + i + ': revise 未执行（producer skip/error）');
+      unresolved.push(gateId + ': iteration ' + i + ' 的 revise 未执行（producer skip/error）');
       break;
     }
 
     if (i === maxIter) {
       const fs = review.findings || [];
       for (const f of fs) unresolved.push(gateId + ': ' + f);
-      if (fs.length === 0) unresolved.push(gateId + ': MAX_ITER 到達（' + review.verdict + '、指摘詳細は ' + reviewFile + ' 参照）');
-      log(gateId + ': MAX_ITER=' + maxIter + ' 到達。最終 revise は実施済み（再判定なし）・未解決指摘を Checkpoint A へエスカレーション（パイプラインは継続）');
+      if (fs.length === 0) unresolved.push(gateId + ': 到达 MAX_ITER（' + review.verdict + '，问题详情见 ' + reviewFile + '）');
+      log(gateId + ': 到达 MAX_ITER=' + maxIter + '。最终 revise 已执行（不再重新判定），未解决问题上报至 Checkpoint A（流水线继续）');
     }
   }
 
@@ -196,18 +196,18 @@ async function reviewLoop(opts) {
 }
 
 // ---------------------------------------------------------------------------
-// 本体（Workflowランナーはトップレベルを実行する。default export は使わない）
+// 主体（Workflow 运行器执行顶层代码。不使用 default export）
 // ---------------------------------------------------------------------------
 
-// args 正規化: 起動側/ランナーが JSON 文字列で渡してくるケースの防御（E2 で実測。
-// パース不能な文字列は明示エラーに倒す — 黙って既定値に落とさない）
+// args 规范化: 防御调用方/运行器以 JSON 字符串传入的情况（E2 中实测。
+// 无法解析的字符串抛出明确错误 — 不静默回落到默认值）
 const ARGS = (typeof args === 'string') ? JSON.parse(args) : (args || {});
 const briefPath = ARGS.briefPath;
 const reviewMode = ARGS.reviewMode || 'lean';
-if (!briefPath) throw new Error('args.briefPath が必要（通常 design/brief.md）');
+if (!briefPath) throw new Error('args.briefPath 为必需（通常为 design/brief.md）');
 
-// エンジンプロファイル（contract.md §11。値は各 tech-stack 文書と一致させること）
-// engine 未指定のみ phaser 既定。空文字・不正値は下の throw に倒す（無言フォールバック禁止）
+// 引擎配置（contract.md §11。值须与各 tech-stack 文档一致）
+// 仅 engine 未指定时默认为 phaser。空字符串、非法值交给下方的 throw（禁止无声回退）
 const engine = (ARGS.engine !== undefined && ARGS.engine !== null) ? ARGS.engine : 'phaser';
 const ENGINE_PROFILES = {
   phaser: {
@@ -216,7 +216,7 @@ const ENGINE_PROFILES = {
     assets3d: false
   },
   unity: {
-    stack: 'Unity 6 LTS + C#（URP・3D）',
+    stack: 'Unity 6 LTS + C#（URP、3D）',
     techStackDoc: '.claude/docs/tech-stack-unity.md',
     assets3d: true
   },
@@ -227,10 +227,10 @@ const ENGINE_PROFILES = {
   }
 };
 const EP = ENGINE_PROFILES[engine];
-if (!EP) throw new Error('args.engine が不正: ' + engine + '（contract §11: phaser|unity|unreal）');
+if (!EP) throw new Error('args.engine 非法: ' + engine + '（contract §11: phaser|unity|unreal）');
 
-log('concept-design 開始: brief=' + briefPath + ' / engine=' + engine + ' / review-mode=' + reviewMode +
-  '（全 verdict は verdictHistory に蓄積して返す。full ではスキルが完了後に全件を人間へ提示する）');
+log('concept-design 开始: brief=' + briefPath + ' / engine=' + engine + ' / review-mode=' + reviewMode +
+  '（全部 verdict 累积到 verdictHistory 后返回。full 模式下由 skill 在完成后向人类展示全部记录）');
 
 const unresolved = [];
 const verdictHistory = [];
@@ -240,16 +240,16 @@ phase('Concept');
 
 const conceptDraft = await agentR(
   [
-    'design/concept.md を起草せよ。',
-    '1. brief: ' + briefPath + ' を読む。',
-    '2. テンプレート .claude/docs/templates/concept.md が存在すればその構成に厳密に従う。',
-    '3. ピラー P-01〜 を3〜5個定義する（contract.md §8。互いに独立・意思決定の裁定に使える具体性を持たせる）。',
-    '4. 面白さの仮説（1文・反証可能）、コアループ（30秒で説明可能・1画面で成立）、スコープ（数時間の自律実装で到達可能）を含める。',
-    '5. .claude/docs/gates.md の DR-CONCEPT 観点を先回りして満たすこと。'
+    '起草 design/concept.md。',
+    '1. 阅读 brief: ' + briefPath + '。',
+    '2. 若模板 .claude/docs/templates/concept.md 存在，严格遵循其结构。',
+    '3. 定义3～5个支柱 P-01～（contract.md §8。彼此独立、具备可用于裁定决策的具体性）。',
+    '4. 包含乐趣假设（1句话、可证伪）、核心循环（30秒内可说明、在1个画面内成立）、范围（数小时的自主实现可达成）。',
+    '5. 预先满足 .claude/docs/gates.md 的 DR-CONCEPT 要点。'
   ].join('\n'),
   { agentType: 'game-designer', label: 'concept 起草', phase: 'Concept', effort: 'high' }
 );
-if (!conceptDraft) throw new Error('design/concept.md の起草に失敗（game-designer が応答せず）');
+if (!conceptDraft) throw new Error('design/concept.md 起草失败（game-designer 未响应）');
 
 await reviewLoop({
   gateId: 'DR-CONCEPT',
@@ -269,17 +269,17 @@ phase('GDD');
 
 const gddDraft = await agentR(
   [
-    'design/gdd.md を起草せよ。',
-    '1. ' + briefPath + ' と design/concept.md を読む。',
-    '2. テンプレート .claude/docs/templates/gdd.md が存在すればその構成に厳密に従う。',
-    '3. 全システムが concept.md のピラー P-xx を参照すること。数値は初期値＋調整レンジで書く（「後で決める」禁止）。',
-    '4. 勝利/敗北条件・リスタート・ゲームフロー（必須シーン集合 Boot→Title→Menu→Game→Result→{Game|Menu} — contract §11。Menu の必須要素込み）を定義。各システムは ' + EP.stack + ' で数時間で実装できる粒度に分解。',
-    '5. 「メタ進行（アウトゲーム）」節を必ず埋める（templates/gdd.md: ハイスコア/ベストタイム+統計=必須、brief の「アウトゲーム / やり込み」志向に沿って選択要素を2つ以上採用。各要素に P-xx・初期値+調整レンジ・ACH/UNL/UPG の安定ID・セーブ対象キーと初回起動時の初期状態）。',
-    '6. .claude/docs/gates.md の DR-GDD 観点（6観点）を先回りして満たすこと。技術前提は ' + EP.techStackDoc + ' に整合させる。'
+    '起草 design/gdd.md。',
+    '1. 阅读 ' + briefPath + ' 与 design/concept.md。',
+    '2. 若模板 .claude/docs/templates/gdd.md 存在，严格遵循其结构。',
+    '3. 全部系统须引用 concept.md 的支柱 P-xx。数值以初始值＋调整范围书写（禁止「以后再定」）。',
+    '4. 定义胜利/失败条件、重新开始、游戏流程（必需场景集合 Boot→Title→Menu→Game→Result→{Game|Menu} — contract §11。含 Menu 的必需元素）。各系统分解到可用 ' + EP.stack + ' 在数小时内实现的粒度。',
+    '5. 务必填写「元进度（游戏外）」节（templates/gdd.md: 最高分/最佳时间+统计=必需，按照 brief 的「游戏外 / 深度可玩性」取向采用2个以上可选元素。各元素须带 P-xx、初始值+调整范围、ACH/UNL/UPG 稳定 ID、存档对象键与首次启动时的初始状态）。',
+    '6. 预先满足 .claude/docs/gates.md 的 DR-GDD 要点（6个要点）。技术前提与 ' + EP.techStackDoc + ' 保持一致。'
   ].join('\n'),
   { agentType: 'game-designer', label: 'gdd 起草', phase: 'GDD', effort: 'high' }
 );
-if (!gddDraft) throw new Error('design/gdd.md の起草に失敗（game-designer が応答せず）');
+if (!gddDraft) throw new Error('design/gdd.md 起草失败（game-designer 未响应）');
 
 await reviewLoop({
   gateId: 'DR-GDD',
@@ -299,23 +299,23 @@ phase('ArtBible');
 
 const keyGen = await agentR(
   [
-    'key image 候補を4枚生成せよ。',
-    '1. ' + briefPath + ' / design/concept.md / design/gdd.md を読み、ゲームのトーンとピラー P-xx を掴む。',
-    '2. state/asset-routing.json を読み、そこに記載のプロバイダルートで生成する（生成中のルート再判定禁止。.claude/docs/assets-config.md 準拠）。予算は state/budget.txt を尊重し、超過見込みなら生成を止めて縮退する。',
-    '3. 4枚は互いにスタイル方向性を変える（例: パレット・画風・密度）。生成物は design/refs/key-image-candidate-1.png 〜 key-image-candidate-4.png に保存。',
-    '4. ルーティングがローカル縮退（画像生成キー無し）の場合は、画像の代わりに design/refs/key-image-candidate-1.md 〜 -4.md にスタイル記述（style block 案・hexパレット・参照語彙）を書き、プレースホルダ方針（Checkpoint A 以降に実画像へ差し替える前提・must_replace）を各ファイルに明記せよ。',
-    '5. 構造化返却: candidates（path / kind / note）と degraded（縮退したか）。'
+    '生成4张 key image 候选。',
+    '1. 阅读 ' + briefPath + ' / design/concept.md / design/gdd.md，把握游戏的基调与支柱 P-xx。',
+    '2. 阅读 state/asset-routing.json，用其中记载的提供者路由生成（禁止生成中重新判定路由。遵循 .claude/docs/assets-config.md）。预算遵守 state/budget.txt，预计超支则停止生成并降级。',
+    '3. 4张彼此的风格方向要有所不同（例: 调色板、画风、密度）。生成物保存到 design/refs/key-image-candidate-1.png ～ key-image-candidate-4.png。',
+    '4. 若路由为本地降级（无图像生成密钥），则以风格描述（style block 方案、hex 调色板、参考词汇）代替图像写入 design/refs/key-image-candidate-1.md ～ -4.md，并在各文件中明确注明占位方针（前提是 Checkpoint A 之后替换为真实图像、must_replace）。',
+    '5. 结构化返回: candidates（path / kind / note）与 degraded（是否降级）。'
   ].join('\n'),
-  { agentType: 'art-director', label: 'key image 候補生成', phase: 'ArtBible', schema: KEY_IMAGE_SCHEMA, effort: 'high' }
+  { agentType: 'art-director', label: 'key image 候选生成', phase: 'ArtBible', schema: KEY_IMAGE_SCHEMA, effort: 'high' }
 );
 
 let keyImageCandidates = [];
 if (keyGen && keyGen.candidates) {
   keyImageCandidates = keyGen.candidates;
-  if (keyGen.degraded) log('key image 生成はローカル縮退（スタイル記述のみ・プレースホルダ方針）');
+  if (keyGen.degraded) log('key image 生成为本地降级（仅风格描述、占位方针）');
 } else {
-  log('key image 候補生成に失敗（art-director が応答せず）。スタイル記述ベースで続行');
-  unresolved.push('AR-BIBLE: key image 候補の生成が実行されず。art-bible はスタイル記述のみで起草');
+  log('key image 候选生成失败（art-director 未响应）。以风格描述为基础继续');
+  unresolved.push('AR-BIBLE: key image 候选生成未执行。art-bible 仅以风格描述起草');
 }
 
 const candidatePaths = keyImageCandidates.map(function (c) { return c.path; });
@@ -324,40 +324,40 @@ let topCandidate = null;
 if (candidatePaths.length > 0) {
   const rank = await agentR(
     [
-      'key image 候補をランク付けせよ。',
-      '候補: ' + candidatePaths.join(' / ') + '（各ファイルを自分で読む/見ること）。',
-      '観点: .claude/docs/gates.md の AR-BIBLE の 2（ゲーム内可読性）と 3（生成再現性）を流用し、design/concept.md のピラー P-xx との整合も見る。',
-      '結果を state/reviews/art-bible.md に「key image ランク付け」の見出しで追記し（順位・根拠・日時ISO8601。日時は `date -u +%Y-%m-%dT%H:%M:%SZ` の実行出力を使う — 推測記入禁止）、構造化返却の ranking に良い順で path を入れよ。'
+      '对 key image 候选进行排序。',
+      '候选: ' + candidatePaths.join(' / ') + '（各文件须自行阅读/查看）。',
+      '要点: 沿用 .claude/docs/gates.md 中 AR-BIBLE 的 2（游戏内可辨识性）与 3（生成可复现性），并检查与 design/concept.md 的支柱 P-xx 的一致性。',
+      '将结果以「key image 排序」为标题追加写入 state/reviews/art-bible.md（名次、依据、日期时间 ISO8601。日期时间使用 `date -u +%Y-%m-%dT%H:%M:%SZ` 的执行输出 — 禁止凭推测填写），并在结构化返回的 ranking 中按优劣顺序填入 path。'
     ].join('\n'),
-    { agentType: 'art-reviewer', label: 'key image ランク付け', phase: 'ArtBible', schema: RANK_SCHEMA }
+    { agentType: 'art-reviewer', label: 'key image 排序', phase: 'ArtBible', schema: RANK_SCHEMA }
   );
   if (rank && rank.ranking && rank.ranking.length > 0) {
     topCandidate = rank.ranking[0];
-    log('key image 上位候補: ' + topCandidate);
+    log('key image 最优候选: ' + topCandidate);
   } else {
     topCandidate = candidatePaths[0];
-    log('ランク付けに失敗。候補1（' + topCandidate + '）を暫定基準として続行');
-    unresolved.push('AR-BIBLE: key image ランク付けが実行されず。候補1を暫定基準に採用');
+    log('排序失败。以候选1（' + topCandidate + '）作为暂定基准继续');
+    unresolved.push('AR-BIBLE: key image 排序未执行。采用候选1作为暂定基准');
   }
 }
 
 const bibleDraft = await agentR(
   [
-    'design/art-bible.md と design/art-bible.json を書け。',
+    '编写 design/art-bible.md 与 design/art-bible.json。',
     (topCandidate
-      ? '基準 key image: ' + topCandidate + '（art-reviewer による最上位候補。最終承認は Checkpoint A で人間が行うため、他候補も art-bible.md 内に列挙して差し替え可能にしておくこと）。'
-      : '実画像候補が無いため、design/concept.md / design/gdd.md のトーンからスタイルを言語で確定させ、プレースホルダ方針（実画像は Checkpoint A 以降に生成・人間承認）を art-bible.md に明記せよ。'),
-    '1. テンプレート .claude/docs/templates/art-bible.md が存在すればその構成に従う。',
-    '2. design/art-bible.json は .claude/docs/assets-config.md「スタイル一貫性プロトコル」のスキーマ（style_block / palette / style_codes / reference_images / character_reference / resolution）に厳密準拠。曖昧形容詞のみの指定は不可。',
-    '3. 解像度・タイルサイズ・透過方針は ' + EP.techStackDoc + ' と整合させる。',
+      ? '基准 key image: ' + topCandidate + '（art-reviewer 评出的最优候选。最终批准由人类在 Checkpoint A 进行，因此其他候选也要在 art-bible.md 中列出以便替换）。'
+      : '由于没有真实图像候选，请根据 design/concept.md / design/gdd.md 的基调用语言确定风格，并在 art-bible.md 中明确注明占位方针（真实图像在 Checkpoint A 之后生成并由人类批准）。'),
+    '1. 若模板 .claude/docs/templates/art-bible.md 存在，遵循其结构。',
+    '2. design/art-bible.json 严格遵循 .claude/docs/assets-config.md「风格一致性协议」的 schema（style_block / palette / style_codes / reference_images / character_reference / resolution）。不允许仅用模糊形容词的指定。',
+    '3. 分辨率、瓦片尺寸、透明方针与 ' + EP.techStackDoc + ' 保持一致。',
     (EP.assets3d
-      ? '4. 3D エンジンのため「## 3D スタイル方針」節（ポリゴン予算・テクスチャ解像度/PBR・リグ方針・スケール規約）を必ず埋める（テンプレートのガイドと assets-config.md の 3D ルーティング表に従う）。'
-      : '4.（2D のため 3D スタイル方針節はテンプレート指示通り削除する。）'),
-    '5. .claude/docs/gates.md の AR-BIBLE 観点を先回りして満たすこと。'
+      ? '4. 因为是 3D 引擎，务必填写「## 3D 风格方针」节（多边形预算、纹理分辨率/PBR、rig 方针、比例规范）（遵循模板的指引与 assets-config.md 的 3D 路由表）。'
+      : '4.（因为是 2D，3D 风格方针节按模板指示删除。）'),
+    '5. 预先满足 .claude/docs/gates.md 的 AR-BIBLE 要点。'
   ].join('\n'),
   { agentType: 'art-director', label: 'art-bible 起草', phase: 'ArtBible', effort: 'high' }
 );
-if (!bibleDraft) throw new Error('design/art-bible.md/.json の起草に失敗（art-director が応答せず）');
+if (!bibleDraft) throw new Error('design/art-bible.md/.json 起草失败（art-director 未响应）');
 
 await reviewLoop({
   gateId: 'AR-BIBLE',
@@ -372,67 +372,67 @@ await reviewLoop({
   verdictHistory
 });
 
-// ---- Phase 4: Assets（art-director 先行 → audio-designer 追記の直列2段）----
+// ---- Phase 4: Assets（art-director 先行 → audio-designer 追加写入的串行2段）----
 phase('Assets');
 
 const assetFieldRules = [
-  '全資産エントリに必須: id（安定ID・振り直し禁止。contract.md §8 の資産ID形式）/ サイズ（画像はpx・音声は秒）/ プロンプト草案 / 提供者ルート（state/asset-routing.json のルーティングに従い明記）/ 参照ピラー P-xx（design/concept.md）。',
-  'テンプレート .claude/docs/templates/assets.md が存在すればその構成に従う。'
+  '全部资产条目必需: id（稳定 ID、禁止重新编号。contract.md §8 的资产 ID 格式）/ 尺寸（图像为 px、音频为秒）/ 提示词草案 / 提供者路由（按 state/asset-routing.json 的路由明确写出）/ 引用支柱 P-xx（design/concept.md）。',
+  '若模板 .claude/docs/templates/assets.md 存在，遵循其结构。'
 ];
 
-// 段1: art-director が骨格（ヘッダ + 見出し）を単独で作成し、画像（+3Dモデル）セクションを起草
+// 段1: art-director 单独创建骨架（文档头 + 标题），并起草图像（+3D 模型）章节
 const imageSection = await agentR(
   [
     (EP.assets3d
-      ? 'design/assets.md を作成せよ。まず文書ヘッダと「## 画像」「## 音声」「## 3Dモデル」「## スケルタルアニメーション」の見出し骨格を作り、その上で「## 画像」「## 3Dモデル」「## スケルタルアニメーション」セクションを起草する。'
-      : 'design/assets.md を作成せよ。まず文書ヘッダと「## 画像」「## 音声」の2見出しの骨格を作り、その上で「## 画像」セクションを起草する。'),
-    '1. design/gdd.md と design/art-bible.md / design/art-bible.json を読み、必要な全画像資産（スプライト/キャラ/UI/背景/タイル）を洗い出す。',
-    '2. 各プロンプト草案には art-bible.json の style_block を前置する前提で書く。サイズ・透過方針は ' + EP.techStackDoc + ' / art-bible.json の resolution と整合させる。',
+      ? '创建 design/assets.md。先建立文档头与「## 图像」「## 音频」「## 3D 模型」「## 骨骼动画」的标题骨架，然后在此基础上起草「## 图像」「## 3D 模型」「## 骨骼动画」章节。'
+      : '创建 design/assets.md。先建立文档头与「## 图像」「## 音频」两个标题的骨架，然后在此基础上起草「## 图像」章节。'),
+    '1. 阅读 design/gdd.md 与 design/art-bible.md / design/art-bible.json，梳理出全部所需图像资产（精灵/角色/UI/背景/瓦片）。',
+    '2. 各提示词草案以前置 art-bible.json 的 style_block 为前提编写。尺寸、透明方针与 ' + EP.techStackDoc + ' / art-bible.json 的 resolution 保持一致。',
     (EP.assets3d
-      ? '3. 3Dモデル（MDL-xx）は gdd の登場エンティティから洗い出し、kind / ポリ予算 / リグ / 必要アニメ（ANM-xx）を assets-config.md の 3D ルーティング表・art-bible の 3D スタイル方針と整合させて書く（contract §8: MDL/ANM は安定ID）。'
-      : '3.（2D のため 3Dモデル/アニメーション節は作らない。）'),
-    '4. 「## 音声」セクションは見出しのみ置き、中身は書かない（この後 audio-designer が追記する）。'
+      ? '3. 3D 模型（MDL-xx）从 gdd 的登场实体中梳理，kind / 多边形预算 / rig / 所需动画（ANM-xx）须与 assets-config.md 的 3D 路由表、art-bible 的 3D 风格方针保持一致（contract §8: MDL/ANM 为稳定 ID）。'
+      : '3.（因为是 2D，不创建 3D 模型/动画节。）'),
+    '4. 「## 音频」章节仅放置标题，不写内容（之后由 audio-designer 追加写入）。'
   ].filter(Boolean).concat(assetFieldRules).join('\n'),
-  { agentType: 'art-director', label: 'assets.md 骨格＋画像セクション', phase: 'Assets', effort: 'high' }
+  { agentType: 'art-director', label: 'assets.md 骨架＋图像章节', phase: 'Assets', effort: 'high' }
 );
-if (!imageSection) unresolved.push('assets.md: 骨格＋画像セクションの起草が実行されず（art-director skip/error）');
+if (!imageSection) unresolved.push('assets.md: 骨架＋图像章节的起草未执行（art-director skip/error）');
 
-// 段2: audio-designer が音声セクションを追記（画像セクションには触れない）
+// 段2: audio-designer 追加写入音频章节（不触碰图像章节）
 const audioSection = await agentR(
   [
-    'design/assets.md の「## 音声」セクションを起草せよ。',
-    '1. design/gdd.md と design/concept.md を読み、必要な全音声資産（SFX/BGM）を洗い出す。',
-    '2. SFX は duration_seconds を明示、BGM はループ前提・ジャンル/BPM/キーを固定して書く（.claude/docs/assets-config.md 準拠）。',
-    '3. design/assets.md は art-director が骨格と「## 画像」セクションを作成済みのはず。「## 音声」セクションのみ Edit で追記し、他セクションには一切触れない。万一ファイルが存在しない場合は、文書ヘッダと「## 画像」「## 音声」の骨格を作ってから音声セクションを書く。'
+    '起草 design/assets.md 的「## 音频」章节。',
+    '1. 阅读 design/gdd.md 与 design/concept.md，梳理出全部所需音频资产（SFX/BGM）。',
+    '2. SFX 明确写出 duration_seconds，BGM 以循环为前提、固定流派/BPM/调性书写（遵循 .claude/docs/assets-config.md）。',
+    '3. design/assets.md 应已由 art-director 创建了骨架与「## 图像」章节。仅用 Edit 追加写入「## 音频」章节，其他章节一律不触碰。万一文件不存在，则先建立文档头与「## 图像」「## 音频」的骨架，再编写音频章节。'
   ].concat(assetFieldRules).join('\n'),
-  { agentType: 'audio-designer', label: 'assets.md 音声セクション', phase: 'Assets', effort: 'high' }
+  { agentType: 'audio-designer', label: 'assets.md 音频章节', phase: 'Assets', effort: 'high' }
 );
-if (!audioSection) unresolved.push('assets.md: 音声セクションの起草が実行されず（audio-designer skip/error）');
+if (!audioSection) unresolved.push('assets.md: 音频章节的起草未执行（audio-designer skip/error）');
 
 const assetsMerge = await agentR(
   [
-    'design/assets.md の整合パスを行え（内容の書き換えは最小限）。',
-    '1. 重複見出し・骨格の乱れがあれば構造のみ修復する。音声セクションのエントリ内容には手を入れない。',
-    '2. 全エントリが必須フィールド（id / サイズ / プロンプト草案 / 提供者ルート / P-xx参照）を持つか検査し、欠落は文書末尾に「## 欠落チェック」として列挙する（勝手に埋めない）。',
-    '3. id の重複・振り直しが無いか確認する。'
+    '对 design/assets.md 执行一致性检查（内容改写保持最小）。',
+    '1. 若有重复标题、骨架混乱，仅修复结构。不改动音频章节的条目内容。',
+    '2. 检查全部条目是否具备必需字段（id / 尺寸 / 提示词草案 / 提供者路由 / P-xx 引用），缺失项在文档末尾以「## 缺失检查」列出（不得擅自补填）。',
+    '3. 确认 id 无重复、无重新编号。'
   ].join('\n'),
-  { agentType: 'art-director', label: 'assets.md 整合パス', phase: 'Assets' }
+  { agentType: 'art-director', label: 'assets.md 一致性检查', phase: 'Assets' }
 );
 if (!assetsMerge) {
-  unresolved.push('assets.md: 整合パスが実行されず。重複見出し・欠落フィールドが残っている可能性');
+  unresolved.push('assets.md: 一致性检查未执行。可能残留重复标题、缺失字段');
 }
 
 // ---- Phase 5: Final（CD-CHECKPOINT）------------------------------------
 phase('Final');
 
 const cdPromptLines = [
-  'あなたは Gate CD-CHECKPOINT の判定者である。Checkpoint A の提示前最終判定を行え。',
-  '1. .claude/docs/gates.md の「CD-CHECKPOINT」セクションを読み、その観点で判定する。',
-  '2. 対象: ' + briefPath + ' / design/concept.md / design/gdd.md / design/art-bible.md / design/art-bible.json / design/assets.md。レビュー履歴 state/reviews/ 配下も確認する。',
-  '3. 判定を state/reviews/checkpoint-a.md に .claude/docs/review-loops.md の追記形式で追記せよ。日時は `date -u +%Y-%m-%dT%H:%M:%SZ` の実行出力を使う（推測記入禁止）。',
-  '4. 応答の1行目は「CD-CHECKPOINT: APPROVE|CONCERNS|REJECT」。構造化返却の verdict / findings / fixes にも同じ内容を入れよ。',
-  '5. REJECT の場合、fixes に修正指示（assignee は game-designer / art-director / audio-designer のいずれか、artifact は contract.md §6 のパス）を入れよ。APPROVE/CONCERNS では fixes は空配列。',
-  '6. 最後に state/active.md を更新せよ（現在地: Phase1 完了・Checkpoint A 待ち / 次アクション: 人間による key image と企画設計一式の承認 / 未解決事項: レビューで残った指摘。日時は `date -u +%Y-%m-%dT%H:%M:%SZ` の実行出力を使う — 推測記入禁止）。'
+  '你是 Gate CD-CHECKPOINT 的判定者。请进行 Checkpoint A 展示前的最终判定。',
+  '1. 阅读 .claude/docs/gates.md 的「CD-CHECKPOINT」章节，按其要点判定。',
+  '2. 对象: ' + briefPath + ' / design/concept.md / design/gdd.md / design/art-bible.md / design/art-bible.json / design/assets.md。同时确认评审历史 state/reviews/ 下的内容。',
+  '3. 将判定以 .claude/docs/review-loops.md 的追加写入格式追加写入到 state/reviews/checkpoint-a.md。日期时间使用 `date -u +%Y-%m-%dT%H:%M:%SZ` 的执行输出（禁止凭推测填写）。',
+  '4. 响应的第1行为「CD-CHECKPOINT: APPROVE|CONCERNS|REJECT」。结构化返回的 verdict / findings / fixes 中也填入相同内容。',
+  '5. 若为 REJECT，在 fixes 中填入修正指示（assignee 为 game-designer / art-director / audio-designer 之一，artifact 为 contract.md §6 的路径）。APPROVE/CONCERNS 时 fixes 为空数组。',
+  '6. 最后更新 state/active.md（当前位置: Phase1 完成、等待 Checkpoint A / 下一步操作: 人类批准 key image 与策划设计全套 / 未解决事项: 评审中残留的问题。日期时间使用 `date -u +%Y-%m-%dT%H:%M:%SZ` 的执行输出 — 禁止凭推测填写）。'
 ];
 
 let cd = await agentR(cdPromptLines.join('\n'), {
@@ -444,8 +444,8 @@ let cd = await agentR(cdPromptLines.join('\n'), {
 });
 
 if (!cd) {
-  log('CD-CHECKPOINT: creative-director が応答せず。判定不能のまま Checkpoint A へ');
-  unresolved.push('CD-CHECKPOINT: 判定が実行されず（creative-director skip/error）');
+  log('CD-CHECKPOINT: creative-director 未响应。在无法判定的状态下进入 Checkpoint A');
+  unresolved.push('CD-CHECKPOINT: 判定未执行（creative-director skip/error）');
 } else {
   log('CD-CHECKPOINT: ' + cd.verdict);
   verdictHistory.push({
@@ -457,62 +457,62 @@ if (!cd) {
   });
 
   if (cd.verdict === 'REJECT') {
-    // review-loops.md: REJECT なら指示に従い修正後、1回だけ再判定
+    // review-loops.md: 若为 REJECT 则按指示修正后，仅重新判定1次
     const fixes = (cd.fixes || []).filter(function (f) {
       return f && f.assignee && f.artifact && f.instruction;
     });
     if (fixes.length > 0) {
-      // fix 自体は並列可。ただし state/reviews/checkpoint-a.md への「対応:」追記は
-      // 競合防止のため fix 完了後に game-designer が1回でまとめて行う（ここでは追記しない）
+      // fix 本身可并行。但向 state/reviews/checkpoint-a.md 的「处理:」栏追加写入
+      // 为防止冲突，在 fix 完成后由 game-designer 一次性汇总完成（此处不追加写入）
       const fixResults = await parallel(fixes.map(function (f) {
         return function () {
           return agentR(
             [
-              'CD-CHECKPOINT で REJECT された。以下の指示に従い ' + f.artifact + ' を修正せよ。',
+              'CD-CHECKPOINT 判定为 REJECT。请按以下指示修正 ' + f.artifact + '。',
               '指示: ' + f.instruction,
-              '判定の全文は state/reviews/checkpoint-a.md を読むこと（読むだけ。同ファイルへの追記は行わない。対応記録は修正完了後に別 agent がまとめて行う）。',
-              '修正内容の要約を応答で報告せよ。'
+              '判定全文请阅读 state/reviews/checkpoint-a.md（仅阅读。不要向该文件追加写入。处理记录在修正完成后由另一 agent 汇总完成）。',
+              '请在响应中报告修正内容的摘要。'
             ].join('\n'),
             { agentType: f.assignee, label: 'CD修正: ' + f.artifact, phase: 'Final', effort: 'high' }
           );
         };
       }));
       const doneCount = fixResults.filter(Boolean).length;
-      log('CD-CHECKPOINT 修正: ' + doneCount + '/' + fixes.length + ' 件完了');
-      // 失敗した個別 fix 指示を無記録にしない（doneCount の log だけでは人間に届かない — 監査指摘）
+      log('CD-CHECKPOINT 修正: ' + doneCount + '/' + fixes.length + ' 项完成');
+      // 不让失败的单个 fix 指示无记录（仅有 doneCount 的 log 无法传达给人类 — 审计问题）
       fixResults.forEach(function (r, idx) {
         if (r === null || r === undefined) {
-          unresolved.push('CD-CHECKPOINT: 修正指示「[' + fixes[idx].assignee + '] ' + fixes[idx].artifact + ' — ' + fixes[idx].instruction + '」の fix agent が失敗（未対応の可能性）');
+          unresolved.push('CD-CHECKPOINT: 修正指示「[' + fixes[idx].assignee + '] ' + fixes[idx].artifact + ' — ' + fixes[idx].instruction + '」的 fix agent 失败（可能未处理）');
         }
       });
 
       const fixRecord = await agentR(
         [
-          'CD-CHECKPOINT REJECT 後の修正が完了した。state/reviews/checkpoint-a.md の該当 iteration の「対応:」欄に、以下の各修正指示への対応内容をまとめて1回の追記で記録せよ（黙殺禁止。未実施・未達の指示は「未対応」と理由を明記）。'
+          'CD-CHECKPOINT REJECT 后的修正已完成。请在 state/reviews/checkpoint-a.md 对应 iteration 的「处理:」栏中，以1次追加写入汇总记录对以下各修正指示的处理内容（禁止无视。未执行、未达成的指示须注明「未处理」及理由）。'
         ].concat(fixes.map(function (f, idx) {
           return (idx + 1) + '. [' + f.assignee + '] ' + f.artifact + ' — ' + f.instruction;
         })).concat([
-          '各 artifact の現状を読み、実際に何が変わったかを確認してから記録すること。'
+          '阅读各 artifact 的现状，确认实际发生了什么变化后再记录。'
         ]).join('\n'),
-        { agentType: 'game-designer', label: 'CD修正の対応記録', phase: 'Final' }
+        { agentType: 'game-designer', label: 'CD修正的处理记录', phase: 'Final' }
       );
       if (!fixRecord) {
-        unresolved.push('CD-CHECKPOINT: 修正の対応記録が実行されず（state/reviews/checkpoint-a.md の「対応:」欄が空のまま）');
+        unresolved.push('CD-CHECKPOINT: 修正的处理记录未执行（state/reviews/checkpoint-a.md 的「处理:」栏仍为空）');
       }
     } else {
-      log('CD-CHECKPOINT: REJECT だが fixes が空。修正なしで再判定へ');
+      log('CD-CHECKPOINT: REJECT 但 fixes 为空。不做修正直接重新判定');
     }
 
-    const cd2 = await agentR(cdPromptLines.join('\n').replace('追記形式で追記せよ。', '追記形式で追記せよ（iteration 2 として）。'), {
+    const cd2 = await agentR(cdPromptLines.join('\n').replace('追加写入到 state/reviews/checkpoint-a.md。', '追加写入到 state/reviews/checkpoint-a.md（作为 iteration 2）。'), {
       agentType: 'creative-director',
-      label: 'CD-CHECKPOINT 再判定',
+      label: 'CD-CHECKPOINT 重新判定',
       phase: 'Final',
       schema: CD_SCHEMA,
       effort: 'high'
     });
     if (cd2) {
       cd = cd2;
-      log('CD-CHECKPOINT 再判定: ' + cd.verdict);
+      log('CD-CHECKPOINT 重新判定: ' + cd.verdict);
       verdictHistory.push({
         gate: 'CD-CHECKPOINT',
         artifact: 'checkpoint-a',
@@ -521,7 +521,7 @@ if (!cd) {
         findings: cd2.findings || []
       });
     } else {
-      unresolved.push('CD-CHECKPOINT: 再判定が実行されず。初回 REJECT のまま Checkpoint A へ');
+      unresolved.push('CD-CHECKPOINT: 重新判定未执行。以初次 REJECT 的状态进入 Checkpoint A');
     }
   }
 
@@ -530,7 +530,7 @@ if (!cd) {
   }
 }
 
-// ---- 戻り値（Checkpoint A 素材。人間提示はスキル側の責務）----------------
+// ---- 返回值（Checkpoint A 材料。向人类展示是 skill 侧的责任）----------------
 const verdict = cd ? cd.verdict : 'CONCERNS';
 const artifacts = [
   'design/concept.md',
@@ -542,11 +542,11 @@ const artifacts = [
 
 return {
   summary:
-    'Phase 1（企画・設計）完了。concept / gdd / art-bible / assets を produce→review→revise ループで作成。' +
+    'Phase 1（策划、设计）完成。concept / gdd / art-bible / assets 已通过 produce→review→revise 循环创建。' +
     'CD-CHECKPOINT 判定: ' + verdict + '。' +
-    '重要: 最終 key image の承認は Checkpoint A で人間が行う。keyImageCandidates（' + keyImageCandidates.length + '件）から採用・差し戻しを判断すること。' +
-    (unresolved.length > 0 ? ' 未解決指摘 ' + unresolved.length + ' 件あり（unresolvedFindings 参照）。' : ' 未解決指摘なし。') +
-    ' 全レビュー判定履歴は verdictHistory（' + verdictHistory.length + '件）に含む（review-mode=full ではスキルが全件提示する）。',
+    '重要: 最终 key image 的批准由人类在 Checkpoint A 进行。请从 keyImageCandidates（' + keyImageCandidates.length + ' 项）中判断采用或退回。' +
+    (unresolved.length > 0 ? ' 有 ' + unresolved.length + ' 项未解决问题（见 unresolvedFindings）。' : ' 无未解决问题。') +
+    ' 全部评审判定历史包含在 verdictHistory（' + verdictHistory.length + ' 项）中（review-mode=full 时由 skill 展示全部记录）。',
   artifacts: artifacts,
   keyImageCandidates: keyImageCandidates,
   unresolvedFindings: unresolved,

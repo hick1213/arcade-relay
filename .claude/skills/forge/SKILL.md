@@ -1,76 +1,76 @@
 ---
 name: forge
-description: ArcadeRelay マスター入口。preflight → ブレスト → concept / prototype / build の3自律フェーズを順に実行し、1プロンプトで遊べるゲーム完成品（phaser 2D / unity 3D / unreal 3D — state/engine.txt）まで到達する。state/stage.txt を読んで途中から冪等に再開できる。
-argument-hint: "[ゲームの初期アイデア（任意。省略時はブレストでゼロから発想）]"
+description: ArcadeRelay 主入口。依次执行 preflight → 头脑风暴 → concept / prototype / build 三个自主阶段，用一条提示词直达可玩的游戏成品（phaser 2D / unity 3D / unreal 3D — state/engine.txt）。读取 state/stage.txt 即可从中途幂等恢复。
+argument-hint: "[游戏的初始想法（可选。省略时在头脑风暴中从零构思）]"
 allowed-tools: Read, Glob, Grep, Write, Edit, Bash, Task, Workflow, AskUserQuestion, SendUserFile, PushNotification, Skill
 ---
 
-# /forge — マスター入口（1プロンプトで完成品まで）
+# /forge — 主入口（一条提示词直达成品）
 
-命名・ID・パスは `.claude/docs/contract.md` が単一情報源。ここに書かれていない名前を発明しない。
-状態はファイルが真実（`state/`）。各Phase完了時に `state/active.md`（現在地/次アクション/未解決事項）を更新する。
+命名、ID、路径以 `.claude/docs/contract.md` 为单一事实来源。不要自创其中没有的名称。
+状态以文件为真实（`state/`）。每个 Phase 完成时更新 `state/active.md`（当前位置/下一步操作/未解决事项）。
 
-## Phase 0: 前提確認・再開位置決定（冪等）
+## Phase 0: 前提确认与恢复位置决定（幂等）
 
-1. `state/stage.txt` を読む（無ければ「未着手」）。`state/active.md` があれば読み、前回の未解決事項を把握する。
-2. 下表に従い再開位置を決める。stage値は完了済みフェーズを示す（contract.md §1）:
+1. 读取 `state/stage.txt`（不存在则视为「未开始」）。若存在 `state/active.md` 则读取，掌握上次的未解决事项。
+2. 按下表决定恢复位置。stage 值表示已完成的阶段（contract.md §1）:
 
-| state/stage.txt | 意味 | 再開位置 |
+| state/stage.txt | 含义 | 恢复位置 |
 |---|---|---|
-| （無し/空） | 未着手 | Phase 1 から |
-| `brief` | ブレスト完了 | Phase 1（`state/asset-routing.json` が無い場合のみ）→ Phase 3 |
-| `concept` | Checkpoint A 承認済み | Phase 4 |
-| `prototype` | Checkpoint B 通過 | Phase 5 |
-| `build` | Checkpoint C 到達（受領未了の可能性） | Phase 5（`/forge-build` 再実行。forge-build の Phase 0 が build/done を検知し、受領確認から再開する） |
-| `done` | 受け渡し完了 | Phase 6 の最終報告を再提示して終了 |
+| （不存在/为空） | 未开始 | 从 Phase 1 开始 |
+| `brief` | 头脑风暴完成 | Phase 1（仅当 `state/asset-routing.json` 不存在时）→ Phase 3 |
+| `concept` | Checkpoint A 已批准 | Phase 4 |
+| `prototype` | Checkpoint B 已通过 | Phase 5 |
+| `build` | Checkpoint C 已到达（可能尚未验收） | Phase 5（重新执行 `/forge-build`。forge-build 的 Phase 0 会检测到 build/done，并从验收确认处恢复） |
+| `done` | 交付完成 | 重新展示 Phase 6 的最终报告后结束 |
 
-3. 矛盾検出: stage値に対応する成果物（`.claude/docs/pipeline.yaml` の `artifacts.required`）が欠落していたら、その成果物を生むフェーズまで巻き戻して再実行する（例: stage=`concept` なのに `design/gdd.md` が無い → Phase 3 から）。stage.txt は書き換えず、フェーズ完了時に正しい値で上書きされるに任せる。
+3. 矛盾检测: 若 stage 值对应的产出物（`.claude/docs/pipeline.yaml` 的 `artifacts.required`）缺失，则回退到生成该产出物的阶段重新执行（例: stage=`concept` 但 `design/gdd.md` 不存在 → 从 Phase 3 开始）。不要改写 stage.txt，交由阶段完成时以正确值覆盖。
 
-## Phase 1: preflight（キー検証・ルーティング決定・状態初期化）
+## Phase 1: preflight（密钥验证、路由决定、状态初始化）
 
-`state/asset-routing.json` が既に存在すれば**このPhaseをスキップ**する（生成中のルート再判定禁止 — contract.md §10）。**ただし既存ファイルに `shippable` キーが無い（旧スキーマ）場合はスキップせず再生成する**（旧形式のまま生成レーンが参照すると全ルートが事実上出荷可扱いになるため）。
+若 `state/asset-routing.json` 已存在则**跳过本 Phase**（禁止在生成中重新判定路由 — contract.md §10）。**但若现有文件中没有 `shippable` 键（旧 schema），则不跳过而重新生成**（若生成 lane 参照旧格式，所有路由实际上都会被视为可发布）。
 
-1. `.env` を読む（無ければ `.env.example` をコピーする案内を出す）。対象キー: `FAL_KEY` `ELEVENLABS_API_KEY` `RETRO_DIFFUSION_API_KEY` `MESHY_API_KEY`（**3D 案件では準必須** — Meshy 直API が 3D Primary。未設定でも停止しないが、警告を出し fal 経由 Meshy に第一候補を繰り下げた旨を notes に記録する — contract §10）（任意: `IDEOGRAM_API_KEY` `OPENAI_API_KEY` `TRIPO_API_KEY`）。予算: `ASSET_BUDGET_USD` があれば `state/budget.txt` の初期値に使う（手順6）。
-2. 存在するキーごとに残高/認証を ping する:
+1. 读取 `.env`（不存在则提示从 `.env.example` 复制）。目标密钥: `FAL_KEY` `ELEVENLABS_API_KEY` `RETRO_DIFFUSION_API_KEY` `MESHY_API_KEY`（**3D 项目中准必需** — Meshy 直连 API 是 3D Primary。未设置也不停止，但要发出警告，并在 notes 中记录已将第一候选降为经 fal 的 Meshy — contract §10）（可选: `IDEOGRAM_API_KEY` `OPENAI_API_KEY` `TRIPO_API_KEY`）。预算: 若有 `ASSET_BUDGET_USD` 则用作 `state/budget.txt` 的初始值（步骤6）。
+2. 对每个存在的密钥 ping 余额/认证:
 
 ```bash
 set -a; source .env 2>/dev/null; set +a
 
-# fal — GET認証確認（存在しないrequest idへの照会で認証層のみ検証。401/403=キー無効、404等=認証OK）
+# fal — GET 认证确认（查询不存在的 request id，仅验证认证层。401/403=密钥无效，404 等=认证 OK）
 curl -s -o /dev/null -w "%{http_code}" -H "Authorization: Key $FAL_KEY" \
   "https://queue.fal.run/fal-ai/flux-2-pro/requests/00000000-0000-0000-0000-000000000000/status"
 
-# Retro Diffusion — クレジット残高（{"credits": N}。N=0 なら警告）
+# Retro Diffusion — 点数余额（{"credits": N}。N=0 则警告）
 curl -s -H "X-RD-Token: $RETRO_DIFFUSION_API_KEY" \
   "https://api.retrodiffusion.ai/v1/inferences/credits"
 
-# ElevenLabs — プラン検証（.tier を確認。"free" は商用ライセンス無し）
+# ElevenLabs — 套餐验证（确认 .tier。"free" 无商用许可）
 curl -s -H "xi-api-key: $ELEVENLABS_API_KEY" \
   "https://api.elevenlabs.io/v1/user/subscription" | jq '{tier, character_count, character_limit}'
 
-# Ideogram（任意キー。設定されている場合のみ）— 認証層のみ検証（401/403=キー無効、それ以外=認証OK）
+# Ideogram（可选密钥。仅在已设置时）— 仅验证认证层（401/403=密钥无效，其他=认证 OK）
 [ -n "$IDEOGRAM_API_KEY" ] && curl -s -o /dev/null -w "%{http_code}" \
   -H "Api-Key: $IDEOGRAM_API_KEY" "https://api.ideogram.ai/v1/ideogram-v3/generate"
 
-# OpenAI（任意キー。設定されている場合のみ）— 認証確認（200=有効、401=キー無効）
+# OpenAI（可选密钥。仅在已设置时）— 认证确认（200=有效，401=密钥无效）
 [ -n "$OPENAI_API_KEY" ] && curl -s -o /dev/null -w "%{http_code}" \
   -H "Authorization: Bearer $OPENAI_API_KEY" "https://api.openai.com/v1/models"
 
-# Meshy 直API（3D 案件で準必須）— 残高取得で認証検証（docs.meshy.ai/en/api/balance）
-# **200 のみ有効**（plan_tier="pro+" — Free にキー発行なしの間接証明。balance レスポンスに tier フィールドは無い）。
-# 401/403=キー無効。**それ以外（5xx/429/timeout=000）=検証不能** — いずれの非200も routes.model_*/anim を
-# fal:meshy-* に繰り下げ、plan_tier="unknown" と理由を notes に記録する（未検証キーに pro+ を付けない）
+# Meshy 直连 API（3D 项目中准必需）— 通过获取余额验证认证（docs.meshy.ai/en/api/balance）
+# **仅 200 为有效**（plan_tier="pro+" — Free 无密钥发放的间接证明。balance 响应中没有 tier 字段）。
+# 401/403=密钥无效。**其他（5xx/429/timeout=000）=无法验证** — 任何非 200 都将 routes.model_*/anim
+# 降为 fal:meshy-*，并把 plan_tier="unknown" 及原因记录到 notes（不给未验证的密钥标 pro+）
 [ -n "$MESHY_API_KEY" ] && curl -s -o /dev/null -w "%{http_code}" \
   -H "Authorization: Bearer $MESHY_API_KEY" "https://api.meshy.ai/openapi/v1/balance"
 
-# Tripo 直API（任意キー）— 残高エンドポイントで認証検証（エンドポイント形式は未検証 — 200 以外は
-# 「検証不能」として notes に記録し、fallbacks からは除外しない。401/403 のみ無効としてルート除外）
+# Tripo 直连 API（可选密钥）— 通过余额端点验证认证（端点格式未验证 — 非 200 时
+# 记为「无法验证」写入 notes，不从 fallbacks 中排除。仅 401/403 视为无效并排除路由）
 [ -n "$TRIPO_API_KEY" ] && curl -s -o /dev/null -w "%{http_code}" \
   -H "Authorization: Bearer $TRIPO_API_KEY" "https://api.tripo3d.ai/v2/openapi/user/balance"
 ```
 
-3. **プラン階層判定**: ElevenLabs の `tier` が `free` の場合は**商用不可の警告**を必ず出し、当該ルートを `shippable: false` にする（assets-config.md ハード禁止事項: Free プランでの出荷用生成禁止。Starter $6/mo 以上が必須）。Meshy は balance 200 で `plan_tier: "pro+"`（Free にキー発行なし = 間接証明。assets-config.md 3D 節）。実測できないプロバイダは `plan_tier: "unknown"` とし notes に「検証不能」を記録する（Checkpoint で開示）。
-4. ルーティング決定を `state/asset-routing.json` に書き出す。ルートは `.claude/docs/assets-config.md` のルーティング表（2D表＋3D表）に従い、キーの有無・検証結果で Primary → 第二候補 → Fallback → ローカル縮退 の順に決める。**3D ルート（model_* / anim）は engine が未確定でも常に書き出す**（brief 確定前に preflight が走るため。engine=phaser なら単に使われない）。**3D の Primary は Meshy**: `MESHY_API_KEY` 有効なら `meshy:direct`、無効/未設定なら `fal:meshy-*` を第一候補に繰り上げ、その旨（と 3D 案件での準必須警告）を notes に記録する（contract §10）。任意キー（IDEOGRAM / OPENAI / TRIPO）は認証 ping が無効（401/403）だった場合、`fallbacks` から該当ルートを除外し `notes` に理由を記録する（Tripo の ping が 401/403 以外の不明応答なら除外せず「検証不能」と記録）:
+3. **套餐层级判定**: 若 ElevenLabs 的 `tier` 为 `free`，必须发出**不可商用的警告**，并将该路由设为 `shippable: false`（assets-config.md 硬性禁止事项: 禁止用 Free 套餐做发布用生成。必须为 Starter $6/mo 以上）。Meshy 在 balance 200 时为 `plan_tier: "pro+"`（Free 无密钥发放 = 间接证明。assets-config.md 3D 节）。无法实测的提供方设为 `plan_tier: "unknown"`，并在 notes 中记录「无法验证」（在 Checkpoint 中披露）。
+4. 将路由决定写出到 `state/asset-routing.json`。路由按 `.claude/docs/assets-config.md` 的路由表（2D 表＋3D 表），根据密钥有无与验证结果，按 Primary → 第二候选 → Fallback → 本地降级 的顺序决定。**3D 路由（model_* / anim）即使 engine 未确定也始终写出**（因为 preflight 在 brief 确定前运行。engine=phaser 时只是不被使用）。**3D 的 Primary 是 Meshy**: `MESHY_API_KEY` 有效则为 `meshy:direct`，无效/未设置则将 `fal:meshy-*` 提升为第一候选，并把此事（以及 3D 项目中的准必需警告）记录到 notes（contract §10）。可选密钥（IDEOGRAM / OPENAI / TRIPO）若认证 ping 无效（401/403），则从 `fallbacks` 中排除对应路由并在 `notes` 中记录原因（Tripo 的 ping 若为 401/403 以外的未知响应则不排除，记录为「无法验证」）:
 
 ```json
 {
@@ -81,7 +81,7 @@ curl -s -H "xi-api-key: $ELEVENLABS_API_KEY" \
     "retro_diffusion": {"key": false, "credits": null, "plan_tier": "unknown"},
     "ideogram":        {"key": false, "plan_tier": "unknown"},
     "openai":          {"key": false, "plan_tier": "unknown"},
-    "meshy":           {"key": true,  "auth": "ok",  "plan_tier": "pro+", "note": "balance 200 = キー有効 ≒ Pro 以上（Free にキー発行なし）"},
+    "meshy":           {"key": true,  "auth": "ok",  "plan_tier": "pro+", "note": "balance 200 = 密钥有效 ≒ Pro 以上（Free 无密钥发放）"},
     "tripo":           {"key": false, "plan_tier": "unknown"}
   },
   "routes": {
@@ -111,19 +111,19 @@ curl -s -H "xi-api-key: $ELEVENLABS_API_KEY" \
     "anim":            ["fal:meshy-rigging-multi-animation", "local:code-motion"]
   },
   "degraded": false,
-  "notes": ["RETRO_DIFFUSION_API_KEY 無し: ピクセルアート案件はローカル縮退（nearest-neighbor縮小+パレット量子化）",
-            "meshy 直APIの rigging/animation エンドポイントの必要プラン階層は未検証（403 時は fal 経由へ資産種別単位で切替え、未解決事項に記録 — assets-config.md 3D 節）"]
+  "notes": ["无 RETRO_DIFFUSION_API_KEY: 像素美术项目采用本地降级（nearest-neighbor 缩小+调色板量化）",
+            "meshy 直连 API 的 rigging/animation 端点所需套餐层级未验证（403 时按资产类型切换到经 fal 路由，并记录到未解决事项 — assets-config.md 3D 节）"]
 }
 ```
 
-- `shippable` はルート別の出荷可否（ElevenLabs Free / ローカル縮退（jsfxr 除く）/ 非商用ライセンス経路は `false`）。**`routes` の全キーを `shippable` にも必ず含める**（引いて undefined になるキーを作らない。上例の `pixel_art: false` はローカル縮退時の値 — Retro Diffusion 有効なら `true`）。**生成レーンが `shippable: false` のルートで生成した資産は必ず未解決事項に積まれ Checkpoint で人間に提示される**（contract §10）。
-- `MESHY_API_KEY` 無効/未設定の場合: `routes.model_*` / `routes.anim` は `fal:meshy-*` に繰り下げ、fallbacks の先頭から fal:meshy を除いて詰める。FAL_KEY も無い場合、3D ルートは `local:blender-procedural-rigify`（Blender 実在確認: `which blender` または `/Applications/Blender.app`。無ければ `local:engine-primitives`）に縮退し、`shippable: false`・生成物は全て `must_replace: true` になる旨を notes に記録する。
+- `shippable` 为按路由的可发布与否（ElevenLabs Free / 本地降级（jsfxr 除外）/ 非商用许可路径为 `false`）。**`routes` 的所有键必须也包含在 `shippable` 中**（不要产生查询后为 undefined 的键。上例的 `pixel_art: false` 是本地降级时的值 — Retro Diffusion 有效时为 `true`）。**生成 lane 用 `shippable: false` 的路由生成的资产必须累积到未解决事项，并在 Checkpoint 向人类展示**（contract §10）。
+- `MESHY_API_KEY` 无效/未设置时: `routes.model_*` / `routes.anim` 降为 `fal:meshy-*`，并从 fallbacks 开头移除 fal:meshy 后前移补齐。若也没有 FAL_KEY，3D 路由降级为 `local:blender-procedural-rigify`（Blender 实体确认: `which blender` 或 `/Applications/Blender.app`。不存在则为 `local:engine-primitives`），并在 notes 中记录 `shippable: false`、所有生成物均为 `must_replace: true`。
 
-5. **キー欠落/無効/Free 時**（`FAL_KEY` 系統が全滅、または `ELEVENLABS_API_KEY` 無し/Free の場合）、AskUserQuestion で選ばせる:
-   - 「キー設定して中断」— `.env.example` から該当キーの取得URL・手順（fal: https://fal.ai/dashboard/keys / ElevenLabs: Starter以上のAPI Key）を提示し、設定後に `/forge` を再実行するよう案内して終了。
-   - 「ローカル縮退モードで続行」— 該当 routes を縮退列（画像: mflux/ComfyUI FLUX schnell + rembg、SFX: jsfxr、BGM: Stable Audio Open Small）に設定し、`"degraded": true` と品質影響を `notes` に記録して続行。
-   - `RETRO_DIFFUSION_API_KEY` のみの欠落は中断しない（notes に記録し、ピクセルアート案件になった場合のみ縮退）。
-6. 状態初期化（既存ファイルは上書きしない＝冪等）:
+5. **密钥缺失/无效/Free 时**（`FAL_KEY` 系全部失效，或 `ELEVENLABS_API_KEY` 缺失/Free 时），用 AskUserQuestion 让用户选择:
+   - 「设置密钥后中断」— 从 `.env.example` 展示对应密钥的获取 URL 与步骤（fal: https://fal.ai/dashboard/keys / ElevenLabs: Starter 以上的 API Key），指引用户设置后重新执行 `/forge`，然后结束。
+   - 「以本地降级模式继续」— 将对应 routes 设为降级序列（图像: mflux/ComfyUI FLUX schnell + rembg、SFX: jsfxr、BGM: Stable Audio Open Small），在 `notes` 中记录 `"degraded": true` 及质量影响后继续。
+   - 仅缺 `RETRO_DIFFUSION_API_KEY` 时不中断（记录到 notes，仅当成为像素美术项目时才降级）。
+6. 状态初始化（不覆盖现有文件＝幂等）:
 
 ```bash
 mkdir -p state
@@ -131,69 +131,69 @@ mkdir -p state
 [ -s state/review-mode.txt ] || echo "lean" > state/review-mode.txt
 ```
 
-## Phase 2: ブレスト（唯一の対話フェーズ）
+## Phase 2: 头脑风暴（唯一的对话阶段）
 
-1. Skill ツールで `forge-brainstorm` を起動する。`$ARGUMENTS`（ユーザーの初期アイデア）があれば args としてそのまま渡す。
-2. 完了検証: `design/brief.md` が存在し、`state/stage.txt` が `brief`、`state/engine.txt` が contract §11 の3値のいずれかになっていること。なっていなければ成果物存在を確認の上 `brief` を書き込み、engine.txt が無ければ brief の実行環境セクションから復元する（自己修復）。**brief からも復元できない場合は phaser に黙って倒さず**、AskUserQuestion でエンジンを確認してから書き込む（エンジンは以降変更禁止の最重要分岐 — contract §11）。
+1. 用 Skill 工具启动 `forge-brainstorm`。若有 `$ARGUMENTS`（用户的初始想法），原样作为 args 传入。
+2. 完成验证: `design/brief.md` 存在、`state/stage.txt` 为 `brief`、`state/engine.txt` 为 contract §11 三值之一。若不满足，则在确认产出物存在后写入 `brief`；engine.txt 不存在时从 brief 的运行环境章节恢复（自我修复）。**若从 brief 也无法恢复，不要静默退回 phaser**，而是用 AskUserQuestion 确认引擎后再写入（引擎是此后禁止更改的最重要分支 — contract §11）。
 
-## Phase 2.5: エンジン preflight（engine=unity/unreal のみ。冪等）
+## Phase 2.5: 引擎 preflight（仅 engine=unity/unreal。幂等）
 
-`state/engine.txt` が `phaser`（または無い）ならスキップ。`state/engine-info.json` が既に存在し binary が実在するならスキップ。
+若 `state/engine.txt` 为 `phaser`（或不存在）则跳过。若 `state/engine-info.json` 已存在且 binary 实际存在则跳过。
 
-1. **unity**: Unity Hub CLI でインストール済みエディタを解決する:
+1. **unity**: 用 Unity Hub CLI 解析已安装的编辑器:
 
 ```bash
 "/Applications/Unity Hub.app/Contents/MacOS/Unity Hub" -- --headless editors --installed
 ```
 
-   `6000.` 系の最新（バージョン降順の先頭）を選び、`state/engine-info.json` に contract §11 のスキーマで書き出す（engine / version / binary / validated_at）。**6000. 系が1本も無い場合は、他バージョン（2022 系等）があっても「無い」扱い**（非対応エディタを黙って選ばない）。Hub 自体が無い（コマンドが実行できない）場合も含め、無い場合は AskUserQuestion:
-   - 「Unity Hub でエディタをインストールして再実行」— Hub CLI のインストールコマンド例（`-- --headless install --version <6000.x LTS>`。Hub 不在なら `brew install --cask unity-hub` から）を提示して停止
-   - 「phaser に切り替える」— `state/engine.txt` を `phaser` に書き換え、brief の実行環境セクションも更新して続行
-2. **unreal**: `ls "/Users/Shared/Epic Games/UE_"*/Engine/Build/BatchFiles/RunUAT.sh` で実在確認し、最新バージョンを `state/engine-info.json` に書き出す（`binary` = RunUAT.sh のフルパス、`ue_root` = `/Users/Shared/Epic Games/UE_5.x` のエンジンルート）。**あわせて `df -g /` でディスク空きを検査し、20GB 未満なら cook/パッケージ失敗リスクを警告**（tech-stack-unreal.md「エンジン導入」）。エンジンが無い場合は AskUserQuestion:
-   - 「エンジンを導入して再実行」— 導入手順（tech-stack-unreal.md「エンジン導入」: dev.epicgames.com/portal へのログイン→ .pkg DL → `sudo installer -pkg ... -target /`。**ブラウザログインが1回必要**・ディスク空きは最低 100GB 推奨）を提示して停止
-   - 「unity / phaser に切り替える」— engine.txt と brief を更新して続行
-3. 書き出し後、ビルド系コマンドは以後 `state/engine-info.json` の binary を使う（実行中の再解決禁止 — contract §11）。
+   选择 `6000.` 系的最新版（版本降序的首个），按 contract §11 的 schema 写出到 `state/engine-info.json`（engine / version / binary / validated_at）。**若 6000. 系一个也没有，即使有其他版本（2022 系等）也按「没有」处理**（不要静默选择不支持的编辑器）。包括 Hub 本身不存在（命令无法执行）的情况，没有时用 AskUserQuestion:
+   - 「用 Unity Hub 安装编辑器后重新执行」— 展示 Hub CLI 的安装命令示例（`-- --headless install --version <6000.x LTS>`。Hub 不存在则从 `brew install --cask unity-hub` 开始）后停止
+   - 「切换到 phaser」— 将 `state/engine.txt` 改写为 `phaser`，同时更新 brief 的运行环境章节后继续
+2. **unreal**: 用 `ls "/Users/Shared/Epic Games/UE_"*/Engine/Build/BatchFiles/RunUAT.sh` 确认实际存在，将最新版本写出到 `state/engine-info.json`（`binary` = RunUAT.sh 的完整路径、`ue_root` = `/Users/Shared/Epic Games/UE_5.x` 的引擎根目录）。**同时用 `df -g /` 检查磁盘剩余空间，不足 20GB 时警告 cook/打包失败风险**（tech-stack-unreal.md「引擎安装」）。引擎不存在时用 AskUserQuestion:
+   - 「安装引擎后重新执行」— 展示安装步骤（tech-stack-unreal.md「引擎安装」: 登录 dev.epicgames.com/portal → 下载 .pkg → `sudo installer -pkg ... -target /`。**需要一次浏览器登录**、磁盘剩余空间建议至少 100GB）后停止
+   - 「切换到 unity / phaser」— 更新 engine.txt 与 brief 后继续
+3. 写出后，构建类命令此后使用 `state/engine-info.json` 的 binary（禁止运行中重新解析 — contract §11）。
 
-## Phase 3〜5 共通: 自律フェーズの進行規則
+## Phase 3～5 共通: 自主阶段的推进规则
 
-- 各スキルは自身の Checkpoint で停止する（review-mode `full`/`lean` 時 — contract.md §9）。**承認後に制御が戻るので、`state/stage.txt` が前進したことを確認してから次のPhaseへ進む**。前進していない場合（REJECT・中断）は状況を `state/active.md` に記録し、PushNotification で通知して停止する（次回 `/forge` で再開）。
-- `state/review-mode.txt` が `solo` の場合: **Checkpointで停止しない**。フェーズ完了通知は各サブスキル（forge-concept / forge-prototype / forge-build が Checkpoint 提示時に送る PushNotification）に一本化し、**/forge 自身はフェーズ完了通知を送らない**（サブスキルが通知を送れずに失敗・エラー停止した場合のみ /forge が通知する）。連続実行する。
-- サブスキル/workflow がエラーで戻った場合も同様に active.md 記録 + PushNotification + 停止。
+- 各 skill 在自身的 Checkpoint 停止（review-mode 为 `full`/`lean` 时 — contract.md §9）。**批准后控制权返回，因此要确认 `state/stage.txt` 已前进后再进入下一个 Phase**。未前进时（REJECT、中断）将情况记录到 `state/active.md`，用 PushNotification 通知后停止（下次 `/forge` 时恢复）。
+- `state/review-mode.txt` 为 `solo` 时: **不在 Checkpoint 停止**。阶段完成通知统一由各子 skill（forge-concept / forge-prototype / forge-build 在展示 Checkpoint 时发送的 PushNotification）负责，**/forge 自身不发送阶段完成通知**（仅当子 skill 无法发送通知而失败/错误停止时，才由 /forge 通知）。连续执行。
+- 子 skill/workflow 因错误返回时同样记录 active.md + PushNotification + 停止。
 
-## Phase 3: 企画・設計（Checkpoint A）
+## Phase 3: 策划与设计（Checkpoint A）
 
-Skill ツールで `forge-concept` を起動する。完了条件: `design/concept.md` `design/gdd.md` `design/art-bible.md` `design/art-bible.json` `design/assets.md` が揃い、stage が `concept` に前進。
+用 Skill 工具启动 `forge-concept`。完成条件: `design/concept.md` `design/gdd.md` `design/art-bible.md` `design/art-bible.json` `design/assets.md` 齐备，stage 前进到 `concept`。
 
-## Phase 4: プロトタイプ（Checkpoint B）
+## Phase 4: 原型（Checkpoint B）
 
-Skill ツールで `forge-prototype` を起動する。完了条件: `docs/architecture.md` `docs/conventions.md` `state/stories.yaml` `qa/report.md` とエンジンのプロジェクトマーカー（contract §11: phaser=`game/package.json` / unity=`game/ProjectSettings/ProjectVersion.txt` / unreal=`game/ForgeGame.uproject`）が揃い、stage が `prototype` に前進（`state/checkpoint-b-feedback.md` が残る）。
+用 Skill 工具启动 `forge-prototype`。完成条件: `docs/architecture.md` `docs/conventions.md` `state/stories.yaml` `qa/report.md` 及引擎的项目标记（contract §11: phaser=`game/package.json` / unity=`game/ProjectSettings/ProjectVersion.txt` / unreal=`game/ForgeGame.uproject`）齐备，stage 前进到 `prototype`（留下 `state/checkpoint-b-feedback.md`）。
 
-## Phase 5: 本実装・仕上げ（Checkpoint C）
+## Phase 5: 正式实现与打磨（Checkpoint C）
 
-Skill ツールで `forge-build` を起動する。完了条件: フルQA合格（`qa/report.md` 更新・エンジン別正本パスの MANIFEST.jsonl 存在 — contract §6）で stage が `build` **または `done`** に前進（forge-build は受領確認・完了処理まで進むと `done` を書く）。stage が `build` のまま forge-build が停止案内を出した場合（修正依頼・中断）は Phase 6 へ進まず、共通規則に従い active.md 記録＋停止する（次回 `/forge` は Phase 5 から再開）。
+用 Skill 工具启动 `forge-build`。完成条件: 完整 QA 合格（`qa/report.md` 已更新、引擎别权威路径的 MANIFEST.jsonl 存在 — contract §6），stage 前进到 `build` **或 `done`**（forge-build 进行到验收确认与完成处理时会写入 `done`）。若 stage 仍为 `build` 且 forge-build 给出了停止指引（修改请求、中断），则不进入 Phase 6，按共通规则记录 active.md 并停止（下次 `/forge` 从 Phase 5 恢复）。
 
-## Phase 6: 完了・最終報告
+## Phase 6: 完成与最终报告
 
-前提: stage が `done`（forge-build が Checkpoint C 提示・受領確認・`done` 書き込みまで完了済み）。forge-build の Checkpoint C と重複する提示 — `qa/report.md` の SendUserFile・PushNotification・`state/stage.txt` への書き込み — は**再実行しない**。ここでは最終要約の再掲と補足のみを行う。
+前提: stage 为 `done`（forge-build 已完成 Checkpoint C 展示、验收确认、`done` 写入）。与 forge-build 的 Checkpoint C 重复的展示 — `qa/report.md` 的 SendUserFile、PushNotification、写入 `state/stage.txt` — **不重复执行**。此处仅做最终摘要的复述与补充。
 
-1. コスト集計と予算照合（MANIFEST パスはエンジン別 — contract §6。以下 `$MANIFEST` = phaser: `game/assets/MANIFEST.jsonl` / unity・unreal: `game/_generated/MANIFEST.jsonl`）:
+1. 成本汇总与预算核对（MANIFEST 路径按引擎区分 — contract §6。以下 `$MANIFEST` = phaser: `game/assets/MANIFEST.jsonl` / unity、unreal: `game/_generated/MANIFEST.jsonl`）:
 
 ```bash
-jq -s 'map(.cost_usd // 0) | add' "$MANIFEST"   # 実績合計USD
-cat state/budget.txt                             # 予算上限
+jq -s 'map(.cost_usd // 0) | add' "$MANIFEST"   # 实际合计 USD
+cat state/budget.txt                             # 预算上限
 ```
 
-2. ライセンスフラグ抽出:
+2. 提取许可标记:
 
 ```bash
 jq -c 'select(.license != "commercial-ok" or .must_replace == true)' "$MANIFEST"
 ```
 
-   これに assets-config.md の固定フラグ（ElevenLabs「Studio Games」条項 / Ideogram アプリ内AI生成表記条項 / 米国での純AI出力著作権の不確定性→MANIFESTの人間関与記録が防御材料。3D 使用時: Hunyuan3D の Territory 除外 / Meshy・Tripo のプラン条件 / unreal は UE EULA の生成AI入力禁止条項）を加えて列挙する。
-3. 最終報告を組み立てて提示する:
-   - **遊び方**（エンジン別 — 各 tech-stack 文書の「検証コマンド」dev/preview 行）: phaser: `cd game && npm install && npm run dev` / unity: `open game/Build/ForgeGame.app`（またはエディタで game/ を開く）/ unreal: `open game/Build/Mac/ForgeGame.app`。操作方法・勝利/敗北条件は `design/gdd.md` から要約。
-   - **QA結果**: `qa/report.md` の要約（重大バグ0・acceptance通過状況）。
-   - **コスト**: MANIFEST 合計 vs `state/budget.txt`。
-   - **ライセンスフラグ**: 手順2の列挙 + `must_replace` 資産があれば差し替え指示。
-   - **未解決事項**: `state/reviews/` で MAX_ITER 到達のまま非APPROVEの指摘一覧。
-4. `state/active.md` を「受け渡し完了」で更新する（forge-build が更新済みなら差分のみ追記。`state/stage.txt` は forge-build が書き込み済みのため触れない）。
+   在此基础上加上 assets-config.md 的固定标记（ElevenLabs「Studio Games」条款 / Ideogram 应用内 AI 生成标注条款 / 美国纯 AI 输出著作权的不确定性→MANIFEST 中的人类参与记录是防御材料。使用 3D 时: Hunyuan3D 的 Territory 排除 / Meshy、Tripo 的套餐条件 / unreal 则为 UE EULA 的生成式 AI 输入禁止条款）一并列举。
+3. 组装并展示最终报告:
+   - **游玩方法**（按引擎 — 各 tech-stack 文档「验证命令」的 dev/preview 行）: phaser: `cd game && npm install && npm run dev` / unity: `open game/Build/ForgeGame.app`（或在编辑器中打开 game/）/ unreal: `open game/Build/Mac/ForgeGame.app`。操作方法、胜利/失败条件从 `design/gdd.md` 摘要。
+   - **QA 结果**: `qa/report.md` 的摘要（重大 bug 0、acceptance 通过情况）。
+   - **成本**: MANIFEST 合计 vs `state/budget.txt`。
+   - **许可标记**: 步骤2 的列举 + 若有 `must_replace` 资产则给出替换指示。
+   - **未解决事项**: `state/reviews/` 中到达 MAX_ITER 仍非 APPROVE 的问题一览。
+4. 将 `state/active.md` 更新为「交付完成」（forge-build 已更新则仅追加写入差异。`state/stage.txt` 已由 forge-build 写入，不要触碰）。

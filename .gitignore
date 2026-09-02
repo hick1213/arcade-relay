@@ -5,7 +5,7 @@
 node_modules/
 game/dist/
 
-# Unity (engine=unity) — game/ が Unity プロジェクトの場合の生成物
+# Unity (engine=unity) — game/ 为 Unity 项目时的生成物
 game/Library/
 game/Temp/
 game/Logs/
@@ -17,7 +17,7 @@ game/*.csproj
 game/*.sln
 game/*_BurstDebugInformation_DoNotShip/
 
-# Unreal (engine=unreal) — game/ が UE プロジェクトの場合の生成物
+# Unreal (engine=unreal) — game/ 为 UE 项目时的生成物
 game/Binaries/
 game/Intermediate/
 game/Saved/
@@ -27,5 +27,5 @@ game/*.xcworkspace/
 # OS
 .DS_Store
 
-# 生成資産の生データ（最終採用分は game/assets/ にコミット）
+# 生成资产的原始数据（最终采用部分提交到 game/assets/）
 design/refs/_candidates/

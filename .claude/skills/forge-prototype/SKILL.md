@@ -1,89 +1,89 @@
 ---
 name: forge-prototype
-description: Phase 2（プロトタイプ）を prototype.js ワークフローで自律実行し、Checkpoint B（遊べる縦串へのフィードバック）を回収して stage を prototype にする。
-argument-hint: "[review-mode 上書き（full|lean|solo・省略時 state/review-mode.txt）]"
+description: 用 prototype.js workflow 自主执行 Phase 2（原型），回收 Checkpoint B（对可玩垂直切片的反馈）并把 stage 设为 prototype。
+argument-hint: "[review-mode 覆盖（full|lean|solo、省略时用 state/review-mode.txt）]"
 allowed-tools: Read, Glob, Grep, Write, Edit, Bash, Workflow, Task, AskUserQuestion, SendUserFile, PushNotification
 ---
 
-# /forge-prototype — Phase 2: プロトタイプ（自律）
+# /forge-prototype — Phase 2: 原型（自主）
 
-承認済みの企画・設計から「遊べる縦串」（起動→コアループ1周→リスタート）を自律実装し、Checkpoint B で人間の1回フィードバックを回収する。フィードバックは Phase 3（/forge-build）の入力になる。
+从已批准的策划与设计出发，自主实现「可玩的垂直切片」（启动→核心循环 1 周→重开），在 Checkpoint B 回收人类的一次反馈。反馈将成为 Phase 3（/forge-build）的输入。
 
-## Phase 0: 前提チェック
+## Phase 0: 前提检查
 
-| 前提 | 確認 | 無い場合の対応 |
+| 前提 | 确认 | 不存在时的处理 |
 |---|---|---|
-| `design/concept.md` `design/gdd.md` `design/art-bible.md` `design/art-bible.json` `design/assets.md` | Glob/Read で全件存在確認 | 1つでも欠けたら「Phase 1 の成果物が不足しています。先に `/forge-concept` を実行してください」と案内して**停止** |
-| `state/asset-routing.json` | Read で存在確認 | 「preflight 未実施です。先に `/forge` を実行してください」と案内して**停止**（プレースホルダー資産生成がルーティング表に依存する） |
-| `state/engine.txt` | Read（無ければ `phaser`） | unity/unreal の場合は `state/engine-info.json` の binary 実在も確認し、無ければ「エンジン preflight 未実施です。先に `/forge` を実行してください」と案内して**停止** |
-| `state/stage.txt` | Read | `brief` 以前なら `/forge-concept` へ案内して停止。`prototype` 以降なら再実行で game/ を上書きする旨を警告し AskUserQuestion で続行可否を確認 |
-| `state/review-mode.txt` | Read | 無ければ既定 `lean` |
-| `state/checkpoint-a-feedback.md` | Read（**任意**） | 無くてもよい（Checkpoint A が無修正承認だった場合は存在しない） |
+| `design/concept.md` `design/gdd.md` `design/art-bible.md` `design/art-bible.json` `design/assets.md` | 用 Glob/Read 确认全部存在 | 缺少任一个则提示「Phase 1 的产出物不足。请先执行 `/forge-concept`」并**停止** |
+| `state/asset-routing.json` | 用 Read 确认存在 | 提示「preflight 未执行。请先执行 `/forge`」并**停止**（占位符资产生成依赖路由表） |
+| `state/engine.txt` | Read（不存在则为 `phaser`） | unity/unreal 时也确认 `state/engine-info.json` 的 binary 实际存在，不存在则提示「引擎 preflight 未执行。请先执行 `/forge`」并**停止** |
+| `state/stage.txt` | Read | 若为 `brief` 之前则指引到 `/forge-concept` 并停止。若为 `prototype` 之后则警告重新执行将覆盖 game/，并用 AskUserQuestion 确认是否继续 |
+| `state/review-mode.txt` | Read | 不存在则默认 `lean` |
+| `state/checkpoint-a-feedback.md` | Read（**可选**） | 可不存在（Checkpoint A 无修改批准时不存在） |
 
-`$ARGUMENTS` に `full|lean|solo` があれば今回のみ reviewMode として使う。
+若 `$ARGUMENTS` 中有 `full|lean|solo`，仅本次用作 reviewMode。
 
-## Phase 1: ワークフロー起動
+## Phase 1: 启动工作流
 
-Workflow ツールで起動する:
+用 Workflow 工具启动:
 
 - scriptPath: `.claude/workflows/prototype.js`
-- args: `{"reviewMode": "<mode>", "engine": "<state/engine.txt の値。無ければ phaser>", "checkpointAFeedbackPath": "state/checkpoint-a-feedback.md"}`
-  （`state/checkpoint-a-feedback.md` が存在しない場合は `checkpointAFeedbackPath` を**省略**する — contract §4 で optional）
+- args: `{"reviewMode": "<mode>", "engine": "<state/engine.txt 的值。不存在则为 phaser>", "checkpointAFeedbackPath": "state/checkpoint-a-feedback.md"}`
+  （`state/checkpoint-a-feedback.md` 不存在时**省略** `checkpointAFeedbackPath` — contract §4 中为 optional）
 
-起動後ユーザーに伝える: 「Phase 2 をバックグラウンドで開始しました。完了すると通知が届きます。進捗は `/workflows` で確認できます。」**ポーリング禁止**、完了通知を待つ。ストーリー実装ループ（CR-CODE）と QA-PLAY はスクリプト側の責務。実行中の verdict 都度提示は行わない。reviewMode=`full` の場合、ワークフローが戻り値に蓄積した verdictHistory（全ループの verdict 履歴）を Phase 3 の Checkpoint B 提示に全件含める（contract §9）。
+启动后告知用户: 「Phase 2 已在后台开始。完成后会收到通知。进度可用 `/workflows` 查看。」**禁止轮询**，等待完成通知。story 实现循环（CR-CODE）与 QA-PLAY 是脚本侧的职责。不在执行中逐次展示 verdict。reviewMode=`full` 时，将 workflow 在返回值中累积的 verdictHistory（全部循环的 verdict 历史）全部包含在 Phase 3 的 Checkpoint B 展示中（contract §9）。
 
-## セッション断からの再開（retro-e3 指摘3）
+## 从会话中断恢复（retro-e3 问题3）
 
-ワークフロー実行中にセッションが断たれた場合の正式手順:
+workflow 执行中会话中断时的正式步骤:
 
-1. まず state/（`state/stories.yaml` の status・`state/active.md`・`state/stage.txt`）と `git log` で**最後に完了したフェーズ境界**（Setup 完了 / レーン合流+batchVerify 完了 / Integrate 完了 / QA round N 完了）を特定する。
-2. **第一選択は尾部再構成**: 残工程だけを同一プロンプト・同一スキーマで新規 Workflow として起動する（インライン tail script）。
-3. `resumeFromRunId` の直行再開は、未完了 agent の再実行結果が変わるとキャッシュ分岐が連鎖し重複コミット・重複作業を生むリスクがある（E3 実測: 約 1h の浪費）— **完了直後の再開（分岐面が小さい）に限って使う**。
-4. いずれの場合も再開前に `git log --oneline -20` で重複コミットの有無を確認する。
+1. 首先通过 state/（`state/stories.yaml` 的 status、`state/active.md`、`state/stage.txt`）与 `git log` 确定**最后完成的阶段边界**（Setup 完成 / lane 合流+batchVerify 完成 / Integrate 完成 / QA round N 完成）。
+2. **首选是尾部重构**: 仅将剩余工序以相同提示词、相同 schema 作为新 Workflow 启动（内联 tail script）。
+3. 用 `resumeFromRunId` 直接恢复时，若未完成 agent 的重新执行结果发生变化，会引发缓存分叉连锁，产生重复提交、重复工作的风险（E3 实测: 浪费约 1h）— **仅限于刚完成后的恢复（分叉面小）时使用**。
+4. 无论哪种情况，恢复前都用 `git log --oneline -20` 确认有无重复提交。
 
-## Phase 2: 完了確認
+## Phase 2: 完成确认
 
-完了通知の戻り値を読む。**失敗終了**: エラーと `/workflows` のログ参照を報告し、stage は変更せず停止。
+读取完成通知的返回值。**失败结束**: 报告错误与 `/workflows` 的日志查看方法，不更改 stage 并停止。
 
-成功時、pipeline.yaml の必須成果物を実在確認する（engine フィールド付きの成果物は該当 engine のもののみ）:
-`docs/architecture.md` `docs/conventions.md` `state/stories.yaml` `qa/report.md` ＋ エンジンのプロジェクトマーカー（contract §11: phaser=`game/package.json` / unity=`game/ProjectSettings/ProjectVersion.txt` / unreal=`game/ForgeGame.uproject`）
-さらに Bash で engine の tech-stack 文書「検証コマンド」の typecheck 相当が exit 0 であることを軽く再確認する（phaser: `cd game && npm run typecheck`。依存未インストールなら `npm install` を先に実行 / unity: EditMode テスト / unreal: BuildCookRun -build）。欠落・失敗はワークフロー失敗として停止。
+成功时，确认 pipeline.yaml 的必需产出物实际存在（带 engine 字段的产出物仅限对应 engine 的）:
+`docs/architecture.md` `docs/conventions.md` `state/stories.yaml` `qa/report.md` ＋ 引擎的项目标记（contract §11: phaser=`game/package.json` / unity=`game/ProjectSettings/ProjectVersion.txt` / unreal=`game/ForgeGame.uproject`）
+再用 Bash 轻量地重新确认 engine 的 tech-stack 文档「验证命令」中 typecheck 相当的命令 exit 0（phaser: `cd game && npm run typecheck`。依赖未安装则先执行 `npm install` / unity: EditMode 测试 / unreal: BuildCookRun -build）。缺失、失败则视为 workflow 失败并停止。
 
-## Phase 3: Checkpoint B 提示
+## Phase 3: Checkpoint B 展示
 
-以下を整形して提示する:
+整理并展示以下内容:
 
-1. **遊び方**（エンジン別 — tech-stack 文書の dev/preview 行）:
-   - phaser: `cd game && npm install && npm run dev`（起動 URL は Vite 既定 http://localhost:5173）
-   - unity: `open game/Build/ForgeGame.app`（ビルド済み）または Unity エディタで game/ を開く
-   - unreal: `open game/Build/Mac/ForgeGame.app`（パッケージ済み）
-   操作方法（design/gdd.md の操作定義を要約）を添える
-2. **プレイ証跡**: `qa/evidence/` のスクリーンショット（代表 3〜5 枚）を **SendUserFile（display: render）** で表示。`qa/report.md` のパスと QA-PLAY 判定結果も併記
-3. **実装済みストーリー**: `state/stories.yaml` の phase: prototype 分の id / title / status 一覧
-4. **既知の課題**: CR-CODE / QA-PLAY のレビューループで持ち越した未解決指摘（`state/reviews/*.md` 由来）を隠さず全件列挙
-5. **レビュー履歴（reviewMode=`full` のみ）**: 戻り値の verdictHistory（gate / artifact / iteration / verdict / findings 要約）を全件提示する
+1. **游玩方法**（按引擎 — tech-stack 文档的 dev/preview 行）:
+   - phaser: `cd game && npm install && npm run dev`（启动 URL 为 Vite 默认 http://localhost:5173）
+   - unity: `open game/Build/ForgeGame.app`（已构建）或在 Unity 编辑器中打开 game/
+   - unreal: `open game/Build/Mac/ForgeGame.app`（已打包）
+   附上操作方法（摘要 design/gdd.md 的操作定义）
+2. **游玩证据**: 用 **SendUserFile（display: render）** 显示 `qa/evidence/` 的截图（代表性 3～5 张）。同时附上 `qa/report.md` 的路径与 QA-PLAY 判定结果
+3. **已实现的 story**: `state/stories.yaml` 中 phase: prototype 部分的 id / title / status 一览
+4. **已知问题**: CR-CODE / QA-PLAY 评审循环中遗留的未解决问题（来自 `state/reviews/*.md`），不隐瞒，全部列举
+5. **评审历史（仅 reviewMode=`full`）**: 全部展示返回值的 verdictHistory（gate / artifact / iteration / verdict / findings 摘要）
 
-提示と同時に **PushNotification** を送る（例: 「ArcadeRelay: Checkpoint B（プロトタイプ）が遊べる状態になりました」）。
+展示的同时发送 **PushNotification**（例: 「ArcadeRelay: Checkpoint B（原型）已进入可玩状态」）。
 
-## Phase 4: フィードバック回収
+## Phase 4: 反馈回收
 
-Checkpoint B は承認ゲートではなく**1回のフィードバック回収**。ここで直しては再提示、を繰り返さない — 回収した内容は Phase 3（本実装）が消化する。
+Checkpoint B 不是批准 Gate，而是**一次性的反馈回收**。不要在此反复「修改后重新展示」— 回收的内容由 Phase 3（正式实现）消化。
 
-- **full / lean**: AskUserQuestion で聞く。選択肢: 「このまま進めてよい（フィードバックなし）」「フィードバックあり（内容を Other に記入）」。実際に遊んでから答えてもらうよう促す。
-- **solo**: 停止しない。通知のみで次へ進む。
+- **full / lean**: 用 AskUserQuestion 询问。选项: 「可以直接继续（无反馈）」「有反馈（内容填入 Other）」。请用户实际玩过后再回答。
+- **solo**: 不停止。仅通知后进入下一步。
 
-回収結果は**必ず** `state/checkpoint-b-feedback.md` に Write する（full-build.js の必須入力のため、フィードバックが無くてもファイルを作る）:
+回收结果**必须** Write 到 `state/checkpoint-b-feedback.md`（因为是 full-build.js 的必需输入，即使没有反馈也要创建文件）:
 
 ```markdown
-# Checkpoint B フィードバック
-- 日時: <ISO8601 — `date -u +%Y-%m-%dT%H:%M:%SZ` の実行出力を貼る（推測記入禁止 — contract §7）>
-- モード: <full|lean|solo>
-## フィードバック
-<本文。無い場合は「フィードバックなし。そのまま本実装へ進行」。solo の場合は「solo モードのため未回収」>
+# Checkpoint B 反馈
+- 日期时间: <ISO8601 — 粘贴 `date -u +%Y-%m-%dT%H:%M:%SZ` 的执行输出（禁止推测填写 — contract §7）>
+- 模式: <full|lean|solo>
+## 反馈
+<正文。没有时写「无反馈。直接进入正式实现」。solo 时写「solo 模式，未回收」>
 ```
 
-## Phase 5: 状態更新と次案内
+## Phase 5: 状态更新与下一步指引
 
-1. `state/stage.txt` に `prototype` の1語のみを Write
-2. `state/active.md` を更新: 現在地=「Checkpoint B 通過」、次アクション=「/forge-build」、未解決事項=既知の課題＋回収フィードバック要約
-3. 案内: 「Checkpoint B を通過しました。次は `/forge-build` で本実装・仕上げ（フル QA・アセット本生成）を行います。」
+1. 向 `state/stage.txt` 仅 Write `prototype` 一个词
+2. 更新 `state/active.md`: 当前位置=「Checkpoint B 已通过」、下一步操作=「/forge-build」、未解决事项=已知问题＋回收反馈摘要
+3. 指引: 「已通过 Checkpoint B。接下来用 `/forge-build` 进行正式实现与打磨（完整 QA、资产正式生成）。」

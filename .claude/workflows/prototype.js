@@ -1,30 +1,30 @@
 // ArcadeRelay Phase 2 — prototype.js
-// 起動元: /forge-prototype（contract.md §4）。args = { reviewMode, engine?, checkpointAFeedbackPath? }（engine は contract §11 の3値。省略時 phaser）
-// 遊べる縦串（コアループが1周する最小プロトタイプ）を自律制作し、Checkpoint B 素材を返す。
-// 命名・ID・パスはすべて .claude/docs/contract.md に従う。ループ仕様は .claude/docs/review-loops.md。
-// 注意: Workflow ランナーはこのスクリプト本体をトップレベル実行する（default export は使わない）。
+// 调用方: /forge-prototype（contract.md §4）。args = { reviewMode, engine?, checkpointAFeedbackPath? }（engine 为 contract §11 的3个值之一。省略时为 phaser）
+// 自主制作可玩的垂直切片（核心循环能跑通一轮的最小原型），并返回 Checkpoint B 材料。
+// 命名、ID、路径全部遵循 .claude/docs/contract.md。循环规范见 .claude/docs/review-loops.md。
+// 注意: Workflow runner 会在顶层执行本脚本本体（不使用 default export）。
 
 export const meta = {
   name: 'prototype',
-  description: 'Phase 2: gdd をストーリー分解し、コアループ縦串の実装と資産生成を並走、QA を経て Checkpoint B 素材を返す',
+  description: 'Phase 2: 将 gdd 分解为 story，并行进行核心循环垂直切片的实现与资产生成，经 QA 后返回 Checkpoint B 材料',
   phases: [
-    { title: 'Setup', detail: 'tech-director が game/ スキャフォールド・docs/architecture.md・docs/conventions.md・state/stories.yaml を生成' },
-    { title: 'Build', detail: 'phase:prototype ストーリーを assignee レーン（gameplay/ui）で並走実装（レーン内順次・レーン中はエンジン検証なし）し、story ごとに CR-CODE レビューループ（MAX 2）を通す。レーン合流後にバッチ検証を直列実行' },
-    { title: 'AssetGen', detail: 'art-director がコアループ必須画像（engine=unity/unreal では 3D モデル MDL/ANM も）、audio-designer がコア SFX を生成し AR-ASSET ループ（MAX 3 + fallback 1）を通す' },
-    { title: 'Integrate', detail: '担当 engineer が生成資産を資産キー正本（phaser: ASSET_KEYS / unity: GameConfig.AssetKeys / unreal: GameConfig.h 定数）経由で game/ に組み込み typecheck/build 検証（直列区間・エンジン取込込み）' },
-    { title: 'QA', detail: 'qa-lead が QA-PLAY（実起動・実操作・証跡）を実施し、重大バグを修正ループ（MAX 2）' },
-    { title: 'Final', detail: 'creative-director が CD-CHECKPOINT 判定し Checkpoint B 素材を整形して返す' },
+    { title: 'Setup', detail: 'tech-director 生成 game/ 脚手架、docs/architecture.md、docs/conventions.md、state/stories.yaml' },
+    { title: 'Build', detail: '将 phase:prototype story 按 assignee lane（gameplay/ui）并行实现（lane 内顺序执行、lane 中不做引擎验证），每个 story 通过 CR-CODE 评审循环（MAX 2）。lane 合流后串行执行批量验证' },
+    { title: 'AssetGen', detail: 'art-director 生成核心循环必需的图像（engine=unity/unreal 时还包括 3D 模型 MDL/ANM），audio-designer 生成核心 SFX，并通过 AR-ASSET 循环（MAX 3 + fallback 1）' },
+    { title: 'Integrate', detail: '负责的 engineer 将生成资产经由资产键权威来源（phaser: ASSET_KEYS / unity: GameConfig.AssetKeys / unreal: GameConfig.h 常量）集成到 game/ 并做 typecheck/build 验证（串行区间、含引擎导入）' },
+    { title: 'QA', detail: 'qa-lead 执行 QA-PLAY（实际启动、实际操作、证据），重大 bug 进入修复循环（MAX 2）' },
+    { title: 'Final', detail: 'creative-director 做 CD-CHECKPOINT 判定，整理并返回 Checkpoint B 材料' },
   ],
 };
 
 // ---------------------------------------------------------------------------
-// 共通定数（contract.md §6/§7 のパス。発明禁止）
+// 通用常量（contract.md §6/§7 的路径。禁止自创）
 // ---------------------------------------------------------------------------
 const DOCS = {
   contract: '.claude/docs/contract.md',
   gates: '.claude/docs/gates.md',
   reviewLoops: '.claude/docs/review-loops.md',
-  techStack: '.claude/docs/tech-stack.md', // engine 別 — 下の EP 確定後に engine 対応値へ差し替わる
+  techStack: '.claude/docs/tech-stack.md', // 按 engine 区分 — 下方 EP 确定后替换为 engine 对应值
   assetsConfig: '.claude/docs/assets-config.md',
 };
 const ART = {
@@ -36,7 +36,7 @@ const ART = {
   assetsManifest: 'design/assets.md',
   architecture: 'docs/architecture.md',
   conventions: 'docs/conventions.md',
-  manifest: 'game/assets/MANIFEST.jsonl', // engine 別 — 下の EP 確定後に engine 対応値へ差し替わる
+  manifest: 'game/assets/MANIFEST.jsonl', // 按 engine 区分 — 下方 EP 确定后替换为 engine 对应值
   qaReport: 'qa/report.md',
   qaEvidence: 'qa/evidence/',
 };
@@ -49,115 +49,115 @@ const STATE = {
 };
 
 // ---------------------------------------------------------------------------
-// エンジンプロファイル（contract.md §11。値は各 tech-stack 文書の「検証コマンド」「規約」と一致させること）
-// phaser の値は従来のプロンプト文字列と一字一句同一に保つ（後方互換）。
+// 引擎配置（contract.md §11。取值须与各 tech-stack 文档的「验证命令」「规范」一致）
+// phaser 的取值与原有提示词字符串保持逐字一致（向后兼容）。
 // ---------------------------------------------------------------------------
-// args 正規化: 起動側/ランナーが JSON 文字列で渡してくるケースの防御（E2 で実測。
-// パース不能な文字列は明示エラーに倒す — 黙って既定値に落とさない）
+// args 归一化: 防御调用方/runner 以 JSON 字符串传入的情况（E2 实测。
+// 无法解析的字符串转为显式错误 — 不静默回落到默认值）
 const ARGS = (typeof args === 'string') ? JSON.parse(args) : (args || {});
-// engine 未指定のみ phaser 既定。空文字・不正値は下の throw に倒す（無言フォールバック禁止）
+// 仅在 engine 未指定时默认为 phaser。空字符串、非法值转到下方 throw（禁止静默 fallback）
 const engine = (ARGS.engine !== undefined && ARGS.engine !== null) ? ARGS.engine : 'phaser';
 const ENGINE_PROFILES = {
   phaser: {
-    stack: 'Vite + TypeScript(strict) + Phaser 3（最新安定版）',
+    stack: 'Vite + TypeScript(strict) + Phaser 3（最新稳定版）',
     techStackDoc: '.claude/docs/tech-stack.md',
     manifestPath: 'game/assets/MANIFEST.jsonl',
     rawAssetDir: 'game/assets/',
     assets3d: false,
     verifyCmd: 'cd game && npm run typecheck && npm run build',
     scaffoldTask:
-      '1. game/ を tech-stack.md 厳守でスキャフォールドする: Vite + TypeScript(strict) + Phaser 3（最新安定版）。\n' +
-      '   必須 scripts(dev/build/typecheck/preview)、規定ディレクトリ構造（src/main.ts, src/config.ts, src/scenes/{Boot,Title,Menu,Game,Result}Scene（contract §11 必須シーン集合）, src/systems/, src/systems/meta/, src/persistence/, src/ui/, src/types.ts, assets/）。\n' +
-      '   src/config.ts に ASSET_KEYS 定数の器を用意。game/assets/MANIFEST.jsonl を空ファイルで作成。\n' +
-      '   `cd game && npm install && npm run typecheck && npm run build` が exit 0 になるまで自己修正せよ。',
-    codeRulesLine: '規約厳守: マジックナンバーは src/config.ts へ / delta-time 必須 / Scene は薄く systems/ にロジック / 入力抽象化 / 資産参照は ASSET_KEYS 経由 / 永続化 I/O は src/persistence/ のみ・メタ進行は systems/meta/（セーブ破損の黙示初期化禁止 — rules/gameplay-code.md）。',
-    placeholderNote: '画像・音声はまだ生成中のため、Phaser の Graphics/generateTexture 等によるプレースホルダで良い（ASSET_KEYS のキーだけ先に定義し、差し替え可能にしておく）。',
+      '1. 严格遵守 tech-stack.md 搭建 game/ 脚手架: Vite + TypeScript(strict) + Phaser 3（最新稳定版）。\n' +
+      '   必需 scripts(dev/build/typecheck/preview)、规定的目录结构（src/main.ts, src/config.ts, src/scenes/{Boot,Title,Menu,Game,Result}Scene（contract §11 必需场景集合）, src/systems/, src/systems/meta/, src/persistence/, src/ui/, src/types.ts, assets/）。\n' +
+      '   在 src/config.ts 中预留 ASSET_KEYS 常量的容器。以空文件创建 game/assets/MANIFEST.jsonl。\n' +
+      '   自我修正直到 `cd game && npm install && npm run typecheck && npm run build` 以 exit 0 结束。',
+    codeRulesLine: '严格遵守规范: 魔法数字放入 src/config.ts / 必须使用 delta-time / Scene 保持轻薄，逻辑放在 systems/ / 输入抽象化 / 资产引用经由 ASSET_KEYS / 持久化 I/O 仅限 src/persistence/，元进度放在 systems/meta/（禁止存档损坏时静默初始化 — rules/gameplay-code.md）。',
+    placeholderNote: '图像、音频仍在生成中，因此可用 Phaser 的 Graphics/generateTexture 等做占位符（先只定义 ASSET_KEYS 的键，保持可替换）。',
     codeRulesFile: '.claude/rules/gameplay-code.md',
     codeAddExample: '`git add game/src game/package.json state/stories.yaml`',
     configPath: 'game/src/config.ts',
-    laneVerifyLine: '`cd game && npm run typecheck` を実行し、**自分の編集ファイル起因のエラーのみ** 0 にする（他レーンの書きかけ WIP・他レーンが提供予定の API 参照に起因するエラーは無視してよい — レーン合流後のバッチ検証が最終確認する。**並走レーン中は `npm run build` を実行しない** — dist/ が他レーンと衝突する — tech-stack.md「検証コマンド」節）',
-    qaTarget: 'game/ を実際にビルド・起動し、headless ブラウザで実操作してプレイテストせよ（机上確認は不可。証跡必須）。',
-    qaBuildLine: '`cd game && npm run build` 成功、起動時 console エラー 0。',
-    playInstructions: 'cd game && npm install && npm run dev でローカル起動（操作方法は design/gdd.md を参照）',
+    laneVerifyLine: '执行 `cd game && npm run typecheck`，**仅将自己编辑的文件导致的错误**归零（其他 lane 的半成品 WIP、对其他 lane 计划提供的 API 的引用所导致的错误可以忽略 — lane 合流后的批量验证做最终确认。**并行 lane 期间不要执行 `npm run build`** — dist/ 会与其他 lane 冲突 — tech-stack.md「验证命令」节）',
+    qaTarget: '实际构建、启动 game/，并在 headless 浏览器中实际操作进行试玩测试（不允许纸面确认。必须有证据）。',
+    qaBuildLine: '`cd game && npm run build` 成功，启动时 console 错误为 0。',
+    playInstructions: '用 cd game && npm install && npm run dev 本地启动（操作方法参见 design/gdd.md）',
     integrateSteps:
-      '1. game/assets/ の全資産を src/config.ts の ASSET_KEYS に登録（パスのハードコード禁止。参照は必ず ASSET_KEYS 経由）。\n' +
-      '2. BootScene で preload し、Build フェーズのプレースホルダ（Graphics/generateTexture）を実資産に差し替える。\n' +
-      '3. 音声はユーザー操作後に再生開始（初回入力で AudioContext resume。autoplay 制限対応）。\n' +
-      '4. UI 系資産（HUD・ボタン等）の差し替えが大きい場合はその部分を丁寧に（ui/ 配下の規約に従う）。\n' +
-      '5. `cd game && npm run typecheck && npm run build` が exit 0 になるまで自己修正。'
+      '1. 将 game/assets/ 的全部资产注册到 src/config.ts 的 ASSET_KEYS（禁止硬编码路径。引用必须经由 ASSET_KEYS）。\n' +
+      '2. 在 BootScene 中 preload，并将 Build 阶段的占位符（Graphics/generateTexture）替换为真实资产。\n' +
+      '3. 音频在用户操作后才开始播放（首次输入时 AudioContext resume。应对 autoplay 限制）。\n' +
+      '4. UI 类资产（HUD、按钮等）替换量大时，该部分要仔细处理（遵循 ui/ 下的规范）。\n' +
+      '5. 自我修正直到 `cd game && npm run typecheck && npm run build` 以 exit 0 结束。'
   },
   unity: {
-    stack: 'Unity 6 LTS + C#（URP・3D。state/engine-info.json のエディタを使用）',
+    stack: 'Unity 6 LTS + C#（URP、3D。使用 state/engine-info.json 中的编辑器）',
     techStackDoc: '.claude/docs/tech-stack-unity.md',
     manifestPath: 'game/_generated/MANIFEST.jsonl',
     rawAssetDir: 'game/_generated/',
     assets3d: true,
-    verifyCmd: 'tech-stack-unity.md「検証コマンド」の typecheck 相当（EditMode テスト。合格 = exit 0 かつ結果 XML で failed 0 — exit code 単独判定禁止）と build 相当（ForgeBuild.BuildMac）',
+    verifyCmd: 'tech-stack-unity.md「验证命令」中相当于 typecheck 的步骤（EditMode 测试。合格 = exit 0 且结果 XML 中 failed 为 0 — 禁止仅凭 exit code 判定）与相当于 build 的步骤（ForgeBuild.BuildMac）',
     scaffoldTask:
-      '1. game/ を tech-stack-unity.md 厳守でスキャフォールドする（「プロジェクト生成（scaffold）」節のコマンドを使用。エディタは state/engine-info.json の binary）。\n' +
-      '   必須パッケージ（URP / Input System / glTFast / Test Framework）を Packages/manifest.json に明記し、規定ディレクトリ構造（Assets/Scenes/{Boot,Title,Menu,Game,Result}（contract §11 必須シーン集合・EditorBuildSettings も5シーン）, Assets/Scripts/{GameConfig.cs,Types.cs,Systems/,Systems/Meta/,Persistence/,Components/,Input/,Ui/,Editor/ForgeBuild.cs}, Assets/Tests/{EditMode,PlayMode}, Assets/Resources/Generated/, _generated/）を作る。\n' +
-      '   GameConfig.cs に定数と AssetKeys の器、Editor/ForgeBuild.cs に BuildMac メソッド、EditMode に最小テスト1本を用意。game/_generated/MANIFEST.jsonl を空ファイルで作成。\n' +
-      '   tech-stack-unity.md「検証コマンド」の typecheck 相当（EditMode テスト）と build 相当（ForgeBuild.BuildMac）が exit 0 になるまで自己修正せよ。',
-    codeRulesLine: '規約厳守: マジックナンバーは Assets/Scripts/GameConfig.cs へ / Time.deltaTime 必須 / Components は薄く Systems/（pure C#・MonoBehaviour禁止）にロジック / Input System 集約（コード生成方式）/ 資産参照は GameConfig.cs の AssetKeys 経由 / 永続化 I/O は Persistence/ のみ・メタ進行は Systems/Meta/（セーブ破損の黙示初期化禁止 — rules/unity-code.md）/ UI Canvas は RenderMode.ScreenSpaceCamera 固定（tech-stack-unity.md 規約14）。',
-    placeholderNote: '3Dモデル・音声はまだ生成中のため、Unity プリミティブ（Cube/Capsule 等）＋単色マテリアルのプレースホルダで良い（AssetKeys のキーだけ先に定義し、差し替え可能にしておく）。',
+      '1. 严格遵守 tech-stack-unity.md 搭建 game/ 脚手架（使用「项目生成（scaffold）」节的命令。编辑器为 state/engine-info.json 的 binary）。\n' +
+      '   在 Packages/manifest.json 中明确写入必需包（URP / Input System / glTFast / Test Framework），并创建规定的目录结构（Assets/Scenes/{Boot,Title,Menu,Game,Result}（contract §11 必需场景集合，EditorBuildSettings 也是这5个场景）, Assets/Scripts/{GameConfig.cs,Types.cs,Systems/,Systems/Meta/,Persistence/,Components/,Input/,Ui/,Editor/ForgeBuild.cs}, Assets/Tests/{EditMode,PlayMode}, Assets/Resources/Generated/, _generated/）。\n' +
+      '   在 GameConfig.cs 中预留常量与 AssetKeys 的容器，在 Editor/ForgeBuild.cs 中准备 BuildMac 方法，在 EditMode 中准备最小测试1个。以空文件创建 game/_generated/MANIFEST.jsonl。\n' +
+      '   自我修正直到 tech-stack-unity.md「验证命令」中相当于 typecheck 的步骤（EditMode 测试）与相当于 build 的步骤（ForgeBuild.BuildMac）以 exit 0 结束。',
+    codeRulesLine: '严格遵守规范: 魔法数字放入 Assets/Scripts/GameConfig.cs / 必须使用 Time.deltaTime / Components 保持轻薄，逻辑放在 Systems/（pure C#，禁止 MonoBehaviour）/ Input System 集中管理（代码生成方式）/ 资产引用经由 GameConfig.cs 的 AssetKeys / 持久化 I/O 仅限 Persistence/，元进度放在 Systems/Meta/（禁止存档损坏时静默初始化 — rules/unity-code.md）/ UI Canvas 固定为 RenderMode.ScreenSpaceCamera（tech-stack-unity.md 规范14）。',
+    placeholderNote: '3D 模型、音频仍在生成中，因此可用 Unity 基本体（Cube/Capsule 等）＋单色材质做占位符（先只定义 AssetKeys 的键，保持可替换）。',
     codeRulesFile: '.claude/rules/unity-code.md',
     codeAddExample: '`git add game/Assets game/Packages game/ProjectSettings state/stories.yaml`',
     configPath: 'game/Assets/Scripts/GameConfig.cs',
-    laneVerifyLine: '**Unity をここでは起動しない**（単一インスタンスロック — 並走レーン・資産レーンと衝突する。EditMode/ビルド検証はレーン合流後のバッチ検証区間で一括実行される — tech-stack-unity.md「検証コマンド」節）。代わりに参照する型・メンバ・アセットキー・シリアライズ対象の実在を Read/Grep で静的確認し、コンパイルを通らない参照を残さない',
-    qaTarget: 'game/ を tech-stack-unity.md「QA-PLAY の実行方法」に従い、batchmode ビルドと PlayMode テスト（入力擬似発行・LogAssert・ScreenCapture）で実プレイ検証せよ（机上確認は不可。テスト結果XMLとスクリーンショット証跡必須）。',
-    qaBuildLine: 'tech-stack-unity.md の build 相当（ForgeBuild.BuildMac batchmode）が exit 0、PlayMode テストで LogAssert.NoUnexpectedReceived() 通過（エラー0）。',
-    playInstructions: 'open game/Build/ForgeGame.app で起動（または Unity エディタで game/ を開いて Play。操作方法は design/gdd.md を参照）',
+    laneVerifyLine: '**此处不要启动 Unity**（单实例锁 — 会与并行 lane、资产 lane 冲突。EditMode/构建验证在 lane 合流后的批量验证区间统一执行 — tech-stack-unity.md「验证命令」节）。作为替代，用 Read/Grep 静态确认所引用的类型、成员、资产键、序列化对象确实存在，不留下无法通过编译的引用',
+    qaTarget: '按照 tech-stack-unity.md「QA-PLAY 的执行方法」，用 batchmode 构建与 PlayMode 测试（模拟输入发送、LogAssert、ScreenCapture）对 game/ 做实际游玩验证（不允许纸面确认。必须有测试结果 XML 与截图证据）。',
+    qaBuildLine: 'tech-stack-unity.md 中相当于 build 的步骤（ForgeBuild.BuildMac batchmode）以 exit 0 结束，PlayMode 测试通过 LogAssert.NoUnexpectedReceived()（错误为 0）。',
+    playInstructions: '用 open game/Build/ForgeGame.app 启动（或在 Unity 编辑器中打开 game/ 后 Play。操作方法参见 design/gdd.md）',
     integrateSteps:
-      '1. game/_generated/ の合格資産（MDL/ANM/画像/音声）を game/Assets/Resources/Generated/{models,textures,audio}/ にコピーして Unity にインポートさせ（Resources.Load 方式 — contract §11。AssetKeys の値は Resources 相対パス）、GameConfig.cs の AssetKeys に登録（パスのハードコード禁止）。\n' +
-      '2. リグ付き FBX は ModelImporter の animationType（Humanoid なら Human）をエディタスクリプトで設定し Avatar 生成を確認。プレースホルダ（プリミティブ）を実資産に差し替える。\n' +
-      '3. 取込後にバウンディングボックスでスケール検証（tech-stack-unity.md「資産の取り扱い」）。\n' +
-      '4. 音声は AudioSource で配線（OGG）。\n' +
-      '5. tech-stack-unity.md「検証コマンド」の typecheck 相当（EditMode テスト）と build 相当（ForgeBuild.BuildMac）が exit 0 になるまで自己修正。'
+      '1. 将 game/_generated/ 中的合格资产（MDL/ANM/图像/音频）复制到 game/Assets/Resources/Generated/{models,textures,audio}/ 并让 Unity 导入（Resources.Load 方式 — contract §11。AssetKeys 的值为 Resources 相对路径），注册到 GameConfig.cs 的 AssetKeys（禁止硬编码路径）。\n' +
+      '2. 带 rig 的 FBX 用编辑器脚本设置 ModelImporter 的 animationType（Humanoid 则为 Human）并确认 Avatar 生成成功。将占位符（基本体）替换为真实资产。\n' +
+      '3. 导入后用包围盒做缩放验证（tech-stack-unity.md「资产处理」）。\n' +
+      '4. 音频用 AudioSource 接线（OGG）。\n' +
+      '5. 自我修正直到 tech-stack-unity.md「验证命令」中相当于 typecheck 的步骤（EditMode 测试）与相当于 build 的步骤（ForgeBuild.BuildMac）以 exit 0 结束。'
   },
   unreal: {
-    stack: 'Unreal Engine 5.x + C++（3D。state/engine-info.json のエンジンを使用。Blueprint ロジック禁止）',
+    stack: 'Unreal Engine 5.x + C++（3D。使用 state/engine-info.json 中的引擎。禁止 Blueprint 逻辑）',
     techStackDoc: '.claude/docs/tech-stack-unreal.md',
     manifestPath: 'game/_generated/MANIFEST.jsonl',
     rawAssetDir: 'game/_generated/',
     assets3d: true,
-    verifyCmd: 'tech-stack-unreal.md「検証コマンド」の typecheck/build 相当（BuildCookRun -build。テスト実行時の合格 = exit 0 かつレポート JSON で failed 0）',
+    verifyCmd: 'tech-stack-unreal.md「验证命令」中相当于 typecheck/build 的步骤（BuildCookRun -build。执行测试时的合格 = exit 0 且报告 JSON 中 failed 为 0）',
     scaffoldTask:
-      '1. game/ を tech-stack-unreal.md 厳守でスキャフォールドする（「プロジェクト生成（scaffold）」節: テンプレートコピー方式。プロジェクト名 ForgeGame 固定）。\n' +
-      '   規定ディレクトリ構造（Source/ForgeGame/{GameConfig.h,Types.h,Systems/,Systems/Meta/,Persistence/,Actors/,Input/,Ui/}, Source/ForgeGameTests/, Content/{Generated/,Maps/}, Config/, _generated/）を作る。Maps/ は Boot/Title/Menu/Game/Result の5状態（contract §11。レベル分割 or 状態遷移）。\n' +
-      '   GameConfig.h に定数の器、ForgeGameTests に最小 Automation Test 1本を用意。game/_generated/MANIFEST.jsonl を空ファイルで作成。\n' +
-      '   tech-stack-unreal.md「検証コマンド」の typecheck/build 相当（BuildCookRun -build）が exit 0 になるまで自己修正せよ。',
-    codeRulesLine: '規約厳守: マジックナンバーは Source/ForgeGame/GameConfig.h へ / DeltaSeconds 必須 / Actors は薄く Systems/（pure C++・UObject禁止）にロジック / Enhanced Input 集約 / 資産パスは GameConfig.h の定数経由。Blueprint にロジックを置かない / 永続化（USaveGame）は Persistence/ のみ・メタ進行は Systems/Meta/（セーブ破損の黙示初期化禁止 — rules/unreal-code.md）。',
-    placeholderNote: '3Dモデル・音声はまだ生成中のため、UE BasicShapes（Cube/Capsule 等）＋単色マテリアルのプレースホルダで良い（GameConfig.h の資産定数だけ先に定義し、差し替え可能にしておく）。',
+      '1. 严格遵守 tech-stack-unreal.md 搭建 game/ 脚手架（「项目生成（scaffold）」节: 模板复制方式。项目名固定为 ForgeGame）。\n' +
+      '   创建规定的目录结构（Source/ForgeGame/{GameConfig.h,Types.h,Systems/,Systems/Meta/,Persistence/,Actors/,Input/,Ui/}, Source/ForgeGameTests/, Content/{Generated/,Maps/}, Config/, _generated/）。Maps/ 为 Boot/Title/Menu/Game/Result 的5个状态（contract §11。关卡拆分 or 状态转移）。\n' +
+      '   在 GameConfig.h 中预留常量的容器，在 ForgeGameTests 中准备最小 Automation Test 1个。以空文件创建 game/_generated/MANIFEST.jsonl。\n' +
+      '   自我修正直到 tech-stack-unreal.md「验证命令」中相当于 typecheck/build 的步骤（BuildCookRun -build）以 exit 0 结束。',
+    codeRulesLine: '严格遵守规范: 魔法数字放入 Source/ForgeGame/GameConfig.h / 必须使用 DeltaSeconds / Actors 保持轻薄，逻辑放在 Systems/（pure C++，禁止 UObject）/ Enhanced Input 集中管理 / 资产路径经由 GameConfig.h 的常量。不把逻辑放在 Blueprint 中 / 持久化（USaveGame）仅限 Persistence/，元进度放在 Systems/Meta/（禁止存档损坏时静默初始化 — rules/unreal-code.md）。',
+    placeholderNote: '3D 模型、音频仍在生成中，因此可用 UE BasicShapes（Cube/Capsule 等）＋单色材质做占位符（先只定义 GameConfig.h 的资产常量，保持可替换）。',
     codeRulesFile: '.claude/rules/unreal-code.md',
     codeAddExample: '`git add game/Source game/Config game/ForgeGame.uproject state/stories.yaml`',
     configPath: 'game/Source/ForgeGame/GameConfig.h',
-    laneVerifyLine: '**UE/UBT をここでは起動しない**（単一インスタンスロック — 並走レーン・資産レーンと衝突する。BuildCookRun 検証はレーン合流後のバッチ検証区間で一括実行される — tech-stack-unreal.md「検証コマンド」節）。代わりに参照する型・メンバ・ヘッダ include の実在を Read/Grep で静的確認し、コンパイルを通らない参照を残さない',
-    qaTarget: 'game/ を tech-stack-unreal.md「QA-PLAY の実行方法」に従い、BuildCookRun と Automation RunTests（レポートJSON・スクリーンショット）で実プレイ検証せよ（机上確認は不可。証跡必須）。',
-    qaBuildLine: 'tech-stack-unreal.md の package 相当（BuildCookRun）が exit 0、Automation レポート JSON で failed 0。',
-    playInstructions: 'open game/Build/Mac/ForgeGame.app で起動（操作方法は design/gdd.md を参照）',
+    laneVerifyLine: '**此处不要启动 UE/UBT**（单实例锁 — 会与并行 lane、资产 lane 冲突。BuildCookRun 验证在 lane 合流后的批量验证区间统一执行 — tech-stack-unreal.md「验证命令」节）。作为替代，用 Read/Grep 静态确认所引用的类型、成员、头文件 include 确实存在，不留下无法通过编译的引用',
+    qaTarget: '按照 tech-stack-unreal.md「QA-PLAY 的执行方法」，用 BuildCookRun 与 Automation RunTests（报告 JSON、截图）对 game/ 做实际游玩验证（不允许纸面确认。必须有证据）。',
+    qaBuildLine: 'tech-stack-unreal.md 中相当于 package 的步骤（BuildCookRun）以 exit 0 结束，Automation 报告 JSON 中 failed 为 0。',
+    playInstructions: '用 open game/Build/Mac/ForgeGame.app 启动（操作方法参见 design/gdd.md）',
     integrateSteps:
-      '1. game/_generated/ の合格資産（MDL/ANM/画像/音声）を Interchange（Python: unreal.InterchangeManager）で game/Content/Generated/ にインポートし、GameConfig.h の資産定数（FSoftObjectPath）に登録（パス文字列の実装直書き禁止）。\n' +
-      '2. リグ付き FBX はスケルトン取込を確認し、必要なら IK Rig / IK Retargeter（Python API）でリターゲット。プレースホルダ（BasicShapes）を実資産に差し替える。\n' +
-      '3. 取込後にバウンディングボックスでスケール検証（UE は 1 unit = 1cm。tech-stack-unreal.md「資産の取り扱い」）。\n' +
-      '4. 音声は WAV を SoundWave として配線。\n' +
-      '5. tech-stack-unreal.md「検証コマンド」の typecheck/build 相当（BuildCookRun -build）が exit 0 になるまで自己修正。'
+      '1. 将 game/_generated/ 中的合格资产（MDL/ANM/图像/音频）通过 Interchange（Python: unreal.InterchangeManager）导入到 game/Content/Generated/，并注册到 GameConfig.h 的资产常量（FSoftObjectPath）（禁止在实现中直接写路径字符串）。\n' +
+      '2. 带 rig 的 FBX 确认骨架导入成功，必要时用 IK Rig / IK Retargeter（Python API）重定向。将占位符（BasicShapes）替换为真实资产。\n' +
+      '3. 导入后用包围盒做缩放验证（UE 为 1 unit = 1cm。tech-stack-unreal.md「资产处理」）。\n' +
+      '4. 音频将 WAV 作为 SoundWave 接线。\n' +
+      '5. 自我修正直到 tech-stack-unreal.md「验证命令」中相当于 typecheck/build 的步骤（BuildCookRun -build）以 exit 0 结束。'
   }
 };
 const EP = ENGINE_PROFILES[engine];
-if (!EP) throw new Error('args.engine が不正: ' + engine + '（contract §11: phaser|unity|unreal）');
-// エンジン別の正本パスを反映（const オブジェクトのプロパティ差し替え。phaser は従来値のまま）
+if (!EP) throw new Error('args.engine 无效: ' + engine + '（contract §11: phaser|unity|unreal）');
+// 反映按 engine 区分的权威路径（替换 const 对象的属性。phaser 保持原有值）
 DOCS.techStack = EP.techStackDoc;
 ART.manifest = EP.manifestPath;
 
 // ---------------------------------------------------------------------------
-// 実行時状態
+// 运行时状态
 // ---------------------------------------------------------------------------
 const reviewMode = ARGS.reviewMode || 'lean';
 const checkpointAFeedbackPath = ARGS.checkpointAFeedbackPath || null;
 const unresolvedFindings = [];
 const knownIssues = [];
-// 全 verdict 履歴（contract.md §9 / review-loops.md: full モードではスキルが完了後の
-// Checkpoint 提示でこの全件を人間に提示する。実行中の都度提示は行わない）
+// 全部 verdict 历史（contract.md §9 / review-loops.md: full 模式下由 skill 在完成后的
+// Checkpoint 展示中将全部条目展示给人类。执行中不做逐次展示）
 const verdictHistory = [];
 
 function recordVerdict(gateId, artifactName, iteration, verdict, findingsSummary) {
@@ -170,84 +170,84 @@ function recordVerdict(gateId, artifactName, iteration, verdict, findingsSummary
   });
 }
 
-// review-mode 変調（contract.md §9 / review-loops.md）。reviewer プロンプトに前置する。
+// review-mode 调制（contract.md §9 / review-loops.md）。前置于 reviewer 提示词。
 function reviewModeNote(mode) {
   if (mode === 'full') {
-    return '【review-mode: full】ループは自動。verdict は workflow が履歴として蓄積し、完了後に Checkpoint でまとめて人間に提示される（実行中の人間への提示は行わない）。';
+    return '【review-mode: full】循环为自动。verdict 由 workflow 作为历史累积，完成后在 Checkpoint 汇总展示给人类（执行中不向人类展示）。';
   }
-  return '【review-mode: ' + mode + '】ループは自動。人間への提示は不要（未解決指摘は Checkpoint でまとめて提示される）。';
+  return '【review-mode: ' + mode + '】循环为自动。无需向人类展示（未解决问题在 Checkpoint 汇总展示）。';
 }
 
-// verdict の重い方を返す（レビューペアのマージ用）
+// 返回更严重的 verdict（用于合并评审对）
 function worseVerdict(a, b) {
   const rank = { APPROVE: 0, CONCERNS: 1, REJECT: 2 };
   return (rank[b] || 0) > (rank[a] || 0) ? b : a;
 }
 
 // ---------------------------------------------------------------------------
-// transient エラー（safety classifier 一時失敗等）への1回だけの自動リトライ（retro-e3 指摘5）。
-// label に -retry を付けて opts を変える = キャッシュキーが変わり、失敗結果の replay を避ける。
-// リトライ後も null なら従来どおり呼び出し側がエスカレーションする
+// 对 transient 错误（safety classifier 临时失败等）仅做1次自动重试（retro-e3 问题5）。
+// 给 label 加上 -retry 改变 opts = 缓存键改变，避免 replay 失败结果。
+// 重试后仍为 null 则照旧由调用方上报
 // ---------------------------------------------------------------------------
 async function agentR(prompt, opts) {
   let r = await agent(prompt, opts);
   if (r === null) {
-    log('agent null（transient の可能性）→ 1回リトライ: ' + ((opts && opts.label) || ''));
-    // 盲目再実行の禁止: 初回呼び出しが「作業完了後に構造化応答だけ喪失」した可能性があるため、
-    // 完了済み作業（コミット・資産生成・課金 API 呼び出し）の重複実行を防ぐ resume ガードを前置する
-    const guarded = '【リトライ実行】直前の同一タスク呼び出しが構造化応答を失って中断した可能性がある。作業開始前に既存の成果（git log の直近コミット・生成済みファイル・MANIFEST 追記）を確認し、完了済みの操作（コミット・資産生成・課金 API 呼び出し）は繰り返すな。未完了分のみ実行し、全て完了済みなら再実行せず結果の構造化返却のみを行え。\n\n' + prompt;
+    log('agent 返回 null（可能是 transient）→ 重试1次: ' + ((opts && opts.label) || ''));
+    // 禁止盲目重新执行: 首次调用可能是「作业完成后仅丢失了结构化响应」，
+    // 因此前置 resume 守卫，防止已完成作业（提交、资产生成、计费 API 调用）被重复执行
+    const guarded = '【重试执行】上一次同一任务调用可能在丢失结构化响应后中断。开始作业前先确认既有成果（git log 的最近提交、已生成文件、MANIFEST 追加写入），已完成的操作（提交、资产生成、计费 API 调用）不要重复。只执行未完成的部分，若全部已完成则不要重新执行，仅做结果的结构化返回。\n\n' + prompt;
     r = await agent(guarded, Object.assign({}, opts, { label: (((opts && opts.label) || 'agent') + '-retry') }));
   }
   return r;
 }
 
-// レーン/トラック粒度の例外ガード: parallel() は thunk の例外を null に潰すため、そのままでは
-// レーン丸ごとの中断（残 story 未実装）が unresolvedFindings のどこにも載らない。
-// thunk 内で catch して [BLOCKER] を蓄積する（thunk 内 catch は parallel の例外潰しに先行する）
+// lane/track 粒度的异常守卫: parallel() 会把 thunk 的异常吞成 null，因此若不处理，
+// 整个 lane 的中断（剩余 story 未实现）不会出现在 unresolvedFindings 的任何位置。
+// 在 thunk 内 catch 并累积 [BLOCKER]（thunk 内的 catch 先于 parallel 吞掉异常）
 function laneSafe(name, fn) {
   return async function () {
     try {
       return await fn();
     } catch (e) {
       const msg = e && e.message ? e.message : String(e);
-      log('[laneSafe] ' + name + ' 例外中断: ' + msg); // 実行中の観測者にも見せる（unresolvedFindings は終端まで不可視）
-      unresolvedFindings.push('[BLOCKER] ' + name + 'が例外中断: ' + msg + '（以降の担当作業が未実行の可能性 — state/reviews と git log で実施範囲を確認）');
+      log('[laneSafe] ' + name + ' 因异常中断: ' + msg); // 也让执行中的观察者看到（unresolvedFindings 直到终点都不可见）
+      unresolvedFindings.push('[BLOCKER] ' + name + ' 因异常中断: ' + msg + '（之后的负责作业可能未执行 — 用 state/reviews 与 git log 确认实施范围）');
       return null;
     }
   };
 }
 
 // ---------------------------------------------------------------------------
-// reviewLoop ヘルパー（review-loops.md の共通形。concept-design.js と同形・自己完結）
+// reviewLoop 辅助函数（review-loops.md 的通用形式。与 concept-design.js 同形、自包含）
 //   cfg = {
 //     gateId, artifactName, maxIter, reviewMode,
-//     produce: async () => any|null,                    // 初回制作。null = 失敗
+//     produce: async () => any|null,                    // 首次制作。null = 失败
 //     review:  async (iteration) => {verdict, findings[]}|null,
-//     revise:  async (findings, iteration) => any|null, // 指摘反映
+//     revise:  async (findings, iteration) => any|null, // 反映问题
 //   }
-// 戻り値: { ok, verdict, unresolved: string[] }
-// MAX_ITER 到達かつ非 APPROVE → エスカレーション（パイプラインは止めず未解決指摘を持ち帰る）
+// 返回值: { ok, verdict, unresolved: string[] }
+// 达到 MAX_ITER 且非 APPROVE → 上报（不停止流水线，带回未解决问题）
 // ---------------------------------------------------------------------------
 async function reviewLoop(cfg) {
   const produced = await cfg.produce();
   if (produced === null || produced === undefined) {
-    log('[' + cfg.gateId + '] produce 失敗: ' + cfg.artifactName);
-    return { ok: false, verdict: null, unresolved: ['[' + cfg.gateId + '] ' + cfg.artifactName + ': produce フェーズが失敗（agent が結果を返さなかった）'] };
+    log('[' + cfg.gateId + '] produce 失败: ' + cfg.artifactName);
+    return { ok: false, verdict: null, unresolved: ['[' + cfg.gateId + '] ' + cfg.artifactName + ': produce 阶段失败（agent 未返回结果）'] };
   }
   let unresolved = [];
-  const loopFailures = []; // review/revise の実行失敗マーカー（findings の再代入で失わないよう別配列に蓄積 — red-team 指摘）
+  const loopFailures = []; // review/revise 的执行失败标记（为避免随 findings 重新赋值而丢失，累积在单独数组 — red-team 问题）
   let lastVerdict = 'CONCERNS';
   for (let i = 1; i <= cfg.maxIter; i++) {
     const result = await cfg.review(i);
     if (!result || !result.verdict) {
-      log('[' + cfg.gateId + '] iteration ' + i + ': review 失敗（結果なし）');
-      loopFailures.push('[' + cfg.gateId + '] ' + cfg.artifactName + ': iteration ' + i + ' の review が結果を返さなかった');
+      log('[' + cfg.gateId + '] iteration ' + i + ': review 失败（无结果）');
+      loopFailures.push('[' + cfg.gateId + '] ' + cfg.artifactName + ': iteration ' + i + ' 的 review 未返回结果');
       continue;
     }
     log('[' + cfg.gateId + '] ' + cfg.artifactName + ' iteration ' + i + ': ' + result.verdict);
     recordVerdict(cfg.gateId, cfg.artifactName, i, result.verdict, result.findings || []);
     if (result.verdict === 'APPROVE') {
-      // 途中 iteration の実行失敗は APPROVE でも人間に届ける（隠さない）
+      // 中途 iteration 的执行失败即使 APPROVE 也要送达人类（不隐藏）
       return { ok: true, verdict: 'APPROVE', unresolved: loopFailures.slice() };
     }
     lastVerdict = result.verdict;
@@ -256,19 +256,19 @@ async function reviewLoop(cfg) {
     });
     const revised = await cfg.revise(result.findings || [], i);
     if (revised === null || revised === undefined) {
-      log('[' + cfg.gateId + '] iteration ' + i + ': revise 失敗');
-      loopFailures.push('[' + cfg.gateId + '] ' + cfg.artifactName + ': iteration ' + i + ' の revise が失敗（指摘未対応の可能性）');
+      log('[' + cfg.gateId + '] iteration ' + i + ': revise 失败');
+      loopFailures.push('[' + cfg.gateId + '] ' + cfg.artifactName + ': iteration ' + i + ' 的 revise 失败（问题可能未处理）');
     }
   }
-  log('[' + cfg.gateId + '] ' + cfg.artifactName + ': MAX_ITER(' + cfg.maxIter + ') 到達・非APPROVE → エスカレーション');
-  // REJECT 級（設計欠陥相当）で終わった場合は [BLOCKER] を前置し、CD-CHECKPOINT が冒頭で個別警告する
+  log('[' + cfg.gateId + '] ' + cfg.artifactName + ': 达到 MAX_ITER(' + cfg.maxIter + ')、非APPROVE → 上报');
+  // 以 REJECT 级（相当于设计缺陷）结束时前置 [BLOCKER]，由 CD-CHECKPOINT 在开头单独警告
   if (lastVerdict === 'REJECT') {
     unresolved = unresolved.map(function (u) { return '[BLOCKER] ' + u; });
   }
   return { ok: false, verdict: lastVerdict, unresolved: loopFailures.concat(unresolved) };
 }
 
-// verdict + findings の共通レビュースキーマ
+// verdict + findings 的通用评审 schema
 const VERDICT_SCHEMA = {
   type: 'object',
   required: ['verdict', 'findings'],
@@ -278,7 +278,7 @@ const VERDICT_SCHEMA = {
   },
 };
 
-// 実装/修正 agent の返却スキーマ（コミット hash 必須 — CR-CODE のレビュー対象固定に使う）
+// 实现/修复 agent 的返回 schema（commit hash 必填 — 用于固定 CR-CODE 的评审对象）
 const COMMIT_RESULT_SCHEMA = {
   type: 'object',
   required: ['commitHash'],
@@ -290,31 +290,31 @@ const COMMIT_RESULT_SCHEMA = {
 };
 
 // =========================================================================
-// Phase: Setup — tech-director がスキャフォールド + 設計docs + stories.yaml
+// Phase: Setup — tech-director 搭建脚手架 + 设计 docs + stories.yaml
 // =========================================================================
 phase('Setup');
 
 const setupPrompt = [
-  'あなたは ArcadeRelay Phase 2 の Setup を担当する（engine: ' + engine + ' — contract §11）。以下を必ず読んでから作業せよ:',
-  '- ' + ART.brief + ' / ' + ART.concept + '（ピラー P-xx）/ ' + ART.gdd + ' / ' + ART.assetsManifest + ' / ' + ART.artBibleJson,
-  '- ' + DOCS.techStack + '（game/ の規約。厳守）',
-  '- ' + DOCS.contract + '（§7 stories.yaml スキーマ / §2 agent名 / §11 エンジン）',
+  '你负责 ArcadeRelay Phase 2 的 Setup（engine: ' + engine + ' — contract §11）。开始作业前必须先读以下内容:',
+  '- ' + ART.brief + ' / ' + ART.concept + '（支柱 P-xx）/ ' + ART.gdd + ' / ' + ART.assetsManifest + ' / ' + ART.artBibleJson,
+  '- ' + DOCS.techStack + '（game/ 的规范。严格遵守）',
+  '- ' + DOCS.contract + '（§7 stories.yaml schema / §2 agent 名 / §11 引擎）',
   checkpointAFeedbackPath
-    ? '- ' + checkpointAFeedbackPath + '（Checkpoint A の人間フィードバック。設計・ストーリー分解に必ず反映し、反映内容を ' + STATE.active + ' に明記すること）'
-    : '（Checkpoint A フィードバックファイルは無し）',
+    ? '- ' + checkpointAFeedbackPath + '（Checkpoint A 的人类反馈。必须反映到设计与 story 分解中，并将反映内容明确写入 ' + STATE.active + '）'
+    : '（无 Checkpoint A 反馈文件）',
   '',
-  'タスク（すべて完了させること）:',
+  '任务（全部必须完成）:',
   EP.scaffoldTask,
-  '2. ' + ART.architecture + ' を書く（シーン/レベル構成・システム境界・データフロー。エンジン非依存コア層（Systems）の線引きを ' + DOCS.techStack + ' に従い明記）。',
-  '3. ' + ART.conventions + ' を書く（このゲーム固有のコード規約。' + DOCS.techStack + ' の規約に上乗せする具体則）。',
-  '4. ' + STATE.stories + ' を contract §7 スキーマ通りに書く: ' + ART.gdd + ' を分解し、',
-  '   - phase: prototype = コアループが1周する縦串（開始→挑戦→報酬→再挑戦）+ 必須シーン遷移（Title→Menu→Game→Result→Menu — contract §11）に必要な最小ストーリー群。実装順に並べる。',
-  '   - phase: build = 残り全部。',
-  '   - 各 story: 安定ID S-01〜 / pillar は concept.md の P-xx を必ず参照 / assignee は gameplay-engineer か ui-engineer / status: todo / acceptance は実操作で検証可能な文。',
-  '   - **必須（欠けたら分解不合格 — contract §11）**: (a) Title シーンの story（assignee: ui-engineer / phase: prototype）、(b) Menu シーンの story（assignee: ui-engineer / phase: prototype。acceptance に必須要素 = プレイ開始・アウトゲーム表示・設定・終了導線 の実在検証を含める）、(c) メタ進行の永続化 story（assignee: gameplay-engineer。acceptance に「保存→再起動相当→復元一致」と「破損時 .bak+[SaveCorruption] 明示エラー」を含める）、(d) 環境の最低限ビジュアル story（assignee: gameplay-engineer / phase: prototype。acceptance に unity/unreal は「可視の地面/背景・ライト・カメラ構図の確定」、phaser は「背景の可視化・画面レイアウトの確定」を含める — contract §11）。',
-  '5. ' + STATE.active + ' を更新し（日時は `date -u +%Y-%m-%dT%H:%M:%SZ` の実行出力を使う — 推測記入禁止）、パス限定で add してコミットする: `git add game docs state design && git commit -m "phase2: scaffold + stories"`（`git add -A` 禁止 — .claude/ 等の作業対象外の変更を巻き込まない）。',
+  '2. 撰写 ' + ART.architecture + '（场景/关卡构成、系统边界、数据流。按 ' + DOCS.techStack + ' 明确写出引擎无关核心层（Systems）的边界划分）。',
+  '3. 撰写 ' + ART.conventions + '（本游戏特有的代码规范。叠加在 ' + DOCS.techStack + ' 规范之上的具体规则）。',
+  '4. 按 contract §7 schema 撰写 ' + STATE.stories + ': 分解 ' + ART.gdd + '，',
+  '   - phase: prototype = 核心循环跑通一轮的垂直切片（开始→挑战→奖励→再挑战）+ 必需场景转移（Title→Menu→Game→Result→Menu — contract §11）所需的最小 story 集合。按实现顺序排列。',
+  '   - phase: build = 其余全部。',
+  '   - 每个 story: 稳定 ID S-01～ / pillar 必须引用 concept.md 的 P-xx / assignee 为 gameplay-engineer 或 ui-engineer / status: todo / acceptance 为可通过实际操作验证的语句。',
+  '   - **必需（缺失则分解不合格 — contract §11）**: (a) Title 场景的 story（assignee: ui-engineer / phase: prototype）、(b) Menu 场景的 story（assignee: ui-engineer / phase: prototype。acceptance 中包含对必需要素 = 开始游戏、游戏外内容显示、设置、退出入口 实际存在的验证）、(c) 元进度持久化 story（assignee: gameplay-engineer。acceptance 中包含「保存→相当于重启→恢复一致」与「损坏时 .bak+[SaveCorruption] 显式错误」）、(d) 环境的最低限度视觉表现 story（assignee: gameplay-engineer / phase: prototype。acceptance 中 unity/unreal 包含「可见的地面/背景、灯光、相机构图的确定」，phaser 包含「背景的可视化、画面布局的确定」 — contract §11）。',
+  '5. 更新 ' + STATE.active + '（日期时间使用 `date -u +%Y-%m-%dT%H:%M:%SZ` 的执行输出 — 禁止凭推测填写），限定路径 add 后提交: `git add game docs state design && git commit -m "phase2: scaffold + stories"`（禁止 `git add -A` — 不要卷入 .claude/ 等非作业对象的变更）。',
   '',
-  '最後に phase:prototype のストーリー一覧を stories.yaml の記載順で構造化して返せ（titleStoryId / menuStoryId / metaPersistenceStoryId / environmentStoryId に該当 story の ID を明示すること）。',
+  '最后按 stories.yaml 的记载顺序，将 phase:prototype 的 story 列表结构化返回（titleStoryId / menuStoryId / metaPersistenceStoryId / environmentStoryId 中明确写出对应 story 的 ID）。',
 ].filter(Boolean).join('\n');
 
 const SETUP_SCHEMA = {
@@ -336,29 +336,29 @@ const SETUP_SCHEMA = {
         },
       },
     },
-    titleStoryId: { type: 'string', description: 'Title シーン story の S-xx（contract §11 必須）' },
-    menuStoryId: { type: 'string', description: 'Menu シーン story の S-xx（contract §11 必須）' },
-    metaPersistenceStoryId: { type: 'string', description: 'メタ進行永続化 story の S-xx（contract §11 必須）' },
-    environmentStoryId: { type: 'string', description: '環境の最低限ビジュアル（unity/unreal: 可視の地面/背景+ライト+カメラ構図確定）story の S-xx（contract §11 必須）' },
+    titleStoryId: { type: 'string', description: 'Title 场景 story 的 S-xx（contract §11 必需）' },
+    menuStoryId: { type: 'string', description: 'Menu 场景 story 的 S-xx（contract §11 必需）' },
+    metaPersistenceStoryId: { type: 'string', description: '元进度持久化 story 的 S-xx（contract §11 必需）' },
+    environmentStoryId: { type: 'string', description: '环境的最低限度视觉表现（unity/unreal: 可见的地面/背景+灯光+相机构图确定）story 的 S-xx（contract §11 必需）' },
     notes: { type: 'string' },
   },
 };
 
-// contract §11: Title/Menu/メタ進行 story の存在を機械検証する（tech-director の自己申告 ID が
-// 実在し、Title/Menu は assignee: ui-engineer であること）。不合格なら1回だけ差し戻す。
-// contract §11 の engine 別必須環境要素（validateSetup / Setup 差し戻しプロンプト / stories.yaml 独立突合で共用 —
-// 検証と修正指示が同一セットを参照しないと、差し戻しに従った修正が validator に落ちて Setup が中断する）
+// contract §11: 机械验证 Title/Menu/元进度 story 的存在（tech-director 自我申报的 ID 确实存在，
+// 且 Title/Menu 的 assignee 为 ui-engineer）。不合格则仅退回1次。
+// contract §11 按 engine 区分的必需环境要素（validateSetup / Setup 退回提示词 / stories.yaml 独立核对共用 —
+// 若验证与修正指示引用的不是同一集合，按退回指示修正的结果会被 validator 判为不合格，导致 Setup 中断）
 const ENV_REQUIRED_ELEMENTS = engine === 'phaser'
-  ? [['背景', /背景|background/i], ['画面レイアウト', /レイアウト|layout|画面構成/i]]
-  // 3D は「可視の地面」（プレースホルダ地形可）が明示必須 — 背景のみの acceptance は不合格（contract §11）
-  : [['地面', /地面|ground|terrain|床|floor/i], ['ライト', /ライト|照明|light/i], ['カメラ', /カメラ|camera/i]];
-const ENV_REQUIRED_TEXT = ENV_REQUIRED_ELEMENTS.map(function (r) { return r[0]; }).join('・');
+  ? [['背景', /背景|background/i], ['画面布局', /布局|layout|画面构成/i]]
+  // 3D 明确必需「可见的地面」（可以是占位地形）— 仅有背景的 acceptance 不合格（contract §11）
+  : [['地面', /地面|ground|terrain|地板|floor/i], ['灯光', /灯光|照明|light/i], ['相机', /相机|摄像机|camera/i]];
+const ENV_REQUIRED_TEXT = ENV_REQUIRED_ELEMENTS.map(function (r) { return r[0]; }).join('、');
 function envAcceptanceMissing(acc) {
   return ENV_REQUIRED_ELEMENTS.filter(function (r) { return !r[1].test(acc || ''); }).map(function (r) { return r[0]; });
 }
 
 function validateSetup(s) {
-  if (!s || !Array.isArray(s.prototypeStories) || s.prototypeStories.length === 0) return ['prototypeStories が空'];
+  if (!s || !Array.isArray(s.prototypeStories) || s.prototypeStories.length === 0) return ['prototypeStories 为空'];
   const byId = {};
   for (const st of s.prototypeStories) byId[st.id] = st;
   const problems = [];
@@ -366,22 +366,22 @@ function validateSetup(s) {
   const menu = byId[s.menuStoryId];
   const meta = byId[s.metaPersistenceStoryId];
   const env = byId[s.environmentStoryId];
-  if (!title) problems.push('titleStoryId=' + s.titleStoryId + ' が prototypeStories に実在しない');
-  else if (title.assignee !== 'ui-engineer') problems.push('Title story ' + title.id + ' の assignee が ui-engineer でない');
-  if (!menu) problems.push('menuStoryId=' + s.menuStoryId + ' が prototypeStories に実在しない');
-  else if (menu.assignee !== 'ui-engineer') problems.push('Menu story ' + menu.id + ' の assignee が ui-engineer でない');
-  if (!meta) problems.push('metaPersistenceStoryId=' + s.metaPersistenceStoryId + ' が prototypeStories に実在しない');
-  else if (meta.assignee !== 'gameplay-engineer') problems.push('メタ進行永続化 story ' + meta.id + ' の assignee が gameplay-engineer でない（Systems/Meta + Persistence 層の実装 — tech-director.md）');
-  if (!env) problems.push('environmentStoryId=' + s.environmentStoryId + ' が prototypeStories に実在しない');
-  else if (env.assignee !== 'gameplay-engineer') problems.push('環境ビジュアル story ' + env.id + ' の assignee が gameplay-engineer でない（可視の地面/背景・ライト・カメラ構図の実装 — contract §11）');
+  if (!title) problems.push('titleStoryId=' + s.titleStoryId + ' 在 prototypeStories 中不存在');
+  else if (title.assignee !== 'ui-engineer') problems.push('Title story ' + title.id + ' 的 assignee 不是 ui-engineer');
+  if (!menu) problems.push('menuStoryId=' + s.menuStoryId + ' 在 prototypeStories 中不存在');
+  else if (menu.assignee !== 'ui-engineer') problems.push('Menu story ' + menu.id + ' 的 assignee 不是 ui-engineer');
+  if (!meta) problems.push('metaPersistenceStoryId=' + s.metaPersistenceStoryId + ' 在 prototypeStories 中不存在');
+  else if (meta.assignee !== 'gameplay-engineer') problems.push('元进度持久化 story ' + meta.id + ' 的 assignee 不是 gameplay-engineer（Systems/Meta + Persistence 层的实现 — tech-director.md）');
+  if (!env) problems.push('environmentStoryId=' + s.environmentStoryId + ' 在 prototypeStories 中不存在');
+  else if (env.assignee !== 'gameplay-engineer') problems.push('环境视觉 story ' + env.id + ' 的 assignee 不是 gameplay-engineer（可见的地面/背景、灯光、相机构图的实现 — contract §11）');
   else {
-    // ID の自己申告だけでは無関係 story の流用を検出できない — acceptance（title ではなく）が
-    // engine 別の必須環境要素を全てカバーしていることを機械検証する（contract §11:
-    // phaser=背景の可視化+画面レイアウト確定 / unity・unreal=可視の地面+ライト+カメラ構図）
+    // 仅凭 ID 自我申报无法检测无关 story 的挪用 — 机械验证 acceptance（而非 title）
+    // 覆盖了按 engine 区分的全部必需环境要素（contract §11:
+    // phaser=背景的可视化+画面布局确定 / unity、unreal=可见的地面+灯光+相机构图）
     const missing = envAcceptanceMissing(env.acceptance);
     if (missing.length > 0) {
-      problems.push('環境ビジュアル story ' + env.id + ' の acceptance が必須環境要素を欠く: ' + missing.join('・') +
-        '（contract §11 の engine=' + engine + ' 要件。無関係 story の申告か acceptance の記述不足 — acceptance に検証可能な形で明記せよ）');
+      problems.push('环境视觉 story ' + env.id + ' 的 acceptance 缺少必需环境要素: ' + missing.join('、') +
+        '（contract §11 的 engine=' + engine + ' 要求。可能是申报了无关 story 或 acceptance 描述不足 — 请以可验证的形式明确写入 acceptance）');
     }
   }
   return problems;
@@ -396,33 +396,33 @@ let setup = await agentR(setupPrompt, {
 });
 
 {
-  const problems = setup ? validateSetup(setup) : ['Setup agent が結果を返さなかった'];
+  const problems = setup ? validateSetup(setup) : ['Setup agent 未返回结果'];
   if (problems.length > 0 && setup) {
-    log('Setup 差し戻し（contract §11 必須ストーリー欠落）: ' + problems.join(' / '));
+    log('Setup 退回（contract §11 必需 story 缺失）: ' + problems.join(' / '));
     setup = await agentR(
       [
-        'ストーリー分解が contract §11 の必須要件を満たしていない。以下を修正して ' + STATE.stories + ' を更新し、修正後の phase:prototype ストーリー一覧を再返却せよ:',
+        'story 分解不满足 contract §11 的必需要求。修正以下问题并更新 ' + STATE.stories + '，然后重新返回修正后的 phase:prototype story 列表:',
         problems.map(function (p, i) { return (i + 1) + '. ' + p; }).join('\n'),
-        '必須: Title story と Menu story（いずれも assignee: ui-engineer / phase: prototype）と メタ進行永続化 story と 環境の最低限ビジュアル story（assignee: gameplay-engineer / phase: prototype。acceptance に必須環境要素「' + ENV_REQUIRED_TEXT + '」（contract §11 の engine=' + engine + ' 要件）を検証可能な形で全て含める）。既存 S-xx の振り直しは禁止（続番で追加）。',
-        '修正後 git add ' + STATE.stories + ' && git commit（メッセージ: "phase2: fix required stories"）。',
+        '必需: Title story 与 Menu story（均为 assignee: ui-engineer / phase: prototype）、元进度持久化 story 与 环境的最低限度视觉表现 story（assignee: gameplay-engineer / phase: prototype。acceptance 中以可验证的形式全部包含必需环境要素「' + ENV_REQUIRED_TEXT + '」（contract §11 的 engine=' + engine + ' 要求））。禁止重新编号既有 S-xx（以顺延编号追加）。',
+        '修正后 git add ' + STATE.stories + ' && git commit（消息: "phase2: fix required stories"）。',
       ].join('\n'),
       { label: 'setup-fix-required-stories', phase: 'Setup', agentType: 'tech-director', effort: 'high', schema: SETUP_SCHEMA }
     );
-    const problems2 = setup ? validateSetup(setup) : ['差し戻し後も Setup agent が結果を返さなかった'];
+    const problems2 = setup ? validateSetup(setup) : ['退回后 Setup agent 仍未返回结果'];
     if (problems2.length > 0) {
-      unresolvedFindings.push('[Setup] contract §11 必須ストーリー（Title/Menu/メタ進行）の検証が差し戻し後も不合格: ' + problems2.join(' / '));
-      setup = null; // 下の失敗経路に倒す（必須シーン欠落のまま実装に進まない）
+      unresolvedFindings.push('[Setup] contract §11 必需 story（Title/Menu/元进度）的验证在退回后仍不合格: ' + problems2.join(' / '));
+      setup = null; // 转到下方的失败路径（不在必需场景缺失的状态下进入实现）
     }
   }
 }
 
-// 独立突合: tech-director の自己申告（構造化返却）ではなく state/stories.yaml の実体を
-// 読み取り専用 agent で確認する（QA 証跡の独立検証と同じ規律 — 自己申告を唯一の関門にしない）
+// 独立核对: 不依赖 tech-director 的自我申报（结构化返回），而是用只读 agent 确认
+// state/stories.yaml 的实体（与 QA 证据的独立验证同一纪律 — 不让自我申报成为唯一关卡）
 if (setup) {
   const crosscheck = await agentR(
     [
-      '読み取り専用の検証タスク。' + STATE.stories + ' を読み、以下の story ID それぞれについて実在・assignee・phase・acceptance（原文そのまま）を返せ。ファイルの変更は禁止。',
-      '対象 ID(JSON): ' + JSON.stringify([setup.titleStoryId, setup.menuStoryId, setup.metaPersistenceStoryId, setup.environmentStoryId]),
+      '只读验证任务。读取 ' + STATE.stories + '，对以下每个 story ID 返回其存在与否、assignee、phase、acceptance（原文照抄）。禁止修改文件。',
+      '对象 ID(JSON): ' + JSON.stringify([setup.titleStoryId, setup.menuStoryId, setup.metaPersistenceStoryId, setup.environmentStoryId]),
     ].join('\n'),
     {
       label: 'setup-crosscheck-stories', phase: 'Setup', effort: 'low',
@@ -442,127 +442,127 @@ if (setup) {
   );
   const ccProblems = [];
   if (!crosscheck) {
-    ccProblems.push('stories.yaml 独立突合 agent が結果を返さなかった');
+    ccProblems.push('stories.yaml 独立核对 agent 未返回结果');
   } else {
     const ccById = {};
     for (const f of (crosscheck.found || [])) ccById[f.id] = f;
     const expect = [
       { id: setup.titleStoryId, assignee: 'ui-engineer', name: 'Title' },
       { id: setup.menuStoryId, assignee: 'ui-engineer', name: 'Menu' },
-      { id: setup.metaPersistenceStoryId, assignee: 'gameplay-engineer', name: 'メタ進行永続化' },
-      { id: setup.environmentStoryId, assignee: 'gameplay-engineer', name: '環境ビジュアル' },
+      { id: setup.metaPersistenceStoryId, assignee: 'gameplay-engineer', name: '元进度持久化' },
+      { id: setup.environmentStoryId, assignee: 'gameplay-engineer', name: '环境视觉' },
     ];
     for (const e of expect) {
       const f = ccById[e.id];
-      if (!f || !f.exists) { ccProblems.push(e.name + ' story ' + e.id + ' が ' + STATE.stories + ' 実体に存在しない（自己申告と不一致）'); continue; }
-      // フィールド欠落は検証スキップではなく不合格（optional フィールドの省略で突合を素通りさせない）
-      if (!f.assignee) ccProblems.push(e.name + ' story ' + e.id + ' の実体 assignee を突合 agent が返さなかった（検証不能）');
-      else if (f.assignee !== e.assignee) ccProblems.push(e.name + ' story ' + e.id + ' の実体 assignee が ' + f.assignee + '（期待: ' + e.assignee + '）');
-      if (!f.phase) ccProblems.push(e.name + ' story ' + e.id + ' の実体 phase を突合 agent が返さなかった（検証不能）');
-      else if (f.phase !== 'prototype') ccProblems.push(e.name + ' story ' + e.id + ' の実体 phase が ' + f.phase + '（期待: prototype — phase: build に置かれた必須 story は Phase 2 の実装・QA 対象から漏れる）');
+      if (!f || !f.exists) { ccProblems.push(e.name + ' story ' + e.id + ' 在 ' + STATE.stories + ' 实体中不存在（与自我申报不一致）'); continue; }
+      // 字段缺失不是跳过验证而是不合格（不让 optional 字段的省略使核对直接通过）
+      if (!f.assignee) ccProblems.push(e.name + ' story ' + e.id + ' 的实体 assignee 核对 agent 未返回（无法验证）');
+      else if (f.assignee !== e.assignee) ccProblems.push(e.name + ' story ' + e.id + ' 的实体 assignee 为 ' + f.assignee + '（期望: ' + e.assignee + '）');
+      if (!f.phase) ccProblems.push(e.name + ' story ' + e.id + ' 的实体 phase 核对 agent 未返回（无法验证）');
+      else if (f.phase !== 'prototype') ccProblems.push(e.name + ' story ' + e.id + ' 的实体 phase 为 ' + f.phase + '（期望: prototype — 被放在 phase: build 的必需 story 会漏出 Phase 2 的实现与 QA 范围）');
       if (e.id === setup.environmentStoryId) {
-        // stories.yaml 実体の acceptance も engine 別必須環境要素で突合（自己申告のみの検証にしない）
-        if (!f.acceptance) ccProblems.push(e.name + ' story ' + e.id + ' の実体 acceptance を突合 agent が返さなかった（検証不能）');
+        // stories.yaml 实体的 acceptance 也按 engine 区分的必需环境要素核对（不只验证自我申报）
+        if (!f.acceptance) ccProblems.push(e.name + ' story ' + e.id + ' 的实体 acceptance 核对 agent 未返回（无法验证）');
         else {
           const ccMissing = envAcceptanceMissing(f.acceptance);
-          if (ccMissing.length > 0) ccProblems.push(e.name + ' story ' + e.id + ' の実体 acceptance が必須環境要素を欠く: ' + ccMissing.join('・') + '（contract §11 の engine=' + engine + ' 要件）');
+          if (ccMissing.length > 0) ccProblems.push(e.name + ' story ' + e.id + ' 的实体 acceptance 缺少必需环境要素: ' + ccMissing.join('、') + '（contract §11 的 engine=' + engine + ' 要求）');
         }
       }
     }
   }
   if (ccProblems.length > 0) {
-    unresolvedFindings.push('[Setup] stories.yaml 独立突合が不合格: ' + ccProblems.join(' / '));
-    setup = null; // 必須シーン欠落・不一致のまま実装に進まない
+    unresolvedFindings.push('[Setup] stories.yaml 独立核对未通过: ' + ccProblems.join(' / '));
+    setup = null; // 不在必需场景缺失、不一致的状态下进入实现
   }
 }
 
 if (!setup || !setup.prototypeStories || setup.prototypeStories.length === 0) {
-  // 実際の失敗理由（validateSetup の不合格詳細を含む蓄積済み unresolvedFindings）をそのまま返す（固定文言で上書きしない）
+  // 原样返回实际的失败原因（包含 validateSetup 不合格详情的已累积 unresolvedFindings）（不用固定措辞覆盖）
   return {
-    summary: 'Phase 2 中断: Setup（スキャフォールド + stories.yaml 生成）が不合格。' +
-      (unresolvedFindings.length > 0 ? ' 理由: ' + unresolvedFindings.join(' / ') : ' Setup agent が結果を返さなかった。'),
-    playInstructions: 'なし（game/ が成立していない可能性が高い。' + STATE.active + ' と ' + STATE.stories + ' を確認のこと）',
+    summary: 'Phase 2 中断: Setup（脚手架 + stories.yaml 生成）不合格。' +
+      (unresolvedFindings.length > 0 ? ' 原因: ' + unresolvedFindings.join(' / ') : ' Setup agent 未返回结果。'),
+    playInstructions: '无（game/ 很可能尚未成立。请确认 ' + STATE.active + ' 与 ' + STATE.stories + '）',
     evidencePaths: [],
-    knownIssues: unresolvedFindings.length > 0 ? unresolvedFindings.slice() : ['Setup agent が結果を返さなかった'],
-    unresolvedFindings: unresolvedFindings.concat(['Setup 失敗のため以降のフェーズは未実行']),
+    knownIssues: unresolvedFindings.length > 0 ? unresolvedFindings.slice() : ['Setup agent 未返回结果'],
+    unresolvedFindings: unresolvedFindings.concat(['因 Setup 失败，之后的阶段未执行']),
     verdictHistory: verdictHistory,
     verdict: 'REJECT',
   };
 }
 const stories = setup.prototypeStories;
-log('Setup 完了: phase:prototype ストーリー ' + stories.length + ' 件 — ' + stories.map(function (s) { return s.id; }).join(', '));
+log('Setup 完成: phase:prototype story ' + stories.length + ' 个 — ' + stories.map(function (s) { return s.id; }).join(', '));
 
 // =========================================================================
-// Phase: Build ∥ AssetGen — コード実装と資産生成を並走
+// Phase: Build ∥ AssetGen — 代码实现与资产生成并行
 // =========================================================================
 
-// ---- Build 側: ストーリーを「順次」実装（並列実装禁止 = コンフリクト回避） ----
-// コミット規律: 実装/修正のたびに触ったパス限定で add してコミットし hash を報告させ、
-// CR-CODE には `git show <hash>` でレビュー対象を固定して渡す（並走する AssetGen の
-// 生成物や未コミット変更が紛れ込むのを防ぐ）。
+// ---- Build 侧: 「顺序」实现 story（禁止并行实现 = 避免冲突） ----
+// 提交纪律: 每次实现/修复都只 add 自己触碰的路径并提交、报告 hash，
+// 向 CR-CODE 传递时用 `git show <hash>` 固定评审对象（防止并行的 AssetGen 的
+// 生成物或未提交变更混入）。
 const GIT_ADD_RULE =
-  'git add は自分が編集した**個別ファイルパス**のみ（ディレクトリ指定・`git add -A` は禁止 — 単一 index を共有する並走レーン/資産トラックの staged 変更や未コミット WIP を巻き込む）。' +
-  'commit は必ずパス指定形 `git commit -m "<msg>" -- <自分の編集ファイル...>` を使う（他パスの staged 巻き込みを防ぐ。**同一ファイル内の他レーン WIP は除外できない**ため、共有ファイル — config/types/stories.yaml — への自分の追記は編集後すぐ**その1ファイルだけ**を単独コミットして確定させる）。' +
-  'コミット hash は `git rev-parse HEAD` ではなく `git log --format="%H %s" -20` から**自分のコミットメッセージに一致する最上（最新）の行**の hash を取り、`git show --stat <hash>` に**自分の編集ファイルが含まれることを確認**する（rev-parse HEAD は並走レーンの直後コミットを拾い得る。一致行が窓に無ければ -50 で再取得。含まれない・commit 自体が失敗した場合は古い同名コミットの hash を返さず**失敗を正直に報告**する）。' +
-  'commit が index.lock で失敗したら 1〜2 秒待って 1 回だけリトライせよ。';
+  'git add 仅限自己编辑的**单个文件路径**（禁止指定目录、禁止 `git add -A` — 会卷入共享同一 index 的并行 lane/资产 track 的 staged 变更或未提交 WIP）。' +
+  'commit 必须使用指定路径的形式 `git commit -m "<msg>" -- <自己编辑的文件...>`（防止卷入其他路径的 staged 变更。**同一文件内其他 lane 的 WIP 无法排除**，因此对共享文件 — config/types/stories.yaml — 的自己的追加写入，要在编辑后立刻**仅对该1个文件**单独提交以固定下来）。' +
+  '提交 hash 不用 `git rev-parse HEAD`，而是从 `git log --format="%H %s" -20` 中取**与自己提交消息一致的最上方（最新）行**的 hash，并用 `git show --stat <hash>` **确认其中包含自己编辑的文件**（rev-parse HEAD 可能拿到并行 lane 紧随其后的提交。窗口内没有一致行则用 -50 重新获取。若不包含、或 commit 本身失败，不要返回旧的同名提交的 hash，而要**如实报告失败**）。' +
+  'commit 因 index.lock 失败时等待 1～2 秒后仅重试 1 次。';
 
-// resume/リトライによる二重適用ガード（adversarial M-8b）: キャッシュキー外れで完了済み作業の
-// プロンプトが再実行されても、config 定数・注記・MANIFEST の重複追記や再コミットをさせない
+// 针对 resume/重试的双重应用守卫（adversarial M-8b）: 即使因缓存键失配而重新执行了已完成作业的
+// 提示词，也不让其重复追加 config 常量、注记、MANIFEST 或重新提交
 const IDEMPOTENT_RULE =
-  '冪等ガード（resume 安全）: この依頼は resume/リトライにより再実行されている可能性がある。作業開始前に git log の直近コミットと対象ファイルを確認し、**この依頼が指示するコミットメッセージと同一のコミット**や、今回追記しようとしている config 定数・stories.yaml 注記・MANIFEST 行そのものが既に存在する場合は、その分の重複追記・再コミットをせず現状確認の上で結果の構造化返却（または報告）のみを行え。**過去 iteration のコミット（実装コミット等）が存在するだけでは完了扱いにしない** — 今回指示された作業自体の完了痕跡があるときのみスキップする。';
+  '幂等守卫（resume 安全）: 本次请求可能因 resume/重试而被重新执行。开始作业前先确认 git log 的最近提交与目标文件，若**与本次请求所指示的提交消息相同的提交**、或本次要追加的 config 常量、stories.yaml 注记、MANIFEST 行本身已经存在，则不要重复追加、不要重新提交，仅在确认现状后做结果的结构化返回（或报告）。**仅有过去 iteration 的提交（实现提交等）存在并不视为完成** — 只有本次所指示作业本身的完成痕迹存在时才跳过。';
 
-// 並走レーン規律（retro-e2 案A: assignee レーン並列。コード編集と review agent のみ並列 —
-// エンジン起動を伴う検証はレーン合流後のバッチ検証区間に集約（案B）。tech-stack 文書「検証」節が正本）
+// 并行 lane 纪律（retro-e2 方案A: 按 assignee lane 并行。仅代码编辑与 review agent 并行 —
+// 需要启动引擎的验证集中到 lane 合流后的批量验证区间（方案B）。tech-stack 文档「验证」节为权威来源）
 const LANE_RULE =
-  '並走レーン規律: あなたの assignee の担当領域以外のコードを書き換えない（gameplay-engineer=ゲーム機構・システム・永続化層 / ui-engineer=UI・シーン表示層。境界は ' + ART.architecture + '）。' +
-  '共有ファイル（' + EP.configPath + '・共有型定義）は**自 story に必要な定数/型の追記のみ**（既存行の変更・削除は禁止 — 並走レーンと衝突する。例外: story の acceptance/指示が明示するバランス調整はその対象定数の**値変更のみ**許可）。' +
-  'やむを得ず他レーン担当領域の既存シーン/配線ファイルに触れる場合（例: Result 到達時の persist 配線）は**ピンポイント Edit のみ・ファイル全面 Write 禁止・Edit 直前に必ず再 Read**（並走レーンのコミット済み変更を巻き戻さない）。' +
-  STATE.stories + ' は自 story のブロック内のみ（status 行・注記）をピンポイント Edit（ファイル全面書き直し禁止 — 並走レーンの更新を消す）。' +
-  STATE.active + ' には触らない（並走レーンと衝突する — 現在地更新はレーン合流後の直列区間の責務）。' +
-  '他レーンの story が提供予定の API に依存する場合は ' + ART.architecture + ' の設計に合わせた呼び出しで実装してよい（コンパイル整合はレーン合流後のバッチ検証が最終確認する）。';
+  '并行 lane 纪律: 不要改写你的 assignee 负责区域以外的代码（gameplay-engineer=游戏机制、系统、持久化层 / ui-engineer=UI、场景显示层。边界见 ' + ART.architecture + '）。' +
+  '共享文件（' + EP.configPath + '、共享类型定义）**仅允许追加自己 story 所需的常量/类型**（禁止修改、删除既有行 — 会与并行 lane 冲突。例外: story 的 acceptance/指示明确要求的平衡调整，仅允许**修改该目标常量的值**）。' +
+  '不得已要触碰其他 lane 负责区域的既有场景/接线文件时（例: 到达 Result 时的 persist 接线），**仅做精准 Edit、禁止整文件 Write、Edit 前必须重新 Read**（不要回退并行 lane 已提交的变更）。' +
+  STATE.stories + ' 仅对自己 story 的块内（status 行、注记）做精准 Edit（禁止整文件重写 — 会抹掉并行 lane 的更新）。' +
+  '不要触碰 ' + STATE.active + '（会与并行 lane 冲突 — 当前位置更新是 lane 合流后串行区间的职责）。' +
+  '若依赖其他 lane 的 story 计划提供的 API，可按 ' + ART.architecture + ' 的设计编写调用来实现（编译一致性由 lane 合流后的批量验证做最终确认）。';
 
-// ---------- バッチ検証（レーン合流後の直列区間。retro-e2 案B） ----------
+// ---------- 批量验证（lane 合流后的串行区间。retro-e2 方案B） ----------
 
 const BATCH_VERIFY_SCHEMA = {
   type: 'object',
   required: ['ok'],
   properties: {
-    ok: { type: 'boolean', description: '検証コマンド一式が最終的に合格（exit 0。unity/unreal はテスト結果 failed 0 込み）に到達したか' },
-    fixedNotes: { type: 'array', items: { type: 'string' }, description: '修正した問題の一覧（原因 story 帰属付き）。無ければ空配列' },
-    unresolved: { type: 'array', items: { type: 'string' }, description: '解消できなかった問題。無ければ空配列' }
+    ok: { type: 'boolean', description: '整套验证命令是否最终达到合格（exit 0。unity/unreal 含测试结果 failed 0）' },
+    fixedNotes: { type: 'array', items: { type: 'string' }, description: '已修复问题的列表（附原因 story 归属）。没有则为空数组' },
+    unresolved: { type: 'array', items: { type: 'string' }, description: '未能解决的问题。没有则为空数组' }
   }
 };
 
 async function batchVerify(phaseName, contextNote) {
   const bv = await agentR(
-    'バッチ検証（直列区間 — 並走レーンは合流済み。エンジン検証をここで一括実行する。engine=' + engine + '）。\n' +
+    '批量验证（串行区间 — 并行 lane 已合流。在此统一执行引擎验证。engine=' + engine + '）。\n' +
     contextNote + '\n' +
-    '手順:\n' +
-    '1) ' + EP.verifyCmd + ' を実行\n' +
-    '2) 失敗があれば、エラーのファイルパスと `git log --oneline -- <該当パス>` で原因 story を特定する（切り分け困難ならレーン中の story コミット単位で二分探索）\n' +
-    '3) 最小修正で合格に到達させる（他 story の設計を作り替えない。チューニング値の変更は ' + EP.configPath + ' のみ。**直列区間の例外として、バッチ検証の最小修正に限り担当領域外のファイル — ui 層含む — も編集してよい**。**機能の削除・呼び出しの除去・無効化による回避は最小修正ではない** — コンパイル整合を保ったまま意図を維持し、やむを得ず挙動を変えた場合は fixedNotes に明記せよ。修正原因がエンジン/テストランナー起因の一般則（環境の落とし穴）だった場合は、tech-stack 文書の「既知の落とし穴」節へ即時追記せよ（無ければ新設 — gates.md QA-PLAY）。）\n' +
-    '4) 修正した場合は ' + STATE.reviewsDir + '/batch-verify.md に「phase / 原因 story / 修正内容 / ISO8601 日時」を追記し（日時は `date -u +%Y-%m-%dT%H:%M:%SZ` の実行出力を使う — 推測記入禁止）、コミット規律のパス指定形で git commit（メッセージ: "batch-verify fix (' + phaseName + ')"）。' + GIT_ADD_RULE + '\n' +
+    '步骤:\n' +
+    '1) 执行 ' + EP.verifyCmd + '\n' +
+    '2) 若有失败，用错误的文件路径与 `git log --oneline -- <该路径>` 定位原因 story（难以定位时按 lane 中的 story 提交为单位二分查找）\n' +
+    '3) 以最小修复达到合格（不重做其他 story 的设计。调参值的修改仅限 ' + EP.configPath + '。**作为串行区间的例外，仅限批量验证的最小修复，可以编辑负责区域以外的文件 — 含 ui 层**。**通过删除功能、移除调用、禁用来规避不是最小修复** — 在保持编译一致性的同时维持意图，不得已改变了行为时要在 fixedNotes 中明确写出。若修复原因是引擎/测试运行器导致的一般性问题（环境陷阱），立即追加写入 tech-stack 文档的「已知陷阱」节（没有则新建 — gates.md QA-PLAY）。）\n' +
+    '4) 若做了修复，在 ' + STATE.reviewsDir + '/batch-verify.md 中追加写入「phase / 原因 story / 修复内容 / ISO8601 日期时间」（日期时间使用 `date -u +%Y-%m-%dT%H:%M:%SZ` 的执行输出 — 禁止凭推测填写），并按提交纪律的指定路径形式 git commit（消息: "batch-verify fix (' + phaseName + ')"）。' + GIT_ADD_RULE + '\n' +
     IDEMPOTENT_RULE + '\n' +
-    '構造化返却: ok（最終合格で true。到達できなければ false を正直に）/ fixedNotes / unresolved。',
+    '结构化返回: ok（最终合格则为 true。未能达到则如实返回 false）/ fixedNotes / unresolved。',
     { label: 'batch-verify-' + phaseName.toLowerCase(), phase: phaseName, agentType: 'gameplay-engineer', schema: BATCH_VERIFY_SCHEMA, effort: 'high' }
   );
   if (bv === null) {
-    unresolvedFindings.push('[BLOCKER] ' + phaseName + ': バッチ検証 agent が結果を返さなかった（ビルド健全性未確認 — 後段 QA が検出する）');
+    unresolvedFindings.push('[BLOCKER] ' + phaseName + ': 批量验证 agent 未返回结果（构建健全性未确认 — 由后续 QA 检测）');
     return false;
   }
-  // 修正内容は人間可視チャネルへ載せる（CR-CODE を通らない直接コミットのため、log() だけでは
-  // 全履歴提示から漏れる — adversarial H-3）
+  // 修复内容要放到人类可见渠道（因为是未经 CR-CODE 的直接提交，仅靠 log() 会
+  // 漏出全部历史的展示 — adversarial H-3）
   for (const n of (bv.fixedNotes || [])) {
-    knownIssues.push('[' + phaseName + '][batch-verify修正・CR-CODE非経由] ' + n);
+    knownIssues.push('[' + phaseName + '][batch-verify 修复/未经 CR-CODE] ' + n);
   }
   for (const u of (bv.unresolved || [])) {
     unresolvedFindings.push('[BLOCKER] ' + phaseName + '[batch-verify] ' + u);
   }
   if (bv.ok !== true || (bv.unresolved || []).length > 0) {
     if (bv.ok !== true && (bv.unresolved || []).length === 0) {
-      unresolvedFindings.push('[BLOCKER] ' + phaseName + ': バッチ検証が合格に未到達（詳細は ' + STATE.reviewsDir + '/batch-verify.md）');
+      unresolvedFindings.push('[BLOCKER] ' + phaseName + ': 批量验证未达到合格（详情见 ' + STATE.reviewsDir + '/batch-verify.md）');
     }
-    log('batch-verify(' + phaseName + '): 不合格または未解決あり（エスカレーション）');
+    log('batch-verify(' + phaseName + '): 不合格或存在未解决项（上报）');
     return false;
   }
   log('batch-verify(' + phaseName + '): 合格');
@@ -571,8 +571,8 @@ async function batchVerify(phaseName, contextNote) {
 
 async function buildStoryLane(laneStories) {
   for (const story of laneStories) {
-    // id 欠落 story で TypeError → レーン全滅を防ぐ（full-build.js と同ガード）。label・コミット
-    // メッセージ・見出しにも生の story.id を使わない（'implement-undefined' / "undefined: <title>" 化を防ぐ）
+    // 防止缺少 id 的 story 引发 TypeError → 整个 lane 失败（与 full-build.js 同一守卫）。label、提交
+    // 消息、标题中也不使用原始 story.id（防止变成 'implement-undefined' / "undefined: <title>"）
     const sid = String(story.id || 'S-unknown');
     const sidLower = sid.toLowerCase();
     const reviewLogPath = STATE.reviewsDir + '/' + sidLower + '.md';
@@ -589,22 +589,22 @@ async function buildStoryLane(laneStories) {
       produce: async function () {
         const r = await agentR(
           [
-            'あなたは ArcadeRelay の実装 engineer。次のストーリーを実装せよ。',
+            '你是 ArcadeRelay 的实现 engineer。实现下面的 story。',
             storyHeader,
             '',
-            '必読: ' + ART.architecture + ' / ' + ART.conventions + ' / ' + ART.gdd + ' / ' + DOCS.techStack + ' / ' + STATE.stories,
+            '必读: ' + ART.architecture + ' / ' + ART.conventions + ' / ' + ART.gdd + ' / ' + DOCS.techStack + ' / ' + STATE.stories,
             '',
-            '手順:',
-            '1. ' + STATE.stories + ' で ' + sid + ' の status を in-progress に更新。',
-            '2. 既存コードの上に積む形で実装（前ストーリーの成果を壊さない）。' + EP.codeRulesLine,
+            '步骤:',
+            '1. 在 ' + STATE.stories + ' 中将 ' + sid + ' 的 status 更新为 in-progress。',
+            '2. 以叠加在既有代码之上的形式实现（不破坏前一个 story 的成果）。' + EP.codeRulesLine,
             '   ' + EP.placeholderNote,
             '   ' + LANE_RULE,
             '3. ' + EP.laneVerifyLine + '。',
-            '4. ' + STATE.stories + ' で status を review に更新し、コミットする。' + GIT_ADD_RULE,
+            '4. 在 ' + STATE.stories + ' 中将 status 更新为 review，然后提交。' + GIT_ADD_RULE,
             '   ' + IDEMPOTENT_RULE,
-            '   コミットメッセージ: "' + sid + ': ' + story.title + '"。コミット hash は上記コミット規律の方法（`git log --format="%H %s" -20` の自メッセージ一致・最新行）で取得せよ。',
+            '   提交消息: "' + sid + ': ' + story.title + '"。提交 hash 按上述提交纪律的方法（`git log --format="%H %s" -20` 中与自己消息一致的最新行）获取。',
             '',
-            '構造化返却: commitHash（今回のコミット hash。必須）/ changedFiles（変更ファイル一覧）/ summary（実装要点）。',
+            '结构化返回: commitHash（本次提交的 hash。必填）/ changedFiles（变更文件列表）/ summary（实现要点）。',
           ].join('\n'),
           { label: 'implement-' + sid, phase: 'Build', agentType: story.assignee, effort: 'high', schema: COMMIT_RESULT_SCHEMA }
         );
@@ -616,26 +616,26 @@ async function buildStoryLane(laneStories) {
       },
 
       review: async function (iteration) {
-        // CR-CODE は code-reviewer + silent-failure-hunter のペア（gates.md CR-CODE 節）
+        // CR-CODE 是 code-reviewer + silent-failure-hunter 的评审对（gates.md CR-CODE 节）
         const reviewCommon = [
           reviewModeNote(reviewMode),
-          'GATE: CR-CODE（' + DOCS.gates + ' の CR-CODE 節を読んで従うこと）。',
-          'レビュー対象はコミット ' + lastCommitHash + ' に固定する（`git show ' + lastCommitHash + '` で取得。作業ツリーの未コミット変更や他のコミットの diff は対象外）。',
+          'GATE: CR-CODE（阅读并遵循 ' + DOCS.gates + ' 的 CR-CODE 节）。',
+          '评审对象固定为提交 ' + lastCommitHash + '（用 `git show ' + lastCommitHash + '` 获取。工作树的未提交变更与其他提交的 diff 不在对象范围内）。',
           storyHeader,
           '',
-          '判定の読み替え: findings 0件 = APPROVE / 修正可能な指摘 = CONCERNS / 設計欠陥 = REJECT。',
-          '前提（並走レーン設計）: 他レーンの story が提供予定の API への参照は、' + ART.architecture + ' の設計に合致していれば「実体未実装」だけを理由に REJECT/blocker としない（コンパイル整合はレーン合流後のバッチ検証が保証する。設計との不一致・誤用は通常どおり指摘してよい）。**このレビューは読み取り専用 — エンジン起動・ビルド/テストコマンドの実行禁止**（並走レーン中の単一インスタンスロック/dist 競合）。',
-          '応答の1行目は「CR-CODE: APPROVE|CONCERNS|REJECT」（contract.md §5）とし、構造化返却の verdict / findings にも同じ判定と指摘を入れよ。',
-          'findings は指摘の配列（ファイル・行・修正方針を含む具体文）。',
+          '判定的换算: findings 0 条 = APPROVE / 可修复的问题 = CONCERNS / 设计缺陷 = REJECT。',
+          '前提（并行 lane 设计）: 对其他 lane 的 story 计划提供的 API 的引用，只要符合 ' + ART.architecture + ' 的设计，就不能仅以「实体未实现」为理由判为 REJECT/blocker（编译一致性由 lane 合流后的批量验证保证。与设计不一致、误用可照常指出）。**本次评审为只读 — 禁止启动引擎、执行构建/测试命令**（并行 lane 期间的单实例锁/dist 竞争）。',
+          '响应的第1行为「CR-CODE: APPROVE|CONCERNS|REJECT」（contract.md §5），结构化返回的 verdict / findings 中也放入相同的判定与问题。',
+          'findings 为问题数组（包含文件、行、修复方针的具体语句）。',
         ];
         const pair = await parallel([
           function () {
             return agentR(
               reviewCommon.concat([
                 '',
-                '観点: 通常のコードレビューに加え、' + EP.codeRulesFile + '（存在しない場合は ' + DOCS.techStack + ' のコード規約）への違反 — 特にマジックナンバー混入と delta-time 非依存実装 — を確認せよ。',
-                'acceptance がこの diff で満たせる実装になっているかも確認せよ。',
-                'レビュー結果を ' + reviewLogPath + ' に追記せよ（review-loops.md の追記形式: iteration ' + iteration + '・verdict・指摘要約・日時。日時は `date -u +%Y-%m-%dT%H:%M:%SZ` の実行出力を使う — 推測記入禁止）。',
+                '要点: 除常规代码评审外，还要确认是否违反 ' + EP.codeRulesFile + '（若不存在则为 ' + DOCS.techStack + ' 的代码规范）— 尤其是混入魔法数字与不依赖 delta-time 的实现。',
+                '也要确认 acceptance 是否能被这个 diff 的实现满足。',
+                '将评审结果追加写入 ' + reviewLogPath + '（review-loops.md 的追加写入格式: iteration ' + iteration + '、verdict、问题摘要、日期时间。日期时间使用 `date -u +%Y-%m-%dT%H:%M:%SZ` 的执行输出 — 禁止凭推测填写）。',
               ]).join('\n'),
               {
                 label: 'cr-code-' + sid + '-iter' + iteration,
@@ -649,8 +649,8 @@ async function buildStoryLane(laneStories) {
             return agentR(
               reviewCommon.concat([
                 '',
-                '観点: silent failure に絞って検査せよ（握りつぶされた例外・空 catch・失敗を隠すフォールバック・エラーの黙殺・失敗時に成功を装う戻り値）。',
-                STATE.reviewsDir + '/ への追記は不要（追記は code-reviewer 側が行う。あなたは構造化返却のみでよい）。',
+                '要点: 聚焦 silent failure 进行检查（被静默吞掉的异常、空 catch、隐藏失败的 fallback、无视错误、失败时伪装成功的返回值）。',
+                '无需追加写入 ' + STATE.reviewsDir + '/（追加写入由 code-reviewer 一方负责。你只需结构化返回）。',
               ]).join('\n'),
               {
                 label: 'cr-silent-' + sid + '-iter' + iteration,
@@ -666,7 +666,7 @@ async function buildStoryLane(laneStories) {
           return null;
         }
         if (valid.length < 2) {
-          knownIssues.push('[CR-CODE][' + sid + '] iteration ' + iteration + ': レビューペアの片方が結果を返さなかった（片側判定で続行）');
+          knownIssues.push('[CR-CODE][' + sid + '] iteration ' + iteration + ': 评审对中的一方未返回结果（以单侧判定继续）');
         }
         let verdict = 'APPROVE';
         let findings = [];
@@ -680,20 +680,20 @@ async function buildStoryLane(laneStories) {
       revise: async function (findings, iteration) {
         const r = await agentR(
           [
-            'あなたは ArcadeRelay の実装 engineer。CR-CODE レビュー指摘（code-reviewer + silent-failure-hunter の合算）を修正せよ。',
+            '你是 ArcadeRelay 的实现 engineer。修复 CR-CODE 评审问题（code-reviewer + silent-failure-hunter 的合计）。',
             storyHeader,
             '',
-            '指摘一覧:',
+            '问题列表:',
             findings.map(function (f, idx) { return (idx + 1) + '. ' + f; }).join('\n'),
             '',
-            '手順:',
-            '1. 各指摘に対応（対応しない場合は正当理由を明記。黙殺禁止）。規約は ' + ART.conventions + ' / ' + DOCS.techStack + '。' + LANE_RULE,
-            '2. 修正後の検証: ' + EP.laneVerifyLine + '。',
-            '3. ' + reviewLogPath + ' の iteration ' + iteration + ' の「対応:」欄に対応済み/見送り＋理由を追記。',
-            '4. コミットする。' + GIT_ADD_RULE,
+            '步骤:',
+            '1. 处理每个问题（不处理时要明确写出正当理由。禁止无视）。规范见 ' + ART.conventions + ' / ' + DOCS.techStack + '。' + LANE_RULE,
+            '2. 修复后的验证: ' + EP.laneVerifyLine + '。',
+            '3. 在 ' + reviewLogPath + ' 的 iteration ' + iteration + ' 的「处理:」栏中追加写入已处理/暂不处理＋理由。',
+            '4. 提交。' + GIT_ADD_RULE,
             '   ' + IDEMPOTENT_RULE,
-            '   コミットメッセージ: "' + sid + ': fix CR-CODE iter ' + iteration + '"。コミット hash は上記コミット規律の方法（`git log --format="%H %s" -20` の自メッセージ一致・最新行）で取得せよ。',
-            '構造化返却: commitHash（今回のコミット hash。必須）/ summary（対応要約）。',
+            '   提交消息: "' + sid + ': fix CR-CODE iter ' + iteration + '"。提交 hash 按上述提交纪律的方法（`git log --format="%H %s" -20` 中与自己消息一致的最新行）获取。',
+            '结构化返回: commitHash（本次提交的 hash。必填）/ summary（处理摘要）。',
           ].join('\n'),
           { label: 'fix-' + sid + '-iter' + iteration, phase: 'Build', agentType: story.assignee, effort: 'high', schema: COMMIT_RESULT_SCHEMA }
         );
@@ -705,67 +705,67 @@ async function buildStoryLane(laneStories) {
       },
     });
 
-    // ok:true でも loop 中の review/revise 実行失敗マーカーは届ける（APPROVE で隠さない — adversarial W-1）
+    // 即使 ok:true，loop 中的 review/revise 执行失败标记也要送达（不以 APPROVE 隐藏 — adversarial W-1）
     if (loopResult.unresolved && loopResult.unresolved.length > 0) {
       unresolvedFindings.push(...loopResult.unresolved);
     }
 
-    // ステータス確定（done。未解決指摘があれば注記）— state はファイルが真実
+    // 确定状态（done。有未解决问题则注记）— state 以文件为真实
     const bookkeep = await agentR(
       [
-        STATE.stories + ' で ' + sid + ' の status を done に更新せよ。',
+        '在 ' + STATE.stories + ' 中将 ' + sid + ' 的 status 更新为 done。',
         loopResult.ok
-          ? '（CR-CODE APPROVE 済み。既に done なら何もしない）'
-          : '（CR-CODE 未APPROVE のままエスカレーション。story の acceptance 行の下に「# note: CR-CODE unresolved — ' + STATE.reviewsDir + '/' + sidLower + '.md 参照」とコメント注記を追加すること。既に done かつ注記済みなら何もしない — full-build.js の bookkeep と同じ冪等規約）',
+          ? '（CR-CODE 已 APPROVE。若已是 done 则不做任何事）'
+          : '（CR-CODE 未 APPROVE 而上报。在 story 的 acceptance 行下方添加注释注记「# note: CR-CODE unresolved — 参见 ' + STATE.reviewsDir + '/' + sidLower + '.md」。若已是 done 且已有注记则不做任何事 — 与 full-build.js 的 bookkeep 相同的幂等规范）',
         IDEMPOTENT_RULE,
-        STATE.active + ' には触らない（並走レーンと衝突する — 現在地の更新はレーン合流後の Integrate が行う）。' +
-        STATE.stories + ' は該当 story の行のみをピンポイント Edit（ファイル全面書き直し禁止）。',
-        'コミットする: `git add ' + STATE.stories + ' && git commit -m "' + sid + ': status done" -- ' + STATE.stories + '`（素の git commit 禁止 — パス指定形で並走レーンの staged 変更を巻き込まない）。' + GIT_ADD_RULE,
+        '不要触碰 ' + STATE.active + '（会与并行 lane 冲突 — 当前位置的更新由 lane 合流后的 Integrate 进行）。' +
+        STATE.stories + ' 仅对该 story 的行做精准 Edit（禁止整文件重写）。',
+        '提交: `git add ' + STATE.stories + ' && git commit -m "' + sid + ': status done" -- ' + STATE.stories + '`（禁止不带路径的 git commit — 用指定路径形式避免卷入并行 lane 的 staged 变更）。' + GIT_ADD_RULE,
       ].join('\n'),
       { label: 'bookkeep-' + sid, phase: 'Build', agentType: story.assignee, effort: 'low' }
     );
     if (bookkeep === null) {
-      knownIssues.push(sid + ' の stories.yaml status 更新が未確認（agent 失敗）');
+      knownIssues.push(sid + ' 的 stories.yaml status 更新未确认（agent 失败）');
     }
   }
   return true;
 }
 
-// assignee レーン分割（retro-e2 案A）: gameplay と ui を並走、レーン内は Setup の返却順（依存順）を維持。
-// エンジン検証はレーン中に行わず（EP.laneVerifyLine）、合流後の batchVerify が一括保証する（案B）
+// assignee lane 拆分（retro-e2 方案A）: gameplay 与 ui 并行，lane 内保持 Setup 的返回顺序（依赖顺序）。
+// 引擎验证不在 lane 中进行（EP.laneVerifyLine），由合流后的 batchVerify 统一保证（方案B）
 async function buildStories() {
   const gameplayLane = stories.filter(function (s) { return s.assignee !== 'ui-engineer'; });
   const uiLane = stories.filter(function (s) { return s.assignee === 'ui-engineer'; });
-  log('Build レーン分割: gameplay ' + gameplayLane.length + '件 / ui ' + uiLane.length + '件');
+  log('Build lane 拆分: gameplay ' + gameplayLane.length + ' 个 / ui ' + uiLane.length + ' 个');
   await parallel([
-    laneSafe('Build gameplay レーン', function () { return buildStoryLane(gameplayLane); }),
-    laneSafe('Build ui レーン', function () { return buildStoryLane(uiLane); }),
+    laneSafe('Build gameplay lane', function () { return buildStoryLane(gameplayLane); }),
+    laneSafe('Build ui lane', function () { return buildStoryLane(uiLane); }),
   ]);
   return true;
 }
 
-// ---- AssetGen 側: 画像（art-director）と SFX（audio-designer）----
-// AR-ASSET ループ: 資産ごと MAX 3 + fallback プロバイダ切替後さらに 1 回（review-loops.md）
+// ---- AssetGen 侧: 图像（art-director）与 SFX（audio-designer）----
+// AR-ASSET 循环: 每个资产 MAX 3 + 切换 fallback 提供商后再 1 次（review-loops.md）
 const GEN_SCHEMA = {
   type: 'object',
-  required: ['generated', 'budgetExceeded', 'remainingPlanned', 'degradedRoutes'], // degradedRoutes 省略で fallback 記録が消えるのを防ぐ（無ければ空配列を明示）
+  required: ['generated', 'budgetExceeded', 'remainingPlanned', 'degradedRoutes'], // 防止因省略 degradedRoutes 而丢失 fallback 记录（没有则明确返回空数组）
   properties: {
-    generated: { type: 'array', items: { type: 'string' }, description: '生成して MANIFEST に追記した資産パス一覧' },
-    budgetExceeded: { type: 'boolean', description: '予算超過見込みで生成を停止した場合 true' },
-    remainingPlanned: { type: 'number', description: '対象範囲のうちまだ生成できていない資産の件数（0 = 対象を全て生成済み）' },
-    notes: { type: 'string', description: '開示事項（shippable:false ルート使用・Meshy 403→fal 切替・quota 制約等）。無ければ空文字' },
-    degradedRoutes: { type: 'array', items: { type: 'string' }, description: '縮退・fallback 試行の全記録（ルート名+HTTPコード必須。例: "model_character: meshy:direct→422 / fal:meshy-v6→429 / tripo:direct→403 → local縮退"）。無ければ空配列' },
+    generated: { type: 'array', items: { type: 'string' }, description: '已生成并追加写入 MANIFEST 的资产路径列表' },
+    budgetExceeded: { type: 'boolean', description: '因预计超出预算而停止生成时为 true' },
+    remainingPlanned: { type: 'number', description: '目标范围内尚未生成的资产数量（0 = 目标已全部生成）' },
+    notes: { type: 'string', description: '披露事项（使用 shippable:false 路由、Meshy 403→切换 fal、quota 限制等）。没有则为空字符串' },
+    degradedRoutes: { type: 'array', items: { type: 'string' }, description: '降级、fallback 尝试的全部记录（路由名+HTTP 状态码必填。例: "model_character: meshy:direct→422 / fal:meshy-v6→429 / tripo:direct→403 → local降级"）。没有则为空数组' },
   },
 };
 
-// 生成 agent の構造化返却から開示事項を機械回収する（自由文で捨てない — contract §10）
+// 从生成 agent 的结构化返回中机械回收披露事项（不以自由文本丢弃 — contract §10）
 function collectGenDisclosures(batchName, gen) {
   if (!gen) return;
   for (const d of (gen.degradedRoutes || [])) {
-    unresolvedFindings.push('[AssetGen][' + batchName + '][縮退] ' + d);
+    unresolvedFindings.push('[AssetGen][' + batchName + '][降级] ' + d);
   }
   if (gen.notes && String(gen.notes).trim().length > 0) {
-    unresolvedFindings.push('[AssetGen][' + batchName + '][開示] ' + gen.notes);
+    unresolvedFindings.push('[AssetGen][' + batchName + '][披露] ' + gen.notes);
   }
 }
 
@@ -792,7 +792,7 @@ async function assetBatchLoop(cfg) {
       disclosures: {
         type: 'array',
         items: { type: 'string' },
-        description: '再生成不要だが人間開示が必要な事項（shippable:false ルート由来・fal 経由 Meshy のライセンス継承未検証・cost_estimated:true・must_replace 等 — gates.md AR-ASSET 観点6）。無ければ空配列',
+        description: '无需重新生成但需要向人类披露的事项（来自 shippable:false 路由、经 fal 的 Meshy 许可证继承未验证、cost_estimated:true、must_replace 等 — gates.md AR-ASSET 要点6）。没有则为空数组',
       },
     },
   };
@@ -801,29 +801,29 @@ async function assetBatchLoop(cfg) {
     const review = await agentR(
       [
         reviewModeNote(reviewMode),
-        'GATE: AR-ASSET（' + DOCS.gates + ' の AR-ASSET 節に従う）。対象: ' + cfg.reviewSubject,
-        '基準: ' + ART.artBibleJson + '（スタイルロック）と ' + ART.assetsManifest + '（生成仕様）。' + ART.manifest + ' で対象一覧を確認せよ。',
+        'GATE: AR-ASSET（遵循 ' + DOCS.gates + ' 的 AR-ASSET 节）。对象: ' + cfg.reviewSubject,
+        '标准: ' + ART.artBibleJson + '（风格锁定）与 ' + ART.assetsManifest + '（生成规格）。在 ' + ART.manifest + ' 中确认对象列表。',
         extraNote || '',
-        '不合格資産には理由と再生成指示（プロンプト修正案）を必ず付けよ。',
-        '**再生成では直らない開示事項**（gates.md AR-ASSET 観点6: shippable:false ルート由来 / fal 経由 Meshy のライセンス継承未検証 / cost_estimated:true / provenance 記録漏れ以外の注記）は failedAssets ではなく disclosures に入れよ（failedAssets に入れると無意味な再生成ループが走る）。',
-        'レビュー結果を ' + reviewLogPath + ' に追記（review-loops.md の追記形式・iteration ' + iteration + '。日時は `date -u +%Y-%m-%dT%H:%M:%SZ` の実行出力を使う — 推測記入禁止）。',
-        '応答の1行目は「AR-ASSET: APPROVE|CONCERNS|REJECT」（contract.md §5）とし、構造化返却にも同じ判定を入れよ。',
-        '構造化返却: verdict（品質は全資産合格なら APPROVE — 開示事項があっても再生成不要なら APPROVE + disclosures）/ failedAssets（file / reason / retryInstruction）/ disclosures。',
+        '不合格资产必须附上理由与重新生成指示（提示词修改方案）。',
+        '**重新生成无法解决的披露事项**（gates.md AR-ASSET 要点6: 来自 shippable:false 路由 / 经 fal 的 Meshy 许可证继承未验证 / cost_estimated:true / provenance 记录遗漏以外的注记）放入 disclosures 而非 failedAssets（放入 failedAssets 会触发无意义的重新生成循环）。',
+        '将评审结果追加写入 ' + reviewLogPath + '（review-loops.md 的追加写入格式、iteration ' + iteration + '。日期时间使用 `date -u +%Y-%m-%dT%H:%M:%SZ` 的执行输出 — 禁止凭推测填写）。',
+        '响应的第1行为「AR-ASSET: APPROVE|CONCERNS|REJECT」（contract.md §5），结构化返回中也放入相同的判定。',
+        '结构化返回: verdict（质量上全部资产合格则为 APPROVE — 即使有披露事项，只要无需重新生成就 APPROVE + disclosures）/ failedAssets（file / reason / retryInstruction）/ disclosures。',
       ].filter(Boolean).join('\n'),
       { label: 'ar-asset-' + cfg.batchName + '-iter' + iteration, phase: 'AssetGen', agentType: 'art-reviewer', schema: reviewSchema }
     );
     if (review) {
       recordVerdict('AR-ASSET', cfg.batchName, iteration, review.verdict,
         (review.failedAssets || []).map(function (f) { return f.file + ': ' + f.reason; })
-          .concat((review.disclosures || []).map(function (d) { return '[開示] ' + d; })));
+          .concat((review.disclosures || []).map(function (d) { return '[披露] ' + d; })));
       for (const d of (review.disclosures || [])) {
-        unresolvedFindings.push('[AR-ASSET][' + cfg.batchName + '][開示] ' + d);
+        unresolvedFindings.push('[AR-ASSET][' + cfg.batchName + '][披露] ' + d);
       }
     }
     return review;
   }
 
-  const generated = await agentR(cfg.generatePrompt + '\n構造化返却: generated（MANIFEST 追記済みパス一覧）/ budgetExceeded / remainingPlanned（対象範囲の未生成残数）/ notes（開示事項）/ degradedRoutes（Primary からの縮退一覧）。', {
+  const generated = await agentR(cfg.generatePrompt + '\n结构化返回: generated（已追加写入 MANIFEST 的路径列表）/ budgetExceeded / remainingPlanned（目标范围内未生成的剩余数量）/ notes（披露事项）/ degradedRoutes（从 Primary 降级的列表）。', {
     label: 'generate-' + cfg.batchName,
     phase: 'AssetGen',
     agentType: cfg.producerType,
@@ -831,39 +831,39 @@ async function assetBatchLoop(cfg) {
     schema: GEN_SCHEMA,
   });
   if (generated === null) {
-    unresolvedFindings.push('[AR-ASSET][' + cfg.batchName + '] 生成 agent が失敗。資産バッチ未生成');
+    unresolvedFindings.push('[AR-ASSET][' + cfg.batchName + '] 生成 agent 失败。资产批次未生成');
     return false;
   }
   collectGenDisclosures(cfg.batchName, generated);
   if (generated.budgetExceeded) {
-    unresolvedFindings.push('[AssetGen][' + cfg.batchName + '] 予算超過見込みで生成停止（未生成 ' + (typeof generated.remainingPlanned === 'number' ? generated.remainingPlanned : '不明') + ' 件。state/budget.txt 参照）');
-    log('[AssetGen] ' + cfg.batchName + ': 予算超過見込みで停止');
+    unresolvedFindings.push('[AssetGen][' + cfg.batchName + '] 因预计超出预算而停止生成（未生成 ' + (typeof generated.remainingPlanned === 'number' ? generated.remainingPlanned : '未知') + ' 个。参见 state/budget.txt）');
+    log('[AssetGen] ' + cfg.batchName + ': 因预计超出预算而停止');
     return false;
   }
   if ((generated.generated || []).length === 0 && (typeof generated.remainingPlanned === 'number' && generated.remainingPlanned > 0)) {
-    unresolvedFindings.push('[AssetGen][' + cfg.batchName + '] 生成 0 件だが未生成対象が ' + generated.remainingPlanned + ' 件残存（API 全滅の疑い。notes: ' + (generated.notes || 'なし') + '）');
+    unresolvedFindings.push('[AssetGen][' + cfg.batchName + '] 生成 0 个但仍有 ' + generated.remainingPlanned + ' 个未生成对象残留（疑似 API 全部失败。notes: ' + (generated.notes || '无') + '）');
     return false;
   }
 
-  let failed = null; // null = 未レビュー
+  let failed = null; // null = 未评审
   for (let i = 1; i <= 3; i++) {
     const review = await reviewBatch(i, null);
     if (!review) {
-      unresolvedFindings.push('[AR-ASSET][' + cfg.batchName + '] iteration ' + i + ' の review が失敗');
+      unresolvedFindings.push('[AR-ASSET][' + cfg.batchName + '] iteration ' + i + ' 的 review 失败');
       continue;
     }
-    log('[AR-ASSET] ' + cfg.batchName + ' iteration ' + i + ': ' + review.verdict + '（不合格 ' + (review.failedAssets || []).length + ' 件）');
+    log('[AR-ASSET] ' + cfg.batchName + ' iteration ' + i + ': ' + review.verdict + '（不合格 ' + (review.failedAssets || []).length + ' 个）');
     if (review.verdict === 'APPROVE') {
       return true;
     }
     if ((review.failedAssets || []).length === 0) {
-      // 非APPROVE + failedAssets 空 = バッチ全体指摘 or reviewer プロトコル不整合。合格扱いにしない（red-team 指摘）
-      unresolvedFindings.push('[AR-ASSET][' + cfg.batchName + '] iteration ' + i + ' が ' + review.verdict + ' だが failedAssets が空（バッチ全体指摘の可能性 — 人間確認が必要）');
+      // 非APPROVE + failedAssets 为空 = 批次整体问题 or reviewer 协议不一致。不视为合格（red-team 问题）
+      unresolvedFindings.push('[AR-ASSET][' + cfg.batchName + '] iteration ' + i + ' 为 ' + review.verdict + ' 但 failedAssets 为空（可能是批次整体问题 — 需要人类确认）');
       return false;
     }
     failed = review.failedAssets;
     if (i < 3) {
-      const regen = await agentR(cfg.regeneratePrompt(failed) + '\n構造化返却: generated / budgetExceeded / remainingPlanned / notes / degradedRoutes。', {
+      const regen = await agentR(cfg.regeneratePrompt(failed) + '\n结构化返回: generated / budgetExceeded / remainingPlanned / notes / degradedRoutes。', {
         label: 'regen-' + cfg.batchName + '-iter' + i,
         phase: 'AssetGen',
         agentType: cfg.producerType,
@@ -871,21 +871,21 @@ async function assetBatchLoop(cfg) {
         schema: GEN_SCHEMA,
       });
       if (regen === null) {
-        unresolvedFindings.push('[AR-ASSET][' + cfg.batchName + '] iteration ' + i + ' の再生成が失敗');
+        unresolvedFindings.push('[AR-ASSET][' + cfg.batchName + '] iteration ' + i + ' 的重新生成失败');
       } else {
         collectGenDisclosures(cfg.batchName, regen);
         if (regen.budgetExceeded) {
-          unresolvedFindings.push('[AssetGen][' + cfg.batchName + '] 再生成中に予算超過見込みで停止（不合格 ' + failed.length + ' 件が残存）');
+          unresolvedFindings.push('[AssetGen][' + cfg.batchName + '] 重新生成中因预计超出预算而停止（不合格 ' + failed.length + ' 个残留）');
           return false;
         }
       }
     }
   }
 
-  // 3回不合格 → fallback プロバイダへ切替後さらに1回（review-loops.md）
+  // 3次不合格 → 切换到 fallback 提供商后再 1 次（review-loops.md）
   if (failed && failed.length > 0) {
-    log('[AR-ASSET] ' + cfg.batchName + ': 3回不合格 → fallback プロバイダ切替（' + failed.length + ' 件）');
-    const fb = await agentR(cfg.fallbackPrompt(failed) + '\n構造化返却: generated / budgetExceeded / remainingPlanned / notes / degradedRoutes。', {
+    log('[AR-ASSET] ' + cfg.batchName + ': 3次不合格 → 切换 fallback 提供商（' + failed.length + ' 个）');
+    const fb = await agentR(cfg.fallbackPrompt(failed) + '\n结构化返回: generated / budgetExceeded / remainingPlanned / notes / degradedRoutes。', {
       label: 'fallback-' + cfg.batchName,
       phase: 'AssetGen',
       agentType: cfg.producerType,
@@ -893,69 +893,69 @@ async function assetBatchLoop(cfg) {
       schema: GEN_SCHEMA,
     });
     if (fb !== null) collectGenDisclosures(cfg.batchName + ':fallback', fb);
-    // 兄弟分岐（初回生成・regen）と同じ予算ガード（fallback 中の予算停止を品質不合格と誤報告しない）
+    // 与兄弟分支（首次生成、regen）相同的预算守卫（不把 fallback 中的预算停止误报为质量不合格）
     if (fb && fb.budgetExceeded) {
-      unresolvedFindings.push('[AssetGen][' + cfg.batchName + '] fallback 中に予算超過見込みで停止（不合格 ' + failed.length + ' 件が残存）');
+      unresolvedFindings.push('[AssetGen][' + cfg.batchName + '] fallback 中因预计超出预算而停止（不合格 ' + failed.length + ' 个残留）');
       return false;
     }
     if (fb !== null) {
-      const finalReview = await reviewBatch(4, '（fallback プロバイダ切替後の最終判定。これが最後の反復）');
+      const finalReview = await reviewBatch(4, '（切换 fallback 提供商后的最终判定。这是最后一次迭代）');
       if (finalReview && finalReview.verdict === 'APPROVE') {
         return true;
       }
       if (finalReview) {
         if ((finalReview.failedAssets || []).length === 0) {
-          unresolvedFindings.push('[AR-ASSET][' + cfg.batchName + '] fallback 後の最終判定が ' + finalReview.verdict + ' だが failedAssets が空（バッチ全体指摘の可能性 — 人間確認が必要）');
+          unresolvedFindings.push('[AR-ASSET][' + cfg.batchName + '] fallback 后的最终判定为 ' + finalReview.verdict + ' 但 failedAssets 为空（可能是批次整体问题 — 需要人类确认）');
         }
         for (const f of (finalReview.failedAssets || [])) {
-          unresolvedFindings.push('[AR-ASSET][' + cfg.batchName + '] ' + f.file + ': ' + f.reason + '（fallback 後も不合格）');
+          unresolvedFindings.push('[AR-ASSET][' + cfg.batchName + '] ' + f.file + ': ' + f.reason + '（fallback 后仍不合格）');
         }
       } else {
-        unresolvedFindings.push('[AR-ASSET][' + cfg.batchName + '] fallback 後の最終 review が失敗');
+        unresolvedFindings.push('[AR-ASSET][' + cfg.batchName + '] fallback 后的最终 review 失败');
       }
     } else {
-      unresolvedFindings.push('[AR-ASSET][' + cfg.batchName + '] fallback 生成が失敗（不合格 ' + failed.length + ' 件が残存）');
+      unresolvedFindings.push('[AR-ASSET][' + cfg.batchName + '] fallback 生成失败（不合格 ' + failed.length + ' 个残留）');
     }
   }
   return false;
 }
 
 const assetCommonRules = [
-  '必読: ' + ART.assetsManifest + ' / ' + ART.artBibleJson + ' / ' + DOCS.assetsConfig + ' / ' + STATE.assetRouting + '（ルーティング表が真実。生成中の再判定禁止。shippable:false ルートで生成した資産は必ず未解決事項として報告）。',
-  '**Primary が API 失敗（4xx/5xx/timeout）の場合、fallback を 1 段も試さずにローカル縮退/プレースホルダ/must-replace 化することを禁止**（品質不合格による再生成は従来どおり Primary 固定 — この規則は API 失敗時のルート切替の話）。' + STATE.assetRouting + ' の fallbacks を上から順に全段試行し、各試行の『ルート名 + HTTP ステータス（または失敗理由）』を degradedRoutes に必ず列挙する（例: "model_character: meshy:direct→422 / fal:meshy-v6→429 / tripo:direct→403 → local縮退"）。全段失敗の場合のみローカル縮退可（retro-e3 指摘7）。',
-  'API キー: **API を呼ぶ Bash に限り**冒頭で `set -a; source .env 2>/dev/null; set +a` を実行してから curl する（検証・後処理 — ffmpeg/npx 等 — の Bash では source しない: サードパーティ子プロセスへのキー継承を避ける。キー値の echo・ログ出力禁止 — contract §10）。API エラー（401/403/429/5xx）は握り潰さず HTTP ステータスと共に報告。',
-  '対象はコアループ縦串に必須の資産のみ（' + STATE.stories + ' の phase:prototype の acceptance と ' + ART.assetsManifest + ' から特定）。残りは Phase 3 に回す。',
-  '予算: 生成のたびに ' + STATE.budget + '（既定 $20）と ' + ART.manifest + ' の cost_usd 合算を照合し、超過見込みなら生成を停止して残件を報告せよ。',
-  '全生成を ' + ART.manifest + ' に 1行1資産で追記（provider/model/prompt/seed/cost_usd/plan_tier/sha256/license/generated_at。表記条項プロバイダ — Ideogram 表記条項 / Hunyuan3D Territory / ElevenLabs Studio Games 等 — は license_note も必須（assets-config.md「Provenance」）。3D資産は kind/polycount/bone_count/rigged/format/units/bbox_authoring_m/validator も必須。クレジット換算見積は cost_estimated:true）。',
-  '保存先は ' + EP.rawAssetDir + ' 配下。完了後はパス限定で add し、**commit も必ずパス指定形**: `git add ' + EP.rawAssetDir.replace(/\/$/, '') + ' design docs state/reviews && git commit -m "<msg>" -- ' + EP.rawAssetDir.replace(/\/$/, '') + ' design docs state/reviews`（素の git commit・state ディレクトリ丸ごと指定は禁止 — 並走コードレーンの stories.yaml / active.md の WIP を巻き取らない）。',
-  '`git add -A` は禁止（並走する実装トラックのコード変更を巻き込まない）。commit が index.lock で失敗したら 1〜2 秒待って 1 回だけリトライせよ。',
+  '必读: ' + ART.assetsManifest + ' / ' + ART.artBibleJson + ' / ' + DOCS.assetsConfig + ' / ' + STATE.assetRouting + '（路由表为真实。禁止生成中重新判定。用 shippable:false 路由生成的资产必须作为未解决事项报告）。',
+  '**Primary 发生 API 失败（4xx/5xx/timeout）时，禁止连 1 段 fallback 都不尝试就直接本地降级/占位符/must-replace 化**（因质量不合格而重新生成照旧固定 Primary — 本规则只针对 API 失败时的路由切换）。将 ' + STATE.assetRouting + ' 的 fallbacks 自上而下全段尝试，并把每次尝试的『路由名 + HTTP 状态（或失败原因）』全部列举到 degradedRoutes（例: "model_character: meshy:direct→422 / fal:meshy-v6→429 / tripo:direct→403 → local降级"）。仅在全段失败时才允许本地降级（retro-e3 问题7）。',
+  'API 密钥: **仅限调用 API 的 Bash**，在开头执行 `set -a; source .env 2>/dev/null; set +a` 后再 curl（验证、后处理 — ffmpeg/npx 等 — 的 Bash 中不要 source: 避免密钥继承给第三方子进程。禁止 echo、日志输出密钥值 — contract §10）。API 错误（401/403/429/5xx）不要静默吞掉，要连同 HTTP 状态一起报告。',
+  '对象仅限核心循环垂直切片必需的资产（从 ' + STATE.stories + ' 的 phase:prototype 的 acceptance 与 ' + ART.assetsManifest + ' 确定）。其余留到 Phase 3。',
+  '预算: 每次生成都核对 ' + STATE.budget + '（默认 $20）与 ' + ART.manifest + ' 的 cost_usd 合计，预计超出时停止生成并报告剩余项。',
+  '将全部生成以 1行1资产的形式追加写入 ' + ART.manifest + '（provider/model/prompt/seed/cost_usd/plan_tier/sha256/license/generated_at。标注条款提供商 — Ideogram 标注条款 / Hunyuan3D Territory / ElevenLabs Studio Games 等 — 还必须有 license_note（assets-config.md「Provenance」）。3D 资产还必须有 kind/polycount/bone_count/rigged/format/units/bbox_authoring_m/validator。按信用点换算的估算标记 cost_estimated:true）。',
+  '保存位置为 ' + EP.rawAssetDir + ' 之下。完成后限定路径 add，**commit 也必须是指定路径形式**: `git add ' + EP.rawAssetDir.replace(/\/$/, '') + ' design docs state/reviews && git commit -m "<msg>" -- ' + EP.rawAssetDir.replace(/\/$/, '') + ' design docs state/reviews`（禁止不带路径的 git commit、禁止整个指定 state 目录 — 不要卷入并行代码 lane 的 stories.yaml / active.md 的 WIP）。',
+  '禁止 `git add -A`（不要卷入并行实现 track 的代码变更）。commit 因 index.lock 失败时等待 1～2 秒后仅重试 1 次。',
 ].join('\n');
 
 async function generateImages() {
   return assetBatchLoop({
     batchName: 'assets-images-prototype',
     producerType: 'art-director',
-    reviewSubject: 'Phase 2 で生成した画像資産バッチ（' + EP.rawAssetDir + ' 配下、' + ART.manifest + ' の今回追記分）',
+    reviewSubject: 'Phase 2 生成的图像资产批次（' + EP.rawAssetDir + ' 之下、' + ART.manifest + ' 本次追加写入的部分）',
     generatePrompt: [
-      'あなたは ArcadeRelay の art-director。コアループ必須の画像資産を生成せよ。',
+      '你是 ArcadeRelay 的 art-director。生成核心循环必需的图像资产。',
       assetCommonRules,
-      'スタイル一貫性: ' + ART.artBibleJson + ' の style_block を全プロンプトに機械的に前置し、seed を記録。hero 系は character_reference を共用。',
-      '生成後パイプライン（' + DOCS.assetsConfig + ' 記載）を全数実施: 即時DL → アルファ検証（白背景PNG出荷禁止）→ 必要なら背景除去 → トリム。',
-      '最後に生成した資産の一覧（file / ASSET_KEYS 用キー案）と、予算都合で見送った資産を報告せよ。',
+      '风格一致性: 将 ' + ART.artBibleJson + ' 的 style_block 机械地前置于全部提示词，并记录 seed。hero 系共用 character_reference。',
+      '全数执行生成后流水线（' + DOCS.assetsConfig + ' 所载）: 立即下载 → Alpha 验证（禁止发布白背景 PNG）→ 必要时去背景 → 裁剪。',
+      '最后报告已生成资产的列表（file / ASSET_KEYS 用键方案）以及因预算原因暂缓的资产。',
     ].join('\n'),
     regeneratePrompt: function (failed) {
       return [
-        'あなたは ArcadeRelay の art-director。AR-ASSET 不合格の画像を再生成せよ（ルーティングは ' + STATE.assetRouting + ' の Primary のまま）。',
-        '不合格一覧（reason と retryInstruction を反映してプロンプトを修正すること）:',
-        failed.map(function (f) { return '- ' + f.file + ': ' + f.reason + (f.retryInstruction ? '（再生成指示: ' + f.retryInstruction + '）' : ''); }).join('\n'),
+        '你是 ArcadeRelay 的 art-director。重新生成 AR-ASSET 不合格的图像（路由保持 ' + STATE.assetRouting + ' 的 Primary 不变）。',
+        '不合格列表（反映 reason 与 retryInstruction 修改提示词）:',
+        failed.map(function (f) { return '- ' + f.file + ': ' + f.reason + (f.retryInstruction ? '（重新生成指示: ' + f.retryInstruction + '）' : ''); }).join('\n'),
         assetCommonRules,
-        '再生成分も ' + ART.manifest + ' に追記し、旧ファイルを置換せよ。',
+        '重新生成的部分也追加写入 ' + ART.manifest + '，并替换旧文件。',
       ].join('\n');
     },
     fallbackPrompt: function (failed) {
       return [
-        'あなたは ArcadeRelay の art-director。3回不合格の画像について、' + DOCS.assetsConfig + ' のルーティング表の Fallback プロバイダへ切替えて 1 回だけ再生成せよ。',
-        '対象:',
+        '你是 ArcadeRelay 的 art-director。对 3次不合格的图像，切换到 ' + DOCS.assetsConfig + ' 路由表的 Fallback 提供商仅重新生成 1 次。',
+        '对象:',
         failed.map(function (f) { return '- ' + f.file + ': ' + f.reason; }).join('\n'),
         assetCommonRules,
       ].join('\n');
@@ -967,27 +967,27 @@ async function generateAudio() {
   return assetBatchLoop({
     batchName: 'assets-audio-prototype',
     producerType: 'audio-designer',
-    reviewSubject: 'Phase 2 で生成した SFX バッチ（' + EP.rawAssetDir + ' 配下、' + ART.manifest + ' の今回追記分）。音声は仕様一致（長さ・フォーマット・ラウドネス・' + ART.assetsManifest + ' との整合）で採点せよ',
+    reviewSubject: 'Phase 2 生成的 SFX 批次（' + EP.rawAssetDir + ' 之下、' + ART.manifest + ' 本次追加写入的部分）。音频按规格一致（长度、格式、响度、与 ' + ART.assetsManifest + ' 的一致性）评分',
     generatePrompt: [
-      'あなたは ArcadeRelay の audio-designer。コアループ必須の SFX を生成せよ（BGM は Phase 3。今回は SFX のみ）。',
+      '你是 ArcadeRelay 的 audio-designer。生成核心循环必需的 SFX（BGM 在 Phase 3。本次仅 SFX）。',
       assetCommonRules,
-      'ルート: ElevenLabs SFX v2 の REST 直（公式MCP禁止・duration_seconds 明示・ループ素材は loop:true）。Free プランでの出荷用生成は禁止。',
-      '生成後パイプライン: ffmpeg loudnorm（-16 LUFS）+ 無音トリム → OGG Vorbis 128-160kbps + M4A/AAC の両出力。',
-      'SFX は seed 無しのため共通語彙で 4 変種生成 → ベスト選別し、選別理由も ' + ART.manifest + ' に追記。',
-      '最後に生成 SFX 一覧（file / ASSET_KEYS 用キー案）を報告せよ。',
+      '路由: ElevenLabs SFX v2 的 REST 直连（禁止官方 MCP、明示 duration_seconds、循环素材 loop:true）。禁止在 Free 计划下做发布用生成。',
+      '生成后流水线: ffmpeg loudnorm（-16 LUFS）+ 静音裁剪 → 同时输出 OGG Vorbis 128-160kbps 与 M4A/AAC。',
+      'SFX 无 seed，因此用通用词汇生成 4 个变体 → 筛选最佳，并将筛选理由也追加写入 ' + ART.manifest + '。',
+      '最后报告已生成 SFX 的列表（file / ASSET_KEYS 用键方案）。',
     ].join('\n'),
     regeneratePrompt: function (failed) {
       return [
-        'あなたは ArcadeRelay の audio-designer。AR-ASSET 不合格の SFX を再生成せよ（同一ルート・プロンプト修正）。',
-        '不合格一覧:',
-        failed.map(function (f) { return '- ' + f.file + ': ' + f.reason + (f.retryInstruction ? '（再生成指示: ' + f.retryInstruction + '）' : ''); }).join('\n'),
+        '你是 ArcadeRelay 的 audio-designer。重新生成 AR-ASSET 不合格的 SFX（同一路由、修改提示词）。',
+        '不合格列表:',
+        failed.map(function (f) { return '- ' + f.file + ': ' + f.reason + (f.retryInstruction ? '（重新生成指示: ' + f.retryInstruction + '）' : ''); }).join('\n'),
         assetCommonRules,
       ].join('\n');
     },
     fallbackPrompt: function (failed) {
       return [
-        'あなたは ArcadeRelay の audio-designer。3回不合格の SFX について、' + DOCS.assetsConfig + ' のローカル縮退ルート（jsfxr。パブリックドメイン・決定的・出荷可）へ切替えて 1 回だけ生成せよ。',
-        '対象:',
+        '你是 ArcadeRelay 的 audio-designer。对 3次不合格的 SFX，切换到 ' + DOCS.assetsConfig + ' 的本地降级路由（jsfxr。公有领域、确定性、可发布）仅生成 1 次。',
+        '对象:',
         failed.map(function (f) { return '- ' + f.file + ': ' + f.reason; }).join('\n'),
         assetCommonRules,
       ].join('\n');
@@ -995,34 +995,34 @@ async function generateAudio() {
   });
 }
 
-// 3D エンジン時のみ: コアループ必須の 3D モデル/アニメ（MDL/ANM）バッチ
+// 仅 3D 引擎时: 核心循环必需的 3D 模型/动画（MDL/ANM）批次
 async function generateModels() {
   return assetBatchLoop({
     batchName: 'assets-models-prototype',
     producerType: 'art-director',
-    reviewSubject: 'Phase 2 で生成した 3D モデル/アニメ資産バッチ（' + EP.rawAssetDir + ' 配下、' + ART.manifest + ' の今回追記分）。' + DOCS.gates + ' の AR-ASSET「3D資産」観点（gltf-validator / ポリ数・ボーン数 / スケール / リグ / スタイル一致）で機械検査せよ',
+    reviewSubject: 'Phase 2 生成的 3D 模型/动画资产批次（' + EP.rawAssetDir + ' 之下、' + ART.manifest + ' 本次追加写入的部分）。按 ' + DOCS.gates + ' 的 AR-ASSET「3D资产」要点（gltf-validator / 多边形数、骨骼数 / 缩放 / rig / 风格一致）机械检查',
     generatePrompt: [
-      'あなたは ArcadeRelay の art-director。コアループ必須の 3D モデル資産（MDL/ANM）を生成せよ。',
+      '你是 ArcadeRelay 的 art-director。生成核心循环必需的 3D 模型资产（MDL/ANM）。',
       assetCommonRules,
-      'ルーティング: ' + STATE.assetRouting + ' の model_character / model_prop / model_environment / anim ルートに従う（Primary: Meshy 直API（キー有効時）→ 第二候補: fal 経由 fal-ai/meshy/*。Meshy 直の rigging/animation が 403 の場合は当該資産種別のみ fal 経由へ切替えて必ず報告。キー無し縮退: Blender プロシージャル+Rigify またはエンジン内プリミティブ — その場合は全て must_replace: true）。',
-      'スタイル一貫性: ' + ART.artBibleJson + ' のコンセプト画（reference_images / character_reference）を image-to-3D の入力に使い、art-bible の 3D スタイル方針（ポリ予算・リグ方針）に従う。',
-      '生成後パイプライン（' + DOCS.assetsConfig + ' の 3D 節）のうち **Unity/UE を起動しない段まで**を全段実施: スキーマ検証（GLB: gltf-transform validate / FBX: Blender headless で GLB 変換して同 validate）→ ポリ数/ボーン数/非多様体検査 → authoring-time 寸法計測を MANIFEST の bbox_authoring_m に記録 → スタイル確認用に Blender headless レンダリングのプレビュー画像を ' + EP.rawAssetDir + 'previews/ に出力。',
-      '**エンジン取込は行わない**（Integrate フェーズが直列区間で実施 — ' + (engine === 'unity' ? 'Unity は同一プロジェクト単一インスタンスロックのため、並走レーンから Unity を起動してはならない' : 'UE エディタ起動は Integrate に集約する') + '。tech-stack 文書参照）。',
-      '最後に生成した資産の一覧（file / kind / rigged / 登録キー案）と、予算都合で見送った資産を報告せよ。',
+      '路由: 遵循 ' + STATE.assetRouting + ' 的 model_character / model_prop / model_environment / anim 路由（Primary: Meshy 直连 API（密钥有效时）→ 第二候选: 经 fal 的 fal-ai/meshy/*。Meshy 直连的 rigging/animation 返回 403 时仅对该资产类型切换到经 fal 并务必报告。无密钥降级: Blender 程序化+Rigify 或引擎内基本体 — 此时全部 must_replace: true）。',
+      '风格一致性: 将 ' + ART.artBibleJson + ' 的概念图（reference_images / character_reference）用作 image-to-3D 的输入，遵循 art-bible 的 3D 风格方针（多边形预算、rig 方针）。',
+      '生成后流水线（' + DOCS.assetsConfig + ' 的 3D 节）中 **不启动 Unity/UE 的全部阶段** 都要执行: schema 验证（GLB: gltf-transform validate / FBX: 用 Blender headless 转换为 GLB 后做同样的 validate）→ 多边形数/骨骼数/非流形检查 → 将 authoring-time 尺寸测量记录到 MANIFEST 的 bbox_authoring_m → 为确认风格，将 Blender headless 渲染的预览图输出到 ' + EP.rawAssetDir + 'previews/。',
+      '**不做引擎导入**（由 Integrate 阶段在串行区间执行 — ' + (engine === 'unity' ? 'Unity 对同一项目为单实例锁，不得从并行 lane 启动 Unity' : 'UE 编辑器的启动集中到 Integrate') + '。参见 tech-stack 文档）。',
+      '最后报告已生成资产的列表（file / kind / rigged / 注册键方案）以及因预算原因暂缓的资产。',
     ].join('\n'),
     regeneratePrompt: function (failed) {
       return [
-        'あなたは ArcadeRelay の art-director。AR-ASSET 不合格の 3D 資産を再生成せよ（ルーティングは ' + STATE.assetRouting + ' の Primary のまま）。',
-        '不合格一覧（reason と retryInstruction を反映してコンセプト画/プロンプトを修正すること）:',
-        failed.map(function (f) { return '- ' + f.file + ': ' + f.reason + (f.retryInstruction ? '（再生成指示: ' + f.retryInstruction + '）' : ''); }).join('\n'),
+        '你是 ArcadeRelay 的 art-director。重新生成 AR-ASSET 不合格的 3D 资产（路由保持 ' + STATE.assetRouting + ' 的 Primary 不变）。',
+        '不合格列表（反映 reason 与 retryInstruction 修改概念图/提示词）:',
+        failed.map(function (f) { return '- ' + f.file + ': ' + f.reason + (f.retryInstruction ? '（重新生成指示: ' + f.retryInstruction + '）' : ''); }).join('\n'),
         assetCommonRules,
-        '再生成分も ' + ART.manifest + ' に追記し、raw の旧ファイルを置換せよ（エンジン取込先の更新は Integrate フェーズに委ねる — 並走レーンからエンジンを起動しない）。',
+        '重新生成的部分也追加写入 ' + ART.manifest + '，并替换 raw 的旧文件（引擎导入目标的更新交给 Integrate 阶段 — 不从并行 lane 启动引擎）。',
       ].join('\n');
     },
     fallbackPrompt: function (failed) {
       return [
-        'あなたは ArcadeRelay の art-director。3回不合格の 3D 資産について、' + STATE.assetRouting + ' の fallbacks（直API またはローカル縮退）へ切替えて 1 回だけ再生成せよ（' + DOCS.assetsConfig + ' の 3D ルーティング表参照。縮退生成は must_replace: true）。',
-        '対象:',
+        '你是 ArcadeRelay 的 art-director。对 3次不合格的 3D 资产，切换到 ' + STATE.assetRouting + ' 的 fallbacks（直连 API 或本地降级）仅重新生成 1 次（参见 ' + DOCS.assetsConfig + ' 的 3D 路由表。降级生成为 must_replace: true）。',
+        '对象:',
         failed.map(function (f) { return '- ' + f.file + ': ' + f.reason; }).join('\n'),
         assetCommonRules,
       ].join('\n');
@@ -1030,36 +1030,36 @@ async function generateModels() {
   });
 }
 
-// Build と AssetGen をバリア並走（コードは順次、資産は画像/音声（+3Dモデル）を並走）
-// 並走区間は開始前に代表フェーズを1回だけ宣言する（thunk 内での phase() 呼び出しは
-// マーカー遷移が非決定的になるため禁止。細分は agent opts の phase ラベルに任せる）。
+// Build 与 AssetGen 以屏障方式并行（代码顺序执行，资产为图像/音频（+3D 模型）并行）
+// 并行区间在开始前仅声明一次代表阶段（禁止在 thunk 内调用 phase()，
+// 因为标记转移会变得不确定。细分交给 agent opts 的 phase 标签）。
 phase('Build');
 const assetThunks = [
-  laneSafe('AssetGen(images) トラック', function () { return generateImages(); }),
-  laneSafe('AssetGen(audio) トラック', function () { return generateAudio(); }),
+  laneSafe('AssetGen(images) track', function () { return generateImages(); }),
+  laneSafe('AssetGen(audio) track', function () { return generateAudio(); }),
 ];
-if (EP.assets3d) assetThunks.push(laneSafe('AssetGen(models) トラック', function () { return generateModels(); }));
-// 外側の laneSafe はレーン失敗の捕捉ではない（内側 thunk が全て laneSafe 済み・parallel は例外を
-// null に潰す）— buildStories のレーン分割等、parallel 前後のセットアップ/集約コードの例外だけを拾う
+if (EP.assets3d) assetThunks.push(laneSafe('AssetGen(models) track', function () { return generateModels(); }));
+// 外层的 laneSafe 不是用于捕获 lane 失败（内层 thunk 全部已 laneSafe、parallel 会把异常
+// 吞成 null）— 只捕获 buildStories 的 lane 拆分等 parallel 前后的设置/汇总代码的异常
 const parallelResults = await parallel([
-  laneSafe('Build ストーリーレーン群', function () { return buildStories(); }),
-  laneSafe('AssetGen トラック群', function () { return parallel(assetThunks); }),
+  laneSafe('Build story lane 群', function () { return buildStories(); }),
+  laneSafe('AssetGen track 群', function () { return parallel(assetThunks); }),
 ]);
-log('Build/AssetGen 並走完了: ' + JSON.stringify(parallelResults));
+log('Build/AssetGen 并行完成: ' + JSON.stringify(parallelResults));
 
-// バッチ検証（レーン合流後の直列区間 — retro-e2 案B。エンジン起動はここから直列。
-// この後の Integrate/QA が「初回コンパイル」にならないよう、全 story のコミット済みコードを一括保証する）
+// 批量验证（lane 合流后的串行区间 — retro-e2 方案B。引擎启动从此处开始串行。
+// 为了让之后的 Integrate/QA 不成为「首次编译」，统一保证全部 story 的已提交代码）
 let buildVerifyOk = true;
 if (stories.length > 0) {
   buildVerifyOk = await batchVerify('Build',
-    'ここまで Build レーン（gameplay/ui 並走）が phase:prototype の全コード story を実装しており、レーン中はエンジン検証を実行していない' +
-    '（' + DOCS.techStack + '「検証」節の検証バッチ化）。全 story のコミット済みコードを一括検証・修正せよ。');
+    '到此为止 Build lane（gameplay/ui 并行）已实现 phase:prototype 的全部代码 story，lane 期间未执行引擎验证' +
+    '（' + DOCS.techStack + '「验证」节的验证批处理化）。统一验证并修复全部 story 的已提交代码。');
 }
-// 後段プロンプトへの警告注入（integrate の縮退注入と同じパターン — レビュー指摘 F3）
-const BUILD_VERIFY_WARN = buildVerifyOk ? '' : '【警告: Build バッチ検証が不合格のまま — ' + STATE.reviewsDir + '/batch-verify.md 参照。ビルドが壊れている前提で作業せよ】\n';
+// 向后续提示词注入警告（与 integrate 的降级注入相同的模式 — 评审问题 F3）
+const BUILD_VERIFY_WARN = buildVerifyOk ? '' : '【警告: Build 批量验证未通过 — 参见 ' + STATE.reviewsDir + '/batch-verify.md。请以构建已损坏为前提作业】\n';
 
 // =========================================================================
-// Phase: Integrate — 生成資産を ASSET_KEYS 経由で組み込み
+// Phase: Integrate — 将生成资产经由 ASSET_KEYS 集成
 // =========================================================================
 phase('Integrate');
 
@@ -1067,11 +1067,11 @@ const INTEGRATE_SCHEMA = {
   type: 'object',
   required: ['ok', 'degradations'],
   properties: {
-    ok: { type: 'boolean', description: 'エンジン取込後検証（gates.md AR-ASSET ※節）がすべて合格したか' },
+    ok: { type: 'boolean', description: '引擎导入后验证（gates.md AR-ASSET ※节）是否全部合格' },
     degradations: {
       type: 'array',
       items: { type: 'string' },
-      description: '縮退・警告の一覧（例: Humanoid→Generic 縮退、スケール補正適用、取込警告、欠落資産のプレースホルダ残存）。無ければ空配列'
+      description: '降级、警示的列表（例: Humanoid→Generic 降级、应用了缩放修正、导入警示、缺失资产的占位符残留）。没有则为空数组'
     },
     summary: { type: 'string' },
   },
@@ -1080,33 +1080,33 @@ const INTEGRATE_SCHEMA = {
 const integrate = await agentR(
   [
     BUILD_VERIFY_WARN +
-    'あなたは ArcadeRelay の gameplay-engineer。生成済み資産を game/ に組み込め（engine: ' + engine + '。直列区間 — エンジン起動はこの工程が専有）。',
-    '必読: ' + ART.manifest + '（生成資産一覧）/ ' + ART.architecture + ' / ' + ART.conventions + ' / ' + DOCS.techStack + '。',
+    '你是 ArcadeRelay 的 gameplay-engineer。将已生成的资产集成到 game/（engine: ' + engine + '。串行区间 — 引擎启动由本工序独占）。',
+    '必读: ' + ART.manifest + '（生成资产列表）/ ' + ART.architecture + ' / ' + ART.conventions + ' / ' + DOCS.techStack + '。',
     '',
-    '手順:',
+    '步骤:',
     EP.integrateSteps,
-    '6. **エンジン取込後検証**（gates.md AR-ASSET の※節）: FBX 取込成功・取込後バウンディングボックス・リグ資産のアニメ再生可否（unity: Avatar.isValid / unreal: リターゲット成功）を機械検証し、結果を ' + ART.manifest + ' の validator に記録。失敗・縮退は degradations として返す（MANIFEST 注記だけで済ませない）。',
-    '7. 未生成・不合格で欠けている資産はプレースホルダのまま残し、欠落一覧を degradations に含める。',
-    '8. ' + STATE.active + ' を更新し（日時は `date -u +%Y-%m-%dT%H:%M:%SZ` の実行出力を使う — 推測記入禁止）、パス限定で add してコミットする: `git add game docs state design && git commit -m "phase2: integrate assets"`（`git add -A` 禁止 — .claude/ 等の作業対象外の変更を巻き込まない）。',
+    '6. **引擎导入后验证**（gates.md AR-ASSET 的※节）: 机械验证 FBX 导入成功、导入后包围盒、rig 资产的动画能否播放（unity: Avatar.isValid / unreal: 重定向成功），并将结果记录到 ' + ART.manifest + ' 的 validator。失败、降级作为 degradations 返回（不能只写 MANIFEST 注记了事）。',
+    '7. 因未生成、不合格而缺失的资产保持占位符，并将缺失列表包含在 degradations 中。',
+    '8. 更新 ' + STATE.active + '（日期时间使用 `date -u +%Y-%m-%dT%H:%M:%SZ` 的执行输出 — 禁止凭推测填写），限定路径 add 后提交: `git add game docs state design && git commit -m "phase2: integrate assets"`（禁止 `git add -A` — 不要卷入 .claude/ 等非作业对象的变更）。',
     IDEMPOTENT_RULE,
-    '構造化返却: ok / degradations / summary（組み込んだ資産キー一覧と欠落一覧を含む）。',
+    '结构化返回: ok / degradations / summary（包含已集成的资产键列表与缺失列表）。',
   ].join('\n'),
   { label: 'integrate-assets', phase: 'Integrate', agentType: 'gameplay-engineer', effort: 'high', schema: INTEGRATE_SCHEMA }
 );
 if (integrate === null) {
-  unresolvedFindings.push('[Integrate] 資産組み込み agent が失敗。プレースホルダのままの可能性');
-  knownIssues.push('資産組み込みが未完了の可能性（Integrate agent 失敗）');
+  unresolvedFindings.push('[Integrate] 资产集成 agent 失败。可能仍是占位符');
+  knownIssues.push('资产集成可能未完成（Integrate agent 失败）');
 } else {
   for (const d of (integrate.degradations || [])) {
     unresolvedFindings.push('[Integrate] ' + d);
   }
   if (integrate.ok === false) {
-    unresolvedFindings.push('[Integrate] エンジン取込後検証が不合格（詳細は degradations と ' + ART.manifest + ' の validator）');
+    unresolvedFindings.push('[Integrate] 引擎导入后验证不合格（详情见 degradations 与 ' + ART.manifest + ' 的 validator）');
   }
 }
 
 // =========================================================================
-// Phase: QA — QA-PLAY（実起動・実操作・証跡）。重大バグは修正して再QA（MAX 2）
+// Phase: QA — QA-PLAY（实际启动、实际操作、证据）。重大 bug 修复后再 QA（MAX 2）
 // =========================================================================
 phase('QA');
 
@@ -1133,12 +1133,12 @@ const qaSchema = {
     evidencePaths: { type: 'array', items: { type: 'string' } },
     screenshotsVisuallyConfirmed: {
       type: 'boolean',
-      description: '撮影した全スクリーンショットを Read で目視し、対象（モデル・UI文字）が写っていることを確認したか（gates.md QA-PLAY 視覚証跡の目視義務。false/未実施の APPROVE は無効）',
+      description: '是否用 Read 目视了全部截图并确认对象（模型、UI 文字）出现在画面中（gates.md QA-PLAY 视觉证据的目视义务。false/未实施的 APPROVE 无效）',
     },
   },
 };
 
-// 証跡実在の独立検証スキーマ（qa-lead の自己申告を workflow 側で機械確認する）
+// 证据实际存在的独立验证 schema（workflow 侧机械确认 qa-lead 的自我申报）
 const EVIDENCE_CHECK_SCHEMA = {
   type: 'object',
   required: ['checks'],
@@ -1166,139 +1166,139 @@ for (let round = 1; round <= QA_MAX; round++) {
   qaResult = await agentR(
     [
       BUILD_VERIFY_WARN + reviewModeNote(reviewMode),
-      'GATE: QA-PLAY（' + DOCS.gates + ' の QA-PLAY 節の engine=' + engine + ' の実行手段に従う）。iteration ' + round + '/' + QA_MAX + '。',
-      '対象: ' + EP.qaTarget,
+      'GATE: QA-PLAY（遵循 ' + DOCS.gates + ' 的 QA-PLAY 节中 engine=' + engine + ' 的执行手段）。iteration ' + round + '/' + QA_MAX + '。',
+      '对象: ' + EP.qaTarget,
       (integrate && (integrate.degradations || []).length > 0
-        ? '【Integrate からの縮退報告あり — 該当箇所は重点検証（特にリグ縮退時はアニメ再生の目視確認必須）】: ' + integrate.degradations.join(' / ')
+        ? '【Integrate 有降级报告 — 相关位置重点验证（尤其 rig 降级时必须目视确认动画播放）】: ' + integrate.degradations.join(' / ')
         : ''),
       '',
-      '検証項目:',
+      '验证项目:',
       '1. ' + EP.qaBuildLine,
-      '2. ' + ART.gdd + ' 記載の操作でコアループが1周できる（開始→挑戦→結果→リスタート）。加えて必須シーン遷移 Title→Menu→Game→Result→Menu の1周（contract §11。Menu の必須要素 = プレイ開始・アウトゲーム表示・設定・終了導線 の実在込み。設定の実効性 — 音量変更の実出力反映と永続化 — も検証 — gates.md QA-PLAY 観点2）。Title/Menu/Game/Result 各画面のスクリーンショットを撮る（Game は開始直後の空盤面不可 — コアループの主要オブジェクトが写るフレームで撮る。gates.md 視覚証跡）。',
-      '3. ' + STATE.stories + ' の phase:prototype 全ストーリーの acceptance を1つずつ実操作で検証。',
-      '4. 実プレイ感が ' + ART.concept + ' のピラー P-xx を裏切っていないか。',
-      '5. メタ進行の永続化（gates.md QA-PLAY 観点5）: 保存→再起動相当→復元一致、破損セーブ→.bak 退避＋[SaveCorruption] 明示エラー1回＋既定値復旧、を自動テストで検証。',
-      '6. 視覚証跡の機械検知＋目視（gates.md QA-PLAY 視覚証跡の目視義務）: 全スクリーンショットに magick の mean 検査（<0.02 / >0.98 = SUSPECT_BLANK → 撮影方式を切替えて再撮影）と主要 UI テキストの低コントラスト検査（crop + stddev < 0.05 = SUSPECT_LOW_CONTRAST → 目視で可読性判定 — gates.md 視覚証跡）を行い、必ず Read で目視して「何が写っているか」を ' + ART.qaReport + ' の目視所見表に記録。',
+      '2. 用 ' + ART.gdd + ' 所载的操作能跑通核心循环一轮（开始→挑战→结果→重新开始）。此外必需场景转移 Title→Menu→Game→Result→Menu 跑通一轮（contract §11。含 Menu 的必需要素 = 开始游戏、游戏外内容显示、设置、退出入口 实际存在。设置的实效性 — 音量变更反映到实际输出并持久化 — 也要验证 — gates.md QA-PLAY 要点2）。对 Title/Menu/Game/Result 各画面截图（Game 不允许开始瞬间的空场面 — 在核心循环的主要对象出现在画面中的帧截图。gates.md 视觉证据）。',
+      '3. 逐条实际操作验证 ' + STATE.stories + ' 中 phase:prototype 全部 story 的 acceptance。',
+      '4. 实际游玩体感是否违背了 ' + ART.concept + ' 的支柱 P-xx。',
+      '5. 元进度的持久化（gates.md QA-PLAY 要点5）: 用自动测试验证 保存→相当于重启→恢复一致，损坏存档→.bak 备份保存＋[SaveCorruption] 显式错误1次＋默认值恢复。',
+      '6. 视觉证据的机械检测＋目视（gates.md QA-PLAY 视觉证据的目视义务）: 对全部截图做 magick 的 mean 检查（<0.02 / >0.98 = SUSPECT_BLANK → 切换截图方式重新截图）与主要 UI 文本的低对比度检查（crop + stddev < 0.05 = SUSPECT_LOW_CONTRAST → 目视判定可读性 — gates.md 视觉证据），并务必用 Read 目视，把「画面中有什么」记录到 ' + ART.qaReport + ' 的目视所见表。',
       '',
-      '証跡（スクリーンショット/録画）を ' + ART.qaEvidence + ' に保存し、結果を ' + ART.qaReport + ' に書け。',
-      'レビュー履歴を ' + STATE.reviewsDir + '/qa.md に追記（review-loops.md の追記形式・iteration ' + round + '。日時は `date -u +%Y-%m-%dT%H:%M:%SZ` の実行出力を使う — 推測記入禁止）。',
-      '判定: 重大バグ 0 かつ acceptance 全通過 = APPROVE。',
-      '応答の1行目は「QA-PLAY: APPROVE|CONCERNS|REJECT」（contract.md §5）とし、構造化返却にも同じ判定を入れよ。',
-      '構造化返却: verdict / summary / criticalBugs（title・detail・storyId・修正担当 assignee。重大バグのみ。軽微な指摘は qa/report.md に記載）/ failedAcceptance（未通過の acceptance 一覧。story ID と何が満たせなかったかを1行ずつ。全通過なら空配列）/ evidencePaths（保存した証跡の相対パス）/ screenshotsVisuallyConfirmed（全スクリーンショットを Read で目視済みか。未実施なら false を正直に返す）。',
+      '将证据（截图/录像）保存到 ' + ART.qaEvidence + '，并把结果写入 ' + ART.qaReport + '。',
+      '将评审历史追加写入 ' + STATE.reviewsDir + '/qa.md（review-loops.md 的追加写入格式、iteration ' + round + '。日期时间使用 `date -u +%Y-%m-%dT%H:%M:%SZ` 的执行输出 — 禁止凭推测填写）。',
+      '判定: 重大 bug 为 0 且 acceptance 全部通过 = APPROVE。',
+      '响应的第1行为「QA-PLAY: APPROVE|CONCERNS|REJECT」（contract.md §5），结构化返回中也放入相同的判定。',
+      '结构化返回: verdict / summary / criticalBugs（title、detail、storyId、修复负责的 assignee。仅重大 bug。轻微问题写在 qa/report.md）/ failedAcceptance（未通过的 acceptance 列表。每行一条 story ID 与未满足的内容。全部通过则为空数组）/ evidencePaths（已保存证据的相对路径）/ screenshotsVisuallyConfirmed（是否已用 Read 目视全部截图。未实施则如实返回 false）。',
     ].filter(Boolean).join('\n'),
     { label: 'qa-play-round' + round, phase: 'QA', agentType: 'qa-lead', effort: 'high', schema: qaSchema }
   );
 
   if (!qaResult) {
-    unresolvedFindings.push('[QA-PLAY] round ' + round + ' の QA agent が失敗');
+    unresolvedFindings.push('[QA-PLAY] round ' + round + ' 的 QA agent 失败');
     continue;
   }
 
-  // 証跡実在＋目視宣言の独立機械検証（qa-lead の自己申告を workflow が別 agent で確認 — E1 教訓: 自己申告が唯一の関門にならないこと）
+  // 证据实际存在＋目视声明的独立机械验证（workflow 用另一 agent 确认 qa-lead 的自我申报 — E1 教训: 自我申报不能成为唯一关卡）
   {
     const evCheck = await agentR(
       [
-        '読み取り専用の検証タスク。以下の証跡パス一覧について、各ファイルの実在と非0サイズを Bash（`test -s`・`stat`）で機械検証せよ。ファイルの作成・変更・削除は禁止。',
-        '証跡パス(JSON): ' + JSON.stringify(qaResult.evidencePaths || []),
-        '加えて ' + ART.qaEvidence + ' 直下の実ファイル一覧を ls で確認し extraFilesInEvidenceDir に返せ。',
+        '只读验证任务。对以下证据路径列表，用 Bash（`test -s`、`stat`）机械验证各文件实际存在且大小非0。禁止创建、修改、删除文件。',
+        '证据路径(JSON): ' + JSON.stringify(qaResult.evidencePaths || []),
+        '此外用 ls 确认 ' + ART.qaEvidence + ' 直下的实际文件列表并在 extraFilesInEvidenceDir 中返回。',
       ].join('\n'),
       { label: 'verify-evidence-round' + round, phase: 'QA', effort: 'low', schema: EVIDENCE_CHECK_SCHEMA }
     );
     const missing = [];
     if (!evCheck) {
-      missing.push('証跡検証 agent が結果を返さなかった');
+      missing.push('证据验证 agent 未返回结果');
     } else {
-      // 網羅性突合: evidencePaths の各パスが checks に exists && nonEmpty で現れることを要求
-      // （検証 agent が checks:[] や部分回答を返した場合に合格擬装させない）
+      // 完备性核对: 要求 evidencePaths 的每个路径都以 exists && nonEmpty 出现在 checks 中
+      // （验证 agent 返回 checks:[] 或部分回答时不允许伪装合格）
       const byPath = {};
       for (const c of (evCheck.checks || [])) byPath[c.path] = c;
       for (const p of (qaResult.evidencePaths || [])) {
         const c = byPath[p];
-        if (!c) missing.push(p + '（検証結果に現れず — 未検証）');
-        else if (!c.exists || !c.nonEmpty) missing.push(p + '（' + (!c.exists ? '不存在' : '0バイト') + '）');
+        if (!c) missing.push(p + '（未出现在验证结果中 — 未验证）');
+        else if (!c.exists || !c.nonEmpty) missing.push(p + '（' + (!c.exists ? '不存在' : '0字节') + '）');
       }
     }
-    if ((qaResult.evidencePaths || []).length === 0) missing.push('evidencePaths が空（証跡なしの判定は無効 — qa-lead.md）');
-    if (qaResult.screenshotsVisuallyConfirmed !== true) missing.push('スクリーンショットの Read 目視が未実施（screenshotsVisuallyConfirmed=false）');
+    if ((qaResult.evidencePaths || []).length === 0) missing.push('evidencePaths 为空（无证据的判定无效 — qa-lead.md）');
+    if (qaResult.screenshotsVisuallyConfirmed !== true) missing.push('截图的 Read 目视未实施（screenshotsVisuallyConfirmed=false）');
     if (missing.length > 0) {
       if (qaResult.verdict === 'APPROVE') {
         qaResult.verdict = 'CONCERNS';
-        log('[QA-PLAY] round ' + round + ': 証跡/目視の機械検証不合格 → APPROVE を CONCERNS に降格');
+        log('[QA-PLAY] round ' + round + ': 证据/目视的机械验证不合格 → 将 APPROVE 降为 CONCERNS');
       }
-      unresolvedFindings.push('[QA-PLAY] round ' + round + ' 証跡/目視の機械検証不合格: ' + missing.join(' / '));
+      unresolvedFindings.push('[QA-PLAY] round ' + round + ' 证据/目视的机械验证不合格: ' + missing.join(' / '));
     }
   }
 
-  log('[QA-PLAY] round ' + round + ': ' + qaResult.verdict + '（重大バグ ' + qaResult.criticalBugs.length + ' 件 / acceptance 未通過 ' + (qaResult.failedAcceptance || []).length + ' 件）');
+  log('[QA-PLAY] round ' + round + ': ' + qaResult.verdict + '（重大 bug ' + qaResult.criticalBugs.length + ' 个 / acceptance 未通过 ' + (qaResult.failedAcceptance || []).length + ' 个）');
   recordVerdict('QA-PLAY', 'qa', round, qaResult.verdict,
     qaResult.criticalBugs.map(function (b) { return b.title; }).concat(qaResult.failedAcceptance || []));
   if (qaResult.verdict === 'APPROVE') {
-    break; // 合格は verdict === APPROVE のみ（criticalBugs 0 件でのショートカット禁止）
+    break; // 合格仅限 verdict === APPROVE（禁止以 criticalBugs 为 0 个走捷径）
   }
 
   if (round < QA_MAX) {
-    // 重大バグをassigneeが修正（同一コードベースのため順次。コンフリクト回避）
+    // 由 assignee 修复重大 bug（同一代码库因此顺序执行。避免冲突）
     for (let bi = 0; bi < qaResult.criticalBugs.length; bi++) {
       const bug = qaResult.criticalBugs[bi];
       const fixed = await agentR(
         [
-          'あなたは ArcadeRelay の実装 engineer。QA-PLAY で検出された重大バグを修正せよ。',
-          'バグ: ' + bug.title,
-          '詳細: ' + bug.detail,
-          bug.storyId ? '関連 story: ' + bug.storyId : '',
-          '参照: ' + ART.qaReport + '（QA 所見全文）/ ' + ART.conventions + ' / ' + DOCS.techStack + '。',
-          '修正後 ' + EP.verifyCmd + ' が exit 0 を確認し、パス限定で add してコミット: `git add game state ' + DOCS.techStack + ' && git commit -m "phase2: fix QA — ' + bug.title + '"`（`git add -A`・`.claude/docs` ディレクトリ丸ごと指定は禁止。' + DOCS.techStack + ' は下記の落とし穴昇格を同一コミットに含めるため — 追記した場合のみ stage される）。',
-          '修正原因がエンジン/テストランナー起因の一般則（環境の落とし穴）だった場合は、tech-stack 文書の「既知の落とし穴」節へ即時追記せよ（無ければ新設 — gates.md QA-PLAY）。',
+          '你是 ArcadeRelay 的实现 engineer。修复 QA-PLAY 检出的重大 bug。',
+          'bug: ' + bug.title,
+          '详情: ' + bug.detail,
+          bug.storyId ? '相关 story: ' + bug.storyId : '',
+          '参考: ' + ART.qaReport + '（QA 所见全文）/ ' + ART.conventions + ' / ' + DOCS.techStack + '。',
+          '修复后确认 ' + EP.verifyCmd + ' 以 exit 0 结束，限定路径 add 后提交: `git add game state ' + DOCS.techStack + ' && git commit -m "phase2: fix QA — ' + bug.title + '"`（禁止 `git add -A`、禁止整个指定 `.claude/docs` 目录。' + DOCS.techStack + ' 是为了把下述陷阱提升记录包含在同一提交中 — 仅在追加写入时才会被 stage）。',
+          '若修复原因是引擎/测试运行器导致的一般性问题（环境陷阱），立即追加写入 tech-stack 文档的「已知陷阱」节（没有则新建 — gates.md QA-PLAY）。',
           IDEMPOTENT_RULE,
-          '修正内容を簡潔に返せ。',
+          '简洁返回修复内容。',
         ].filter(Boolean).join('\n'),
-        // round を label に含める: 同一バグが round を跨いで残存した場合に (prompt, opts) キャッシュが
-        // 前 round の修正結果を replay して再修正を黙ってスキップしない（resume 安全 — adversarial M-8a）。
-        // bug index も含める: 同一 round・同一 assignee に複数バグがあると label が衝突し、
-        // reviewer が同文バグを2件返した場合に2件目が1件目のキャッシュを replay する（adversarial M-8b）
+        // label 中包含 round: 同一 bug 跨 round 残留时，(prompt, opts) 缓存不会 replay
+        // 上一 round 的修复结果而静默跳过再次修复（resume 安全 — adversarial M-8a）。
+        // 也包含 bug index: 同一 round、同一 assignee 有多个 bug 时 label 会冲突，
+        // reviewer 返回2条同文 bug 时第2条会 replay 第1条的缓存（adversarial M-8b）
         { label: 'fix-qa-r' + round + '-' + bug.assignee + '-' + bi, phase: 'QA', agentType: bug.assignee, effort: 'high' }
       );
       if (fixed === null) {
-        unresolvedFindings.push('[QA-PLAY] 重大バグ「' + bug.title + '」の修正 agent が失敗');
+        unresolvedFindings.push('[QA-PLAY] 重大 bug「' + bug.title + '」的修复 agent 失败');
       }
     }
-    // acceptance 未通過も修正対象（非APPROVEの原因を残したまま再QAしない）
+    // acceptance 未通过也是修复对象（不在保留非APPROVE原因的情况下再 QA）
     if ((qaResult.failedAcceptance || []).length > 0) {
       const faFixed = await agentR(
         [
-          'あなたは ArcadeRelay の実装 engineer。QA-PLAY で未通過となった acceptance を満たすよう修正せよ。',
-          '未通過一覧:',
+          '你是 ArcadeRelay 的实现 engineer。修复代码以满足 QA-PLAY 中未通过的 acceptance。',
+          '未通过列表:',
           qaResult.failedAcceptance.map(function (fa, idx) { return (idx + 1) + '. ' + fa; }).join('\n'),
-          '参照: ' + ART.qaReport + '（QA 所見全文）/ ' + STATE.stories + '（acceptance 原文）/ ' + ART.conventions + ' / ' + DOCS.techStack + '。',
-          '修正後 ' + EP.verifyCmd + ' が exit 0 を確認し、パス限定で add してコミット: `git add game state ' + DOCS.techStack + ' && git commit -m "phase2: fix QA — failed acceptance"`（`git add -A`・`.claude/docs` ディレクトリ丸ごと指定は禁止。' + DOCS.techStack + ' は落とし穴昇格を同一コミットに含めるため）。',
-          '修正原因がエンジン/テストランナー起因の一般則（環境の落とし穴）だった場合は、tech-stack 文書の「既知の落とし穴」節へ即時追記せよ（無ければ新設 — gates.md QA-PLAY）。',
+          '参考: ' + ART.qaReport + '（QA 所见全文）/ ' + STATE.stories + '（acceptance 原文）/ ' + ART.conventions + ' / ' + DOCS.techStack + '。',
+          '修复后确认 ' + EP.verifyCmd + ' 以 exit 0 结束，限定路径 add 后提交: `git add game state ' + DOCS.techStack + ' && git commit -m "phase2: fix QA — failed acceptance"`（禁止 `git add -A`、禁止整个指定 `.claude/docs` 目录。' + DOCS.techStack + ' 是为了把陷阱提升记录包含在同一提交中）。',
+          '若修复原因是引擎/测试运行器导致的一般性问题（环境陷阱），立即追加写入 tech-stack 文档的「已知陷阱」节（没有则新建 — gates.md QA-PLAY）。',
           IDEMPOTENT_RULE,
-          '修正内容を簡潔に返せ。',
+          '简洁返回修复内容。',
         ].join('\n'),
         { label: 'fix-qa-acceptance-r' + round, phase: 'QA', agentType: 'gameplay-engineer', effort: 'high' }
       );
       if (faFixed === null) {
-        unresolvedFindings.push('[QA-PLAY] acceptance 未通過の修正 agent が失敗');
+        unresolvedFindings.push('[QA-PLAY] acceptance 未通过的修复 agent 失败');
       }
     }
   } else {
     for (const bug of qaResult.criticalBugs) {
-      unresolvedFindings.push('[QA-PLAY] 未解決の重大バグ: ' + bug.title + ' — ' + bug.detail);
+      unresolvedFindings.push('[QA-PLAY] 未解决的重大 bug: ' + bug.title + ' — ' + bug.detail);
     }
   }
 }
 if (qaResult && qaResult.verdict !== 'APPROVE') {
-  knownIssues.push('QA-PLAY が MAX ' + QA_MAX + ' 周で APPROVE に到達せず（詳細: ' + ART.qaReport + '）');
+  knownIssues.push('QA-PLAY 在 MAX ' + QA_MAX + ' 轮内未达到 APPROVE（详情: ' + ART.qaReport + '）');
   for (const fa of qaResult.failedAcceptance || []) {
-    unresolvedFindings.push('[QA-PLAY] acceptance 未通過: ' + fa);
+    unresolvedFindings.push('[QA-PLAY] acceptance 未通过: ' + fa);
   }
   if (qaResult.summary) {
-    unresolvedFindings.push('[QA-PLAY] 非APPROVE要約: ' + qaResult.summary);
+    unresolvedFindings.push('[QA-PLAY] 非APPROVE摘要: ' + qaResult.summary);
   }
 }
 
 // =========================================================================
-// Phase: Final — CD-CHECKPOINT → Checkpoint B 素材を返す
+// Phase: Final — CD-CHECKPOINT → 返回 Checkpoint B 材料
 // =========================================================================
 phase('Final');
 
@@ -1317,26 +1317,26 @@ const cdSchema = {
 
 function cdPrompt(attemptNote) {
   return [
-    'GATE: CD-CHECKPOINT（' + DOCS.gates + ' の CD-CHECKPOINT 節に従う）。Checkpoint B（遊べる縦串）を人間に提示する直前の最終判定。',
+    'GATE: CD-CHECKPOINT（遵循 ' + DOCS.gates + ' 的 CD-CHECKPOINT 节）。向人类展示 Checkpoint B（可玩的垂直切片）之前的最终判定。',
     attemptNote || '',
-    '確認対象: ' + ART.brief + ' / ' + ART.concept + '（ピラー）/ ' + ART.gdd + ' / ' + STATE.stories + ' / ' + ART.qaReport + ' / ' + ART.manifest + ' / ' + STATE.reviewsDir + '/ 配下のレビュー履歴。',
+    '确认对象: ' + ART.brief + ' / ' + ART.concept + '（支柱）/ ' + ART.gdd + ' / ' + STATE.stories + ' / ' + ART.qaReport + ' / ' + ART.manifest + ' / ' + STATE.reviewsDir + '/ 之下的评审历史。',
     '',
-    'ループで持ち越された未解決指摘（正直に提示物へ含めること。隠蔽禁止。**[BLOCKER] 始まりの項目と縮退（Humanoid→Generic / プレースホルダ / Fallback / shippable:false / [開示]）は summary の冒頭で個別に警告し、箇条書きに埋没させない** — gates.md CD-CHECKPOINT 観点3）:',
-    // 改行を潰してから箇条書き化する（findings には外部 API エラー本文由来のテキスト — degradedRoutes/notes/
-    // laneSafe の e.message — が入り得る。生の改行は箇条書き構造を破って判定者プロンプトへ行注入できる）
-    unresolvedFindings.length > 0 ? unresolvedFindings.map(function (f) { return '- ' + String(f).replace(/\s*\n\s*/g, ' / '); }).join('\n') : '- なし',
+    '循环中遗留的未解决问题（须如实包含在展示物中。禁止隐瞒。**以 [BLOCKER] 开头的条目与降级（Humanoid→Generic / 占位符 / Fallback / shippable:false / [披露]）要在 summary 开头单独警告，不得埋没在条目列表中** — gates.md CD-CHECKPOINT 要点3）:',
+    // 先压平换行再做成条目列表（findings 中可能含有来自外部 API 错误正文的文本 — degradedRoutes/notes/
+    // laneSafe 的 e.message — 原始换行会破坏条目列表结构并向判定者提示词做行注入）
+    unresolvedFindings.length > 0 ? unresolvedFindings.map(function (f) { return '- ' + String(f).replace(/\s*\n\s*/g, ' / '); }).join('\n') : '- 无',
     '',
-    '観点: 1) ビジョン一貫性（brief・P-xx から逸脱していないか） 2) 提示品質（人間が5分で判断できる要約か） 3) 正直さ（未達・妥協点が列挙されているか）。',
-    '併せて ' + STATE.active + ' を「Phase 2 完了・Checkpoint B 待ち」に更新せよ（日時は `date -u +%Y-%m-%dT%H:%M:%SZ` の実行出力を使う — 推測記入禁止）。',
+    '要点: 1) 愿景一致性（是否偏离 brief、P-xx） 2) 展示质量（人类能否在5分钟内判断的摘要） 3) 诚实性（未达成、妥协点是否已列举）。',
+    '同时将 ' + STATE.active + ' 更新为「Phase 2 完成、等待 Checkpoint B」（日期时间使用 `date -u +%Y-%m-%dT%H:%M:%SZ` 的执行输出 — 禁止凭推测填写）。',
     '',
-    '応答の1行目は「CD-CHECKPOINT: APPROVE|CONCERNS|REJECT」（contract.md §5）とし、構造化返却の verdict にも同じ判定を入れよ。',
-    '構造化返却:',
+    '响应的第1行为「CD-CHECKPOINT: APPROVE|CONCERNS|REJECT」（contract.md §5），结构化返回的 verdict 中也放入相同的判定。',
+    '结构化返回:',
     '- verdict: APPROVE/CONCERNS/REJECT',
-    '- summary: 何を作ったか・何を判断してほしいか・既知の課題（人間向け5分要約）',
-    '- playInstructions: 人間が遊ぶ手順（「' + EP.playInstructions + '」起点の具体手順と操作方法）',
-    '- evidencePaths: ' + ART.qaEvidence + ' 配下の提示すべき証跡パス',
-    '- knownIssues: 未達・妥協点の列挙',
-    '- rejectInstructions: REJECT の場合のみ、人間に見せる前に直すべき点の指示リスト',
+    '- summary: 做了什么、希望判断什么、已知课题（面向人类的5分钟摘要）',
+    '- playInstructions: 人类游玩的步骤（以「' + EP.playInstructions + '」为起点的具体步骤与操作方法）',
+    '- evidencePaths: ' + ART.qaEvidence + ' 之下应展示的证据路径',
+    '- knownIssues: 未达成、妥协点的列举',
+    '- rejectInstructions: 仅 REJECT 时，向人类展示前应修正之处的指示列表',
   ].filter(Boolean).join('\n');
 }
 
@@ -1351,20 +1351,20 @@ if (cd) {
   recordVerdict('CD-CHECKPOINT', 'checkpoint-b', 1, cd.verdict, cd.knownIssues || []);
 }
 
-// REJECT なら指示に従い修正後 1 回だけ再判定（review-loops.md: CD-CHECKPOINT MAX_ITER 1）
+// REJECT 则按指示修正后仅重新判定 1 次（review-loops.md: CD-CHECKPOINT MAX_ITER 1）
 if (cd && cd.verdict === 'REJECT' && cd.rejectInstructions && cd.rejectInstructions.length > 0) {
-  log('[CD-CHECKPOINT] REJECT → 指示に従い修正して1回だけ再判定');
+  log('[CD-CHECKPOINT] REJECT → 按指示修正后仅重新判定1次');
   const cdFix = await agentR(
     [
-      'あなたは ArcadeRelay の tech-director。CD-CHECKPOINT が REJECT した。以下の指示に従い、Checkpoint B 提示物を修正せよ（必要なら各担当の成果物を直接修正・再ビルド・再コミット）。',
-      '指示一覧:',
+      '你是 ArcadeRelay 的 tech-director。CD-CHECKPOINT 判为 REJECT。按以下指示修正 Checkpoint B 展示物（必要时直接修正各负责人的产出物、重新构建、重新提交）。',
+      '指示列表:',
       cd.rejectInstructions.map(function (r, idx) { return (idx + 1) + '. ' + r; }).join('\n'),
-      '検証: ' + EP.verifyCmd + ' が exit 0。対応内容を ' + STATE.reviewsDir + '/checkpoint-b.md の「対応:」欄に追記し、パス限定で add してコミット: `git add game docs state design qa && git commit`（`git add -A` 禁止）。',
+      '验证: ' + EP.verifyCmd + ' 以 exit 0 结束。将处理内容追加写入 ' + STATE.reviewsDir + '/checkpoint-b.md 的「处理:」栏，限定路径 add 后提交: `git add game docs state design qa && git commit`（禁止 `git add -A`）。',
     ].join('\n'),
     { label: 'cd-reject-fix', phase: 'Final', agentType: 'tech-director', effort: 'high' }
   );
   if (cdFix !== null) {
-    const cdRetry = await agentR(cdPrompt('（REJECT 指示への修正後の再判定。これが最後の判定）'), {
+    const cdRetry = await agentR(cdPrompt('（对 REJECT 指示修正后的重新判定。这是最后一次判定）'), {
       label: 'cd-checkpoint-b-rejudge',
       phase: 'Final',
       agentType: 'creative-director',
@@ -1375,20 +1375,20 @@ if (cd && cd.verdict === 'REJECT' && cd.rejectInstructions && cd.rejectInstructi
       recordVerdict('CD-CHECKPOINT', 'checkpoint-b', 2, cdRetry.verdict, cdRetry.knownIssues || []);
       cd = cdRetry;
     } else {
-      // concept-design.js の再判定 null 記録と同型（初回 REJECT のまま提示されることを人間に届ける）
-      unresolvedFindings.push('[CD-CHECKPOINT] REJECT 後の再判定 agent が失敗（初回 REJECT 判定のまま Checkpoint B へ）');
+      // 与 concept-design.js 的重新判定 null 记录同形（让人类知道是以初次 REJECT 的状态展示的）
+      unresolvedFindings.push('[CD-CHECKPOINT] REJECT 后的重新判定 agent 失败（以初次 REJECT 判定进入 Checkpoint B）');
     }
   } else {
-    unresolvedFindings.push('[CD-CHECKPOINT] REJECT 指示への修正 agent が失敗');
+    unresolvedFindings.push('[CD-CHECKPOINT] 对 REJECT 指示的修正 agent 失败');
   }
 }
 
 if (!cd) {
   return {
-    summary: 'Phase 2 完走したが CD-CHECKPOINT 判定 agent が失敗。成果物は ' + STATE.stories + ' / ' + ART.qaReport + ' / game/ を直接確認のこと。',
+    summary: 'Phase 2 已跑完但 CD-CHECKPOINT 判定 agent 失败。请直接确认产出物 ' + STATE.stories + ' / ' + ART.qaReport + ' / game/。',
     playInstructions: EP.playInstructions,
     evidencePaths: (qaResult && qaResult.evidencePaths) || [],
-    knownIssues: knownIssues.concat(['CD-CHECKPOINT 判定が取得できなかった']),
+    knownIssues: knownIssues.concat(['未能获取 CD-CHECKPOINT 判定']),
     unresolvedFindings: unresolvedFindings,
     verdictHistory: verdictHistory,
     verdict: 'CONCERNS',

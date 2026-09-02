@@ -1,115 +1,115 @@
-# ArcadeRelay アセット生成設定（2026-07 リサーチ・公式Doc検証済み）
+# ArcadeRelay 资产生成配置（2026-07 调研、已经官方文档验证）
 
-> art-director / audio-designer と workflow スクリプトはこの表に従って生成する。
-> preflight（/forge 冒頭）がキー・残高・プラン階層を検証し、結果を `state/asset-routing.json`（`plan_tier`/`shippable`/`notes[]` 付き — スキーマ正本は forge スキル Phase 1）に書き出す。
-> **生成中のルート再判定は禁止**（ルーティング表が真実）。
-> **生成レーンは API を呼び出す Bash 呼び出しに限り、冒頭で `set -a; source .env 2>/dev/null; set +a` を実行してから curl する**（サブエージェントのシェルにキーは継承されない）。検証・後処理（ffmpeg / npx / python 等）では source しない — サードパーティ子プロセスへの全キー継承を避ける（contract §10）。キー値の echo・ログ・MANIFEST への書き出しは禁止。
+> art-director / audio-designer 与 workflow 脚本按本表生成。
+> preflight（/forge 开头）验证密钥、余额、套餐等级，并把结果写出到 `state/asset-routing.json`（含 `plan_tier`/`shippable`/`notes[]` — schema 权威来源是 forge skill Phase 1）。
+> **禁止在生成过程中重新判定路由**（路由表就是事实）。
+> **生成 lane 仅限调用 API 的 Bash 调用，在开头执行 `set -a; source .env 2>/dev/null; set +a` 后再 curl**（子 agent 的 shell 不会继承密钥）。验证、后处理（ffmpeg / npx / python 等）不要 source — 避免把全部密钥继承给第三方子进程（contract §10）。禁止 echo、记录密钥值或写入 MANIFEST。
 
-## ルーティング表
+## 路由表
 
-| 資産種別 | Primary | Fallback | キー無しローカル縮退 |
+| 资产类型 | Primary | Fallback | 无密钥本地降级 |
 |---|---|---|---|
-| 画像: スプライト/キャラ/UI | fal.ai `fal-ai/ideogram/v3/generate-transparent`（生成時ネイティブ透過・seed・style_codes・character_reference） | Ideogram V3 公式REST直（`api.ideogram.ai/v1/ideogram-v3/generate`。seed/style_codes互換） → 三次: OpenAI `gpt-image-1.5` を**pin**（`background:"transparent"`。**gpt-image-2 は透過エラーのため使用禁止**） | mflux or ComfyUI + FLUX **schnell/klein**（Apache-2.0＝商用可）+ rembg |
-| 画像: 背景/タイルセット | fal.ai `fal-ai/flux-2-pro`（参照画像8枚 + hexパレット厳密指定） | 同上 | 同上 |
-| ピクセルアート案件（全画像を置換） | Retro Diffusion `api.retrodiffusion.ai`（RD_FAST/RD_PLUS、RD_TILE=`tile_x/tile_y`、RD_ANIMATION=`return_spritesheet:true`、`remove_bg:true`、**`check_cost:true`で呼出し前予算ゲート**） | PixelLab hosted MCP（注意: text mode 64x64/4フレーム等の実制限） | nearest-neighbor縮小 + パレット量子化 |
-| 背景除去 | fal.ai `fal-ai/birefnet/v2` | ローカル `rembg -m isnet-anime` | 同左 |
-| SFX | ElevenLabs SFX v2: `POST /v1/sound-generation`（model `eleven_text_to_sound_v2`、**`duration_seconds`明示**=自動比5x安・0.5〜30s、ループ素材は `loop:true`） | —（リトライのみ） | **jsfxr**（パブリックドメイン・決定的・出荷可） |
-| BGM | Eleven Music: `POST /v1/music`（model `music_v2`、`composition_plan`でセクション長指定、`force_instrumental:true`、seed。$0.15/分） | ローカル Stable Audio Open Small（Community License: 収益$1M未満商用可） | 同左（無理なら jsfxr アンビエント + must-replace 印） |
+| 图像: 精灵/角色/UI | fal.ai `fal-ai/ideogram/v3/generate-transparent`（生成时原生透明、seed、style_codes、character_reference） | Ideogram V3 官方 REST 直连（`api.ideogram.ai/v1/ideogram-v3/generate`。seed/style_codes 兼容） → 第三: 将 OpenAI `gpt-image-1.5` **pin 住**（`background:"transparent"`。**gpt-image-2 因透明报错禁止使用**） | mflux 或 ComfyUI + FLUX **schnell/klein**（Apache-2.0＝可商用）+ rembg |
+| 图像: 背景/图块集 | fal.ai `fal-ai/flux-2-pro`（8 张参考图 + hex 调色板严格指定） | 同上 | 同上 |
+| 像素画项目（替换全部图像） | Retro Diffusion `api.retrodiffusion.ai`（RD_FAST/RD_PLUS、RD_TILE=`tile_x/tile_y`、RD_ANIMATION=`return_spritesheet:true`、`remove_bg:true`、**用 `check_cost:true` 在调用前做预算 gate**） | PixelLab hosted MCP（注意: text mode 64x64/4 帧等实际限制） | nearest-neighbor 缩小 + 调色板量化 |
+| 背景去除 | fal.ai `fal-ai/birefnet/v2` | 本地 `rembg -m isnet-anime` | 同左 |
+| SFX | ElevenLabs SFX v2: `POST /v1/sound-generation`（model `eleven_text_to_sound_v2`、**显式指定 `duration_seconds`**=比自动便宜 5 倍、0.5～30s，循环素材用 `loop:true`） | —（仅重试） | **jsfxr**（公有领域、确定性、可发布） |
+| BGM | Eleven Music: `POST /v1/music`（model `music_v2`、用 `composition_plan` 指定段落长度、`force_instrumental:true`、seed。$0.15/分钟） | 本地 Stable Audio Open Small（Community License: 营收 $1M 以下可商用） | 同左（不行则 jsfxr 环境音 + must-replace 标记） |
 
-## 3D ルーティング表（engine=unity/unreal のみ。MDL/ANM 資産）
+## 3D 路由表（仅 engine=unity/unreal。MDL/ANM 资产）
 
-> **fallback 全段試行の義務**: Primary の API 失敗時、fallback を 1 段も試さずにローカル縮退/プレースホルダ/must-replace 化することを禁止する。ルーティング表の fallback を上から順に全段試行し、各試行の「ルート名 + HTTP ステータス（または失敗理由）」を必ず記録・報告する（全段失敗の場合のみローカル縮退可 — retro-e3 指摘7）。
+> **fallback 全段尝试的义务**: Primary 的 API 失败时，禁止连 1 段 fallback 都不尝试就直接本地降级/占位符/must-replace 化。必须按路由表从上到下全段尝试 fallback，并务必记录、报告每次尝试的「路由名 + HTTP 状态（或失败原因）」（仅在全段失败时才允许本地降级 — retro-e3 问题7）。
 
-2D 表の画像行は 3D エンジンでも UI・テクスチャ・コンセプト画用に併用する。3D モデル/アニメは **全行 Meshy Primary**（contract §10）— `MESHY_API_KEY` 有効時は直API を第一候補、無効/未設定時は `FAL_KEY` 経由の fal ホスト版 Meshy を第一候補に繰り上げる（Meshy の二重化）:
+2D 表中的图像行在 3D 引擎中同样用于 UI、纹理、概念图。3D 模型/动画**全行以 Meshy 为 Primary**（contract §10）— `MESHY_API_KEY` 有效时直连 API 为第一候选，无效/未设置时把经 `FAL_KEY` 的 fal 托管版 Meshy 提升为第一候选（Meshy 的双路冗余）:
 
-| 資産種別 | Primary（Meshy 直API・キー有効時） | 第二候補（Meshy 二重化: fal 経由） | Fallback（Meshy 全滅時のみ） | キー無しローカル縮退 |
+| 资产类型 | Primary（Meshy 直连 API、密钥有效时） | 第二候选（Meshy 双路冗余: 经 fal） | Fallback（仅 Meshy 全部失败时） | 无密钥本地降级 |
 |---|---|---|---|---|
-| キャラクター（リグ+アニメ付き・ヒューマノイド） | Meshy 直 `POST /openapi/v1/image-to-3d`（PBR・GLB/FBX・非同期 task）→ rigging/animation API（docs.meshy.ai/en/api/rigging-and-animation。**Pro で解放されるかは未検証** — 403/権限エラー時はこの資産種別のみ第二候補へ切替え、切替を notes/未解決事項に記録） | fal.ai `fal-ai/meshy/v6/image-to-3d`（$0.80/生成。単一アニメで足りる場合は `enable_rigging`+`animation_action_id` を同一呼び出しに含めて完結可）→ 複数クリップは `fal-ai/meshy/rigging/multi-animation`（$0.20/リクエスト + $0.12/クリップ・最大10。+Z前方・300k面上限） | Tripo 直API（`TRIPO_API_KEY`。UniRig基盤・非ヒューマノイド対応） | Blender headless プロシージャル（プリミティブ合成 blockout + **Rigify**（Blender同梱・GPL、生成リグの出力は制約なし）で標準ヒューマノイドボーン）。Blender も無ければエンジン内プリミティブ合成＋コードモーション。いずれも `must_replace: true` |
-| キャラクター（非ヒューマノイド/クリーチャー） | Meshy 直 image-to-3d（リグは Tripo 直の方が対応形状広い） | fal.ai Meshy 系 | Tripo 直API（Quadruped/Avian/Serpentine 等） | 同上（4足なら箱+円柱の blockout） |
-| プロップ（小物） | Meshy 直 image-to-3d | fal.ai `fal-ai/meshy/v6/image-to-3d` | fal.ai `fal-ai/hunyuan3d/v2`（$0.16〜） → TRELLIS 系 → `fal-ai/hyper3d/rodin` | Blender プリミティブ合成 or エンジン内プリミティブ。`must_replace: true` |
-| 環境・地形 | Meshy 直 image-to-3d（コンセプト画→image-to-3D） | fal.ai Meshy 系 | fal.ai Hunyuan3D/TRELLIS 系 → `fal-ai/hyper3d/rodin` | Blender プロシージャル地形（Displace+ノイズ）or エンジン内 Terrain。`must_replace: true` |
-| スケルタルアニメ追加分（ANM） | Meshy 直 Animation API（既存リグ済みモデルへ） | fal.ai `fal-ai/meshy/rigging/multi-animation`（action_id 指定） | — | コードによるプロシージャルモーション（ボブ/回転/バウンス）。`must_replace: true` |
+| 角色（带 rig+动画、人形） | Meshy 直连 `POST /openapi/v1/image-to-3d`（PBR、GLB/FBX、异步 task）→ rigging/animation API（docs.meshy.ai/en/api/rigging-and-animation。**Pro 是否解锁尚未验证** — 403/权限错误时仅此资产类型切换到第二候选，并把切换记录到 notes/未解决事项） | fal.ai `fal-ai/meshy/v6/image-to-3d`（$0.80/次生成。单个动画即可满足时可在同一调用中包含 `enable_rigging`+`animation_action_id` 一次完成）→ 多个剪辑用 `fal-ai/meshy/rigging/multi-animation`（$0.20/请求 + $0.12/剪辑、最多 10。+Z 前方、300k 面上限） | Tripo 直连 API（`TRIPO_API_KEY`。基于 UniRig、支持非人形） | Blender headless 程序化（基元组合 blockout + **Rigify**（Blender 自带、GPL，生成的 rig 输出不受限）生成标准人形骨骼）。没有 Blender 则引擎内基元组合＋代码驱动动作。均需 `must_replace: true` |
+| 角色（非人形/生物） | Meshy 直连 image-to-3d（rig 方面 Tripo 直连支持的形态更广） | fal.ai Meshy 系 | Tripo 直连 API（Quadruped/Avian/Serpentine 等） | 同上（四足则用盒子+圆柱 blockout） |
+| 道具（小物件） | Meshy 直连 image-to-3d | fal.ai `fal-ai/meshy/v6/image-to-3d` | fal.ai `fal-ai/hunyuan3d/v2`（$0.16～）→ TRELLIS 系 → `fal-ai/hyper3d/rodin` | Blender 基元组合或引擎内基元。`must_replace: true` |
+| 环境、地形 | Meshy 直连 image-to-3d（概念图→image-to-3D） | fal.ai Meshy 系 | fal.ai Hunyuan3D/TRELLIS 系 → `fal-ai/hyper3d/rodin` | Blender 程序化地形（Displace+噪声）或引擎内 Terrain。`must_replace: true` |
+| 追加的骨骼动画（ANM） | Meshy 直连 Animation API（对已有 rig 的模型） | fal.ai `fal-ai/meshy/rigging/multi-animation`（指定 action_id） | — | 代码程序化动作（上下浮动/旋转/弹跳）。`must_replace: true` |
 
-- **Meshy 直API の裏取り済み事実（2026-07・公式Doc）**: base URL `https://api.meshy.ai`、認証 `Authorization: Bearer $MESHY_API_KEY`、残高 `GET /openapi/v1/balance` → `{"balance": N}`（200=キー有効。レスポンスに plan/tier フィールドは無い）。POST 系は task id を返す非同期 — task の GET をポーリングして完了を待つ。**Meshy Free プランには API キー発行自体が無い**（API は Pro=$20/mo 以上のみ）ため、キー有効 ≒ Pro 以上（商用可）の間接証明になる。出典: docs.meshy.ai/en/api/{quick-start,image-to-3d,rigging-and-animation,balance,authentication,pricing} / help.meshy.ai
-- **未検証事項（生成時 feature-flag 扱い・Checkpoint で開示）**: (1) 直API の rigging/animation が Pro で解放されるか（Studio 以上の可能性 → 403 時は fal 経由へ資産種別単位で自動切替＋記録）(2) 直API クレジットの USD 換算（保守見積 $0.02/credit で MANIFEST の `cost_usd` に記録し `"cost_estimated": true` を必ず付ける）(3) fal ホスト版 Meshy 出力の商用ライセンス継承（fal モデルページに Commercial use 可のバッジのみ確認 → ライセンスフラグ節で開示）
-- **実勢コスト（fal 経由・モデルページ実測 2026-07）**: image-to-3d $0.80/生成（flat）、rigging/multi-animation $0.20 + $0.12/クリップ（例: 3クリップ = $0.56）。**ヒーロー1体（モデル+リグ+idle/walk/run）≈ $1.36**。Hunyuan3D v2 $0.16〜。予算見積もり（design/assets.md「集計と予算」）はこの実勢値で行う
-- 出力形式: **静的 = GLB / リグ・アニメ付き = FBX**（Unity Humanoid・UE Interchange との互換性が最も安定）。取込先はエンジン別（contract §11）
-- ローカル縮退（Blender）実装ノート: ボーンは Unity HumanBodyBones 互換命名（Hips/Spine/Chest/Head/LeftUpperArm…）にすると Avatar 自動マッピングが安定。Blender 4.4+ はレイヤード Action API（`action.layers[].strips[].channelbags[].fcurves`）— 旧 `Action.fcurves` は廃止済み
-- **Mixamo の自動化禁止**（Adobe ToS がバックエンドアクセス・スクレイピングを明示禁止。手動DLのみ可のためハーネスでは使わない）
-- オープンモデルのローカル実行（TRELLIS/Hunyuan3D の Apple Silicon 動作）は非公式フォーク依存のため**ルーティングに含めない**（確実動作しない）
+- **Meshy 直连 API 已核实的事实（2026-07、官方文档）**: base URL `https://api.meshy.ai`，认证 `Authorization: Bearer $MESHY_API_KEY`，余额 `GET /openapi/v1/balance` → `{"balance": N}`（200=密钥有效。响应中没有 plan/tier 字段）。POST 系返回 task id、为异步 — 轮询 task 的 GET 等待完成。**Meshy Free 套餐本身不发放 API 密钥**（API 仅 Pro=$20/mo 以上可用），因此密钥有效 ≒ Pro 以上（可商用）的间接证明。出处: docs.meshy.ai/en/api/{quick-start,image-to-3d,rigging-and-animation,balance,authentication,pricing} / help.meshy.ai
+- **未验证事项（生成时按 feature-flag 处理、在 Checkpoint 披露）**: (1) 直连 API 的 rigging/animation 是否在 Pro 解锁（可能需要 Studio 以上 → 403 时按资产类型单位自动切换到 fal 经由＋记录）(2) 直连 API 积分的 USD 换算（按保守估算 $0.02/credit 记录到 MANIFEST 的 `cost_usd`，并务必附上 `"cost_estimated": true`）(3) fal 托管版 Meshy 输出的商用许可继承（fal 模型页面仅确认到 Commercial use 可用的徽章 → 在许可标记节披露）
+- **实际成本（经 fal、模型页面实测 2026-07）**: image-to-3d $0.80/次生成（flat），rigging/multi-animation $0.20 + $0.12/剪辑（例: 3 个剪辑 = $0.56）。**主角 1 体（模型+rig+idle/walk/run）≈ $1.36**。Hunyuan3D v2 $0.16～。预算估算（design/assets.md「汇总与预算」）按此实际值进行
+- 输出格式: **静态 = GLB / 带 rig、动画 = FBX**（与 Unity Humanoid、UE Interchange 的兼容性最稳定）。导入目标按引擎区分（contract §11）
+- 本地降级（Blender）实现笔记: 骨骼采用 Unity HumanBodyBones 兼容命名（Hips/Spine/Chest/Head/LeftUpperArm…）可使 Avatar 自动映射稳定。Blender 4.4+ 为分层 Action API（`action.layers[].strips[].channelbags[].fcurves`）— 旧 `Action.fcurves` 已废弃
+- **禁止 Mixamo 自动化**（Adobe ToS 明确禁止后端访问、抓取。仅允许手动下载，因此 harness 不使用）
+- 开放模型的本地运行（TRELLIS/Hunyuan3D 在 Apple Silicon 上的运行）依赖非官方 fork，**不纳入路由**（无法保证可靠运行）
 
-## ハード禁止事項（ライセンス/品質ガード）
+## 硬性禁止事项（许可/质量守卫）
 
-- **ElevenLabs Free プランでの出荷用生成禁止**（非商用ライセンス）。preflight で subscription API を叩き **Starter($6/mo)以上を検証**
-- **ElevenLabs 公式MCP経由のSFX生成禁止**（5秒上限バグ級制約）。必ずREST直
-- **gpt-image-2 禁止**（透過背景廃止）。OpenAIルートは gpt-image-1.5 固定
-- **rembg の `bria-rmbg` モデル禁止**（CC非商用）。許可: isnet-anime / birefnet-* / u2net
-- **MusicGen / AudioGen（audiocraft）出力の出荷禁止**（CC-BY-NC重み）。プレースホルダ専用、MANIFEST に `"license":"placeholder-nc","must_replace":true` を必ず記録
-- **白背景PNGの出荷禁止** — スプライトは全数アルファチャンネル機械検証
-- **（3D）Meshy/Tripo Free プラン出力の出荷禁止**（CC BY 4.0 = クレジット必須・Tripo Free は商用不可。Pro 以上のみ）
-- **（3D）Hunyuan3D 出力は EU・英国・韓国向け出荷禁止**（Tencent Community License の Territory 除外）。100万MAU超見込みは Tencent への書面申請必須。該当資産は MANIFEST の `license` に `tencent-community` と記録し Checkpoint で開示
-- **（3D）Mixamo のバックエンド自動化・API的アクセス禁止**（Adobe ToS 違反）
-- **（3D）gltf-validator でエラーが出る GLB の出荷禁止**（全 GLB を機械検証）
+- **禁止在 ElevenLabs Free 套餐下进行发布用生成**（非商用许可）。preflight 调用 subscription API **验证 Starter($6/mo) 以上**
+- **禁止经 ElevenLabs 官方 MCP 生成 SFX**（5 秒上限的 bug 级限制）。必须 REST 直连
+- **禁止 gpt-image-2**（透明背景已废止）。OpenAI 路由固定为 gpt-image-1.5
+- **禁止 rembg 的 `bria-rmbg` 模型**（CC 非商用）。允许: isnet-anime / birefnet-* / u2net
+- **禁止发布 MusicGen / AudioGen（audiocraft）的输出**（CC-BY-NC 权重）。仅用于占位符，MANIFEST 中必须记录 `"license":"placeholder-nc","must_replace":true`
+- **禁止发布白底 PNG** — 精灵全部做 alpha 通道机器验证
+- **（3D）禁止发布 Meshy/Tripo Free 套餐输出**（CC BY 4.0 = 必须署名、Tripo Free 不可商用。仅 Pro 以上）
+- **（3D）Hunyuan3D 输出禁止面向 EU、英国、韩国发布**（Tencent Community License 的 Territory 排除）。预计超过 100 万 MAU 时必须向 Tencent 书面申请。相关资产在 MANIFEST 的 `license` 中记录 `tencent-community` 并在 Checkpoint 披露
+- **（3D）禁止 Mixamo 的后端自动化、API 式访问**（违反 Adobe ToS）
+- **（3D）禁止发布 gltf-validator 报错的 GLB**（全部 GLB 机器验证）
 
-## スタイル一貫性プロトコル
+## 风格一致性协议
 
-1. Checkpoint A で key image 1枚を人間承認 → `design/art-bible.json` を導出:
+1. 在 Checkpoint A 由人类批准 1 张 key image → 导出 `design/art-bible.json`:
    ```json
    {
-     "style_block": "全画像プロンプトに前置する固定スタイル記述",
+     "style_block": "前置于全部图像提示词的固定风格描述",
      "palette": ["#RRGGBB", "..."],
-     "style_codes": ["ideogramのstyle code"],
+     "style_codes": ["ideogram 的 style code"],
      "reference_images": ["design/refs/crop-01.png", "..."],
      "character_reference": "design/refs/hero.png",
      "resolution": {"sprite": 512, "tile": 64}
    }
    ```
-2. 全画像生成は `style_block` を機械的に前置 + seed 記録。hero は `character_reference` を全ポーズで共用
-3. 資産50超なら fal で FLUX LoRA を1回訓練（$2・商用権付き）し、以後 LoRA id を pin
-4. 音楽はジャンル/BPM/キー固定の style block + seed。SFX は seed 無し → 共通語彙で4変種生成→ベスト選別
+2. 全部图像生成机械地前置 `style_block` + 记录 seed。hero 在全部姿势中共用 `character_reference`
+3. 资产超过 50 个时在 fal 训练 1 次 FLUX LoRA（$2、附商用权），之后 pin 住 LoRA id
+4. 音乐使用固定流派/BPM/调性的 style block + seed。SFX 无 seed → 用共通词汇生成 4 个变体→选出最佳
 
-## 生成後パイプライン（全段ローカル）
+## 生成后流水线（全段本地）
 
-画像: 即時DL（fal URL≈10分・Ideogram≈24hで失効）→ アルファ検証 → (必要なら)背景除去 → トリム → タイルはオフセット重ね合わせ継ぎ目検査 → `free-tex-packer-cli` で Phaser atlas JSON（phaser のみ。unity/unreal はエンジン側のテクスチャ/スプライト機構に任せる）
-音声: `ffmpeg loudnorm`（-16 LUFS）+ 無音トリム → BGMは**ループ検証**（小節境界クロスフェード→2連結してシームのクリック/RMS段差スキャン。失敗は再生成）→ 出力形式はエンジン別（phaser: OGG Vorbis 128-160kbps + M4A/AAC（Safari）/ unity: OGG / unreal: WAV）
-3Dモデル（MDL/ANM）: 即時DL → **スキーマ検証**（GLB: `npx @gltf-transform/cli validate <file>.glb` でエラー0確認。Khronos validator 互換。機械可読の保存は `--format md` + "No errors" のテキストマッチが現実的 — JSON 出力は無い。**FBX: Blender headless で import → GLB export → 同じ validate を通す** — 変換不能・エラーは不合格。FBX を素通りさせない）→ Blender headless でポリゴン数・ボーン数・マテリアル数・非多様体検査 → **authoring-time 寸法計測**（第一情報源。実施手順: (a) プロバイダ API レスポンスに寸法/bbox があれば MANIFEST の `bbox_authoring_m` に転記、無ければ (b) Blender headless で `obj.dimensions` を計測して `bbox_authoring_m: [x,y,z]`（m 単位）を MANIFEST に記録。**Integrate 前に必須** — FBX は leaf bone の tail が roundtrip で再現されないため、reimport 計測は構造検査＝トポロジ・ボーン名・クリップ有無専用に限定）（1 unit 基準でヒト型 1.6–2.0m 相当。glTF=m / UE=cm の換算に注意）→ ポリゴン予算チェック（hero ≤ 50k tri / prop ≤ 10k tri / 環境 ≤ 100k tri。超過は `gltfpack -si` で自動 decimate）→ エンジン取込（unity: Assets/Resources/Generated/ へコピー / unreal: Interchange Python でインポート）→ 取込後にエンジン内バウンディングボックスを `bbox_authoring_m` と突合して再検証
+图像: 立即下载（fal URL≈10 分钟、Ideogram≈24h 失效）→ alpha 验证 →（必要时）背景去除 → 裁切 → 图块做偏移叠加的接缝检查 → 用 `free-tex-packer-cli` 生成 Phaser atlas JSON（仅 phaser。unity/unreal 交给引擎侧的纹理/精灵机制）
+音频: `ffmpeg loudnorm`（-16 LUFS）+ 静音裁切 → BGM 做**循环验证**（小节边界交叉淡化→拼接 2 次后扫描接缝的爆音/RMS 阶差。失败则重新生成）→ 输出格式按引擎区分（phaser: OGG Vorbis 128-160kbps + M4A/AAC（Safari）/ unity: OGG / unreal: WAV）
+3D 模型（MDL/ANM）: 立即下载 → **schema 验证**（GLB: 用 `npx @gltf-transform/cli validate <file>.glb` 确认错误为 0。兼容 Khronos validator。机器可读的保存以 `--format md` + 文本匹配 "No errors" 较为现实 — 没有 JSON 输出。**FBX: 用 Blender headless import → GLB export → 通过同样的 validate** — 无法转换、有错误即不合格。不得放 FBX 直接通过）→ 用 Blender headless 检查多边形数、骨骼数、材质数、非流形 → **authoring-time 尺寸测量**（第一信息源。实施步骤: (a) 如果提供商 API 响应中有尺寸/bbox，则转录到 MANIFEST 的 `bbox_authoring_m`，没有则 (b) 用 Blender headless 测量 `obj.dimensions` 并把 `bbox_authoring_m: [x,y,z]`（m 单位）记录到 MANIFEST。**Integrate 前必须完成** — FBX 的 leaf bone 的 tail 在 roundtrip 中无法复现，因此 reimport 测量仅限用于结构检查＝拓扑、骨骼名、剪辑有无）（以 1 unit 为基准，人形相当于 1.6–2.0m。注意 glTF=m / UE=cm 的换算）→ 多边形预算检查（hero ≤ 50k tri / prop ≤ 10k tri / 环境 ≤ 100k tri。超出则用 `gltfpack -si` 自动 decimate）→ 引擎导入（unity: 复制到 Assets/Resources/Generated/ / unreal: 用 Interchange Python 导入）→ 导入后把引擎内包围盒与 `bbox_authoring_m` 核对再验证
 
-## Provenance（必須）
+## Provenance（必需）
 
-全生成を MANIFEST.jsonl（正本パスはエンジン別 — contract §6: phaser=`game/assets/MANIFEST.jsonl` / unity・unreal=`game/_generated/MANIFEST.jsonl`）に1行1資産で追記:
+全部生成追加写入 MANIFEST.jsonl（权威路径按引擎区分 — contract §6: phaser=`game/assets/MANIFEST.jsonl` / unity、unreal=`game/_generated/MANIFEST.jsonl`），1 行 1 资产:
 
 ```json
 {"file":"assets/sprites/hero.png","provider":"fal:ideogram-v3-transparent","model":"ideogram-v3","prompt":"...","seed":12345,"style_codes":["..."],"cost_usd":0.06,"plan_tier":"prepaid","sha256":"...","license":"commercial-ok","license_note":"ideogram-in-app-ai-disclosure","generated_at":"ISO8601"}
 ```
 
-3D 資産（MDL/ANM）は追加フィールド必須:
+3D 资产（MDL/ANM）必须附加字段:
 
 ```json
 {"file":"_generated/models/model-hero.fbx","kind":"character_rigged","provider":"meshy:image-to-3d+rigging","model":"meshy-6","prompt":"...","seed":12345,"format":["glb","fbx"],"polycount":24800,"bone_count":52,"rigged":true,"rig_type":"humanoid","animations":["idle","walk","run"],"texture_resolution":2048,"pbr":true,"units":"meters","up_axis":"+Y","bbox_authoring_m":[0.9,1.8,0.5],"cost_usd":1.36,"cost_estimated":false,"plan_tier":"pro","sha256":"...","license":"commercial-ok","validator":{"gltf_validator":"pass","non_manifold_verts":0,"bind_pose_check":"pass"},"generated_at":"ISO8601"}
 ```
 
-- `kind`: `character_rigged | prop | environment | animation_only`（2D 資産は省略可）
+- `kind`: `character_rigged | prop | environment | animation_only`（2D 资产可省略）
 - `rig_type`: `humanoid | quadruped | other | none`
-- `validator`: 機械検証結果をそのまま埋め込む（Checkpoint 提示でそのまま見せる）
-- `bbox_authoring_m`: authoring-time 計測寸法 [x,y,z]（m 単位。3D 資産必須 — 生成後パイプライン参照。AR-ASSET のスケール観点はこの値を第一情報源とする）
-- `plan_tier`: preflight の実測値（`state/asset-routing.json` の `checks.<provider>.plan_tier`）をそのまま転記。`cost_estimated: true` はクレジット→USD 換算が未検証見積であることを示す
+- `validator`: 原样嵌入机器验证结果（Checkpoint 展示时原样呈现）
+- `bbox_authoring_m`: authoring-time 测量尺寸 [x,y,z]（m 单位。3D 资产必需 — 参见生成后流水线。AR-ASSET 的尺度要点以此值为第一信息源）
+- `plan_tier`: 原样转录 preflight 的实测值（`state/asset-routing.json` 的 `checks.<provider>.plan_tier`）。`cost_estimated: true` 表示积分→USD 换算是未验证的估算
 
-- `license_note`: プロバイダ固有の表記・条項義務がある資産は**転記必須**（Ideogram のアプリ内 AI 生成表記条項 / Hunyuan3D の Territory 除外 / ElevenLabs「Studio Games」条項 等 — 下記「ライセンスフラグ」節の該当項目）。無条項プロバイダは省略可。E2 で Ideogram 表記条項が口頭開示のみで MANIFEST 未記録のまま完走した再発防止（retro-e2 指摘9）
-- 予算: `state/budget.txt`（既定は `.env` の `ASSET_BUDGET_USD`、無ければ $20）を MANIFEST 合算で強制。超過見込みで生成停止→Checkpointで人間へ
-- Steam AI 開示文は MANIFEST から自動生成（`license_note` の表記条項を集約する）
-- 人間/エージェントによる修正・キュレーション（リタッチ、選別理由）も追記（著作権保護可能性の強化）
+- `license_note`: 有提供商特定标注、条款义务的资产**必须转录**（Ideogram 的应用内 AI 生成标注条款 / Hunyuan3D 的 Territory 排除 / ElevenLabs「Studio Games」条款等 — 下文「许可标记」节的对应项目）。无条款提供商可省略。防止 E2 中 Ideogram 标注条款只做了口头披露、MANIFEST 未记录就完成全程的再发（retro-e2 问题9）
+- 预算: `state/budget.txt`（默认为 `.env` 的 `ASSET_BUDGET_USD`，没有则 $20）通过 MANIFEST 合计强制执行。预计超出时停止生成→在 Checkpoint 交给人类
+- Steam AI 披露文从 MANIFEST 自动生成（汇总 `license_note` 的标注条款）
+- 人类/agent 的修正、策展（修图、选择理由）也追加写入（强化可获得版权保护的可能性）
 
-## スタイル一貫性プロトコル（3D 追記）
+## 风格一致性协议（3D 补充）
 
-3D 資産の画風統一は「統一スタイルの 2D コンセプト画（key image 系列）→ image-to-3D」の二段構えを既定とする。全モデル生成は art-bible.json の style_block を反映したコンセプト画を入力にし、同一プロバイダ・同一設定を固定。キャラクターは character_reference のコンセプト画を全ポーズ・全アニメで共用する。
+3D 资产的画风统一默认采用「统一风格的 2D 概念图（key image 系列）→ image-to-3D」两段式。全部模型生成以反映 art-bible.json 的 style_block 的概念图为输入，固定同一提供商、同一设置。角色在全部姿势、全部动画中共用 character_reference 的概念图。
 
-## Checkpointで人間に提示するライセンスフラグ
+## 在 Checkpoint 向人类展示的许可标记
 
-- ElevenLabs「Studio Games」条項: 商用×マルチプラットフォーム出荷は Enterprise 相談が必要
-- Ideogram: アプリ内AI生成表記条項
-- 米国では純AI出力の著作権が不確定 → MANIFEST の人間関与記録が防御材料
-- （3D）Hunyuan3D 使用時: EU/英国/韓国の Territory 除外と MAU 制限（上記ハード禁止事項）
-- （3D）Meshy/Tripo: Pro 以上プランであることの確認結果（Free 出力は CC BY 4.0 / 商用不可。Meshy 直API はキー有効=Pro以上の間接証明 — `state/asset-routing.json` の `plan_tier` 実測を提示）
-- （3D）fal ホスト版 Meshy 出力のライセンス継承は未検証（fal モデルページの Commercial use バッジのみ確認）— fal 経由生成分がある場合は必ず開示
-- （3D）`cost_estimated: true` の資産がある場合: クレジット→USD 換算が保守見積であること
-- （unreal）UE EULA: エンジンコード/コンテンツを生成AIへの入力に使うことは禁止（自作コードは対象外）。ロイヤリティ 5%（$1M 超過分）
+- ElevenLabs「Studio Games」条款: 商用×多平台发布需要咨询 Enterprise
+- Ideogram: 应用内 AI 生成标注条款
+- 在美国纯 AI 输出的版权尚不确定 → MANIFEST 的人类参与记录是防御材料
+- （3D）使用 Hunyuan3D 时: EU/英国/韩国的 Territory 排除与 MAU 限制（上述硬性禁止事项）
+- （3D）Meshy/Tripo: 确认为 Pro 以上套餐的结果（Free 输出为 CC BY 4.0 / 不可商用。Meshy 直连 API 的密钥有效=Pro 以上的间接证明 — 展示 `state/asset-routing.json` 的 `plan_tier` 实测值）
+- （3D）fal 托管版 Meshy 输出的许可继承未验证（仅确认了 fal 模型页面的 Commercial use 徽章）— 有经 fal 生成的部分时必须披露
+- （3D）存在 `cost_estimated: true` 的资产时: 积分→USD 换算为保守估算
+- （unreal）UE EULA: 禁止将引擎代码/内容用作生成 AI 的输入（自作代码不在此限）。版税 5%（超过 $1M 的部分）

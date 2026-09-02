@@ -2,60 +2,60 @@
 paths: ["game/Assets/**/*.cs"]
 ---
 
-# unity-code — game/Assets の C# 編集時の強制規約（engine=unity）
+# unity-code — 编辑 game/Assets 的 C# 时的强制规范（engine=unity）
 
-正本: `.claude/docs/tech-stack-unity.md`。違反は CR-CODE ゲートで CONCERNS 以上になる。
-思想は phaser 版 `gameplay-code.md` と同一（マジックナンバー禁止 / delta-time / エンジン非依存コア / 入力抽象化 / 資産キー集約）を Unity イディオムに翻訳したもの。
+权威来源: `.claude/docs/tech-stack-unity.md`。违反会在 CR-CODE Gate 中得到 CONCERNS 以上的判定。
+思想与 phaser 版 `gameplay-code.md` 相同（禁止魔法数字 / delta-time / 引擎无关核心 / 输入抽象化 / 资产键集中），翻译为 Unity 惯用法。
 
 ## Do / Don't
 
-- **Do**: ゲームパラメータ（速度・重力・HP・スコア・時間・色・サイズ）は `Assets/Scripts/GameConfig.cs` の静的定数クラスに集約する。チューニングは GameConfig.cs の編集だけで完結すること
-- **Don't**: MonoBehaviour や System の本文に数値リテラルを直書きしない（配列 index・`0`/`1` 初期値など意味を持たない値は除く）
-- **Do**: 移動・タイマー・クールダウンは `Update()` 内で `Time.deltaTime`、物理は `FixedUpdate()` 内で `Time.fixedDeltaTime` でスケールする
-- **Don't**: フレーム毎の固定加算（`x += 5f`）を書かない。60fps 前提の実装は禁止
-- **Don't**: `Assets/Scripts/Systems/` で `MonoBehaviour` を継承しない・シーン API（`GameObject.Find` / `Instantiate` / `GetComponent`）を呼ばない。Systems はエンジン非依存層（純粋 C# クラス。`Vector3`/`Mathf` 等の値型・数学型は可）。MonoBehaviour 依存は `Assets/Scripts/Components/`（シーン配線層）に閉じ込める
-- **Do**: Components 層はライフサイクルと配線のみ（System の生成・入力の受け渡し・Transform への反映）。判定・状態遷移・スコア計算のロジックは `Systems/` の純粋クラスへ
-- **Do**: 入力は Input System（`com.unity.inputsystem`）を使い、`Assets/Scripts/Input/` の1モジュールに集約する
-- **Don't**: 旧 `Input.GetKey` / `Input.GetAxis` を使わない。MonoBehaviour ごとに入力読み取りを散らさない
-- **Don't**: PlayMode テストで `[UnitySetUp]` と `[UnityTest]` の境界を跨いで入力デバイス追加と擬似発行を分けない — シーンロードと入力擬似発行は同一コルーチンに収める。Title/Menu/HUD のクリック判定は入力ポーリングの初期化タイミングに注意（正本: tech-stack-unity.md「既知の落とし穴」）
-- **Do**: 資産参照（プレハブ・マテリアル・AudioClip 等の動的ロード）は `GameConfig.cs` の `AssetKeys` 定数経由。インスペクタ直参照（`[SerializeField]`）は可
-- **Don't**: `Resources.Load("Hero")` のようなパス文字列直書き禁止
-- **Do**: 永続化 I/O（`Application.persistentDataPath`・`File`・`PlayerPrefs`）は `Assets/Scripts/Persistence/` のみで行う。メタ進行ロジックは `Systems/Meta/` の pure C#（値を受けて値を返す reducer）に置く（tech-stack-unity.md「セーブ / 永続化」）
-- **Don't**: `Systems/`・`Components/`・`Ui/` から File I/O / PlayerPrefs を直接呼ばない
-- **Don't**: **セーブ破損時に黙って初期化しない** — パース失敗・`save_version` 欠落・未来版・スキーマ検証失敗（必須フィールド欠落・型不正）は必ず (1) `.bak` 退避 (2) `Debug.LogError("[SaveCorruption] ...")` 1回 (3) 既定値再生成＋`recovered` フラグ伝播、の3点セット（contract §6）。catch して既定値を返すだけの実装・フィールド単位で既定値に埋める実装は CR-CODE で CONCERNS 以上
-- **Don't**: HUD/メニューの Canvas を `RenderMode.ScreenSpaceOverlay` にしない（QA の RenderTexture 撮影に写らない — tech-stack-unity.md 規約14。`ScreenSpaceCamera` + `worldCamera` 固定）
+- **Do**: 游戏参数（速度、重力、HP、分数、时间、颜色、尺寸）集中到 `Assets/Scripts/GameConfig.cs` 的静态常量类。调优必须仅通过编辑 GameConfig.cs 即可完成
+- **Don't**: 不要在 MonoBehaviour 或 System 的正文中直接写数值字面量（数组 index、`0`/`1` 初始值等无语义的值除外）
+- **Do**: 移动、计时器、冷却在 `Update()` 内以 `Time.deltaTime`、物理在 `FixedUpdate()` 内以 `Time.fixedDeltaTime` 进行缩放
+- **Don't**: 不要写每帧固定加算（`x += 5f`）。禁止以 60fps 为前提的实现
+- **Don't**: 不要在 `Assets/Scripts/Systems/` 中继承 `MonoBehaviour`、调用场景 API（`GameObject.Find` / `Instantiate` / `GetComponent`）。Systems 是引擎无关层（纯 C# 类。`Vector3`/`Mathf` 等值类型、数学类型可用）。MonoBehaviour 依赖封闭在 `Assets/Scripts/Components/`（场景接线层）中
+- **Do**: Components 层只负责生命周期与接线（System 的创建、输入的传递、向 Transform 的反映）。判定、状态迁移、分数计算的逻辑放到 `Systems/` 的纯类中
+- **Do**: 输入使用 Input System（`com.unity.inputsystem`），集中到 `Assets/Scripts/Input/` 的唯一模块
+- **Don't**: 不要使用旧 `Input.GetKey` / `Input.GetAxis`。不要在每个 MonoBehaviour 中分散输入读取
+- **Don't**: 在 PlayMode 测试中，不要跨越 `[UnitySetUp]` 与 `[UnityTest]` 的边界把输入设备添加与模拟发送分开 — 场景加载与模拟输入发送收在同一协程内。Title/Menu/HUD 的点击判定要注意输入轮询的初始化时机（权威来源: tech-stack-unity.md「已知陷阱」）
+- **Do**: 资产引用（预制体、材质、AudioClip 等的动态加载）经由 `GameConfig.cs` 的 `AssetKeys` 常量。Inspector 直接引用（`[SerializeField]`）可用
+- **Don't**: 禁止 `Resources.Load("Hero")` 这类路径字符串直写
+- **Do**: 持久化 I/O（`Application.persistentDataPath`、`File`、`PlayerPrefs`）仅在 `Assets/Scripts/Persistence/` 中进行。元进度逻辑放在 `Systems/Meta/` 的 pure C#（接收值并返回值的 reducer）中（tech-stack-unity.md「存档 / 持久化」）
+- **Don't**: 不要从 `Systems/`、`Components/`、`Ui/` 直接调用 File I/O / PlayerPrefs
+- **Don't**: **存档损坏时不得静默初始化** — 解析失败、`save_version` 缺失、未来版本、schema 验证失败（必需字段缺失、类型不正确）必须执行三件套: (1) 备份保存到 `.bak` (2) `Debug.LogError("[SaveCorruption] ...")` 1次 (3) 以默认值重新生成＋传播 `recovered` 标志（contract §6）。仅 catch 后返回默认值的实现、按字段填入默认值的实现在 CR-CODE 中为 CONCERNS 以上
+- **Don't**: 不要把 HUD/菜单的 Canvas 设为 `RenderMode.ScreenSpaceOverlay`（不会出现在 QA 的 RenderTexture 拍摄中 — tech-stack-unity.md 规范14。固定为 `ScreenSpaceCamera` + `worldCamera`）
 
-## 正誤例
+## 正误示例
 
-### マジックナンバー
+### 魔法数字
 
 ```csharp
-// NG: コンポーネントに数値直書き
+// NG: 组件中直写数值
 transform.position += Vector3.forward * 5f * Time.deltaTime;
 if (score > 1000) LevelUp();
 
-// OK: GameConfig.cs に集約
+// OK: 集中到 GameConfig.cs
 public static class GameConfig
 {
     public static class Player { public const float MoveSpeed = 5f; }        // m/s
     public static class Score  { public const int LevelUpThreshold = 1000; }
 }
 
-// 使用側
+// 使用侧
 transform.position += Vector3.forward * GameConfig.Player.MoveSpeed * Time.deltaTime;
 if (score > GameConfig.Score.LevelUpThreshold) LevelUp();
 ```
 
-### Systems/ のエンジン非依存
+### Systems/ 的引擎无关
 
 ```csharp
 // NG: Assets/Scripts/Systems/CombatSystem.cs
-public class CombatSystem : MonoBehaviour            // 禁止（Systems での MonoBehaviour 継承）
+public class CombatSystem : MonoBehaviour            // 禁止（在 Systems 中继承 MonoBehaviour）
 {
     void Update() { /* ... */ }
 }
 
-// OK: Assets/Scripts/Systems/CombatSystem.cs — 純粋 C#。状態を受け取り新しい状態を返す
+// OK: Assets/Scripts/Systems/CombatSystem.cs — 纯 C#。接收状态并返回新状态
 public static class CombatSystem
 {
     public static EntityState ApplyHit(EntityState target, int damage) =>
@@ -63,16 +63,16 @@ public static class CombatSystem
 }
 ```
 
-### 入力集約（Input System）
+### 输入集中（Input System）
 
 ```csharp
-// NG: 各 MonoBehaviour で散在
-if (Input.GetKeyDown(KeyCode.Space)) Jump();          // 旧API・散在の二重違反
+// NG: 分散在各 MonoBehaviour 中
+if (Input.GetKeyDown(KeyCode.Space)) Jump();          // 旧API与分散的双重违反
 
-// OK: Assets/Scripts/Input/InputReader.cs に集約し、Components はイベント/状態を購読する
+// OK: 集中到 Assets/Scripts/Input/InputReader.cs，Components 订阅事件/状态
 public sealed class InputReader
 {
-    private readonly GameInputActions actions = new();  // Input System 生成クラス
+    private readonly GameInputActions actions = new();  // Input System 生成的类
     public bool JumpPressed => actions.Gameplay.Jump.WasPressedThisFrame();
 }
 ```

@@ -1,15 +1,15 @@
-# ArcadeRelay 技術スタック規約（game/ 配下・engine=phaser の正本）
+# ArcadeRelay 技术栈规范（game/ 下、engine=phaser 的权威来源）
 
-> エンジン選択は contract.md §11（`state/engine.txt`）。このファイルは **engine=`phaser`（2D・既定）** の正本。
-> `unity` は tech-stack-unity.md、`unreal` は tech-stack-unreal.md を読むこと。以下の規約は phaser 選択時に全て適用される。
+> 引擎选择见 contract.md §11（`state/engine.txt`）。本文件是 **engine=`phaser`（2D、默认）** 的权威来源。
+> `unity` 请读 tech-stack-unity.md，`unreal` 请读 tech-stack-unreal.md。以下规范在选择 phaser 时全部适用。
 
-## スタック（固定）
+## 技术栈（固定）
 
-- **Phaser 3**（最新安定版）+ **TypeScript**（strict）+ **Vite**
-- `game/` は自己完結プロジェクト: `cd game && npm install && npm run dev` で起動できること
-- 追加ランタイム依存は原則禁止（Phaser のみ）。ビルド/検証系 devDependencies は可
+- **Phaser 3**（最新稳定版）+ **TypeScript**（strict）+ **Vite**
+- `game/` 是自包含项目: 必须能通过 `cd game && npm install && npm run dev` 启动
+- 原则上禁止追加运行时依赖（仅 Phaser）。构建/验证类 devDependencies 允许
 
-## 必須 package.json スクリプト
+## 必需的 package.json 脚本
 
 ```json
 {
@@ -22,52 +22,52 @@
 }
 ```
 
-## ディレクトリ構造
+## 目录结构
 
 ```
 game/
   index.html
   package.json / tsconfig.json / vite.config.ts
   src/
-    main.ts              # Phaser.Game 初期化のみ
-    config.ts            # ★全ゲームパラメータ（下記）
-    scenes/              # BootScene / TitleScene / MenuScene / GameScene / ResultScene（contract §11 必須シーン集合）
-    systems/             # ゲームロジック（Scene非依存の純粋クラス/関数）
-      meta/              # メタ進行ロジック（metaTypes.ts / metaSchema.ts / metaProgression.ts — Phaser 非依存）
-    persistence/         # 永続化 I/O 層（localStorage の唯一の置き場。systems/ から直接呼ばない）
-    ui/                  # HUD・メニュー等の表示コンポーネント
-    types.ts             # 共有型
-  assets/                # 生成資産（画像/音声/atlas）+ MANIFEST.jsonl
+    main.ts              # 仅 Phaser.Game 初始化
+    config.ts            # ★全部游戏参数（见下）
+    scenes/              # BootScene / TitleScene / MenuScene / GameScene / ResultScene（contract §11 必需场景集合）
+    systems/             # 游戏逻辑（不依赖 Scene 的纯类/函数）
+      meta/              # 元进度逻辑（metaTypes.ts / metaSchema.ts / metaProgression.ts — 不依赖 Phaser）
+    persistence/         # 持久化 I/O 层（localStorage 的唯一放置处。不得从 systems/ 直接调用）
+    ui/                  # HUD、菜单等显示组件
+    types.ts             # 共享类型
+  assets/                # 生成资产（图像/音频/atlas）+ MANIFEST.jsonl
 ```
 
-## コード規約（rules/ が編集時に強制する内容の正本）
+## 代码规范（rules/ 在编辑时强制执行的内容的权威来源）
 
-1. **マジックナンバー禁止** — 全ゲームパラメータ（速度・重力・スコア・色・時間）は `src/config.ts` に名前付き定数で集約。チューニングは config だけで完結させる
-2. **delta-time 必須** — 移動・タイマーは `update(time, delta)` の delta を使う。フレームレート依存の実装禁止
-3. **Scene は薄く** — Scene はライフサイクルと配線のみ。ロジックは `systems/` の純粋クラスへ（単体で理解・差し替え可能に）
-4. **入力抽象化** — キー/タッチ入力は1モジュールに集約（後のリマップ・モバイル対応のため）
-5. **資産参照はキー定数** — `assets/` のパスとテクスチャキーは `src/config.ts` の `ASSET_KEYS` 経由。ハードコードパス禁止
-6. **音声はユーザー操作後に再生開始** — ブラウザの autoplay 制限対応（初回入力で AudioContext resume）
-7. **リサイズ対応** — `Phaser.Scale.FIT` + `autoCenter` を既定とする
-8. **シーン構成固定** — BootScene / TitleScene / MenuScene / GameScene / ResultScene（contract §11 必須シーン集合。正準フロー: Boot→Title→Menu→Game→Result→{Game|Menu}）。MenuScene の必須要素: プレイ開始・アウトゲーム表示（アンロック/実績/統計）・設定（音量・操作表示）・終了導線
-9. **永続化 I/O は `src/persistence/` に集約** — `localStorage` を `systems/`・`scenes/`・`ui/` から直接呼ばない。メタ進行ロジック（`systems/meta/`）は値を受けて値を返すのみ（「セーブ / 永続化」節参照）
+1. **禁止魔法数字** — 全部游戏参数（速度、重力、分数、颜色、时间）以命名常量集中在 `src/config.ts`。调参只在 config 中完成
+2. **必须使用 delta-time** — 移动、计时器使用 `update(time, delta)` 的 delta。禁止依赖帧率的实现
+3. **Scene 保持轻薄** — Scene 只负责生命周期与接线。逻辑放入 `systems/` 的纯类（可单独理解、可替换）
+4. **输入抽象化** — 键盘/触摸输入集中到 1 个模块（便于日后重映射、移动端适配）
+5. **资产引用使用键常量** — `assets/` 的路径与纹理键经由 `src/config.ts` 的 `ASSET_KEYS`。禁止硬编码路径
+6. **音频在用户操作后才开始播放** — 应对浏览器 autoplay 限制（首次输入时 resume AudioContext）
+7. **支持 resize** — 默认使用 `Phaser.Scale.FIT` + `autoCenter`
+8. **场景构成固定** — BootScene / TitleScene / MenuScene / GameScene / ResultScene（contract §11 必需场景集合。正规流程: Boot→Title→Menu→Game→Result→{Game|Menu}）。MenuScene 的必需要素: 开始游戏、游戏外显示（解锁/成就/统计）、设置（音量、操作说明）、退出入口
+9. **持久化 I/O 集中在 `src/persistence/`** — 不得从 `systems/`、`scenes/`、`ui/` 直接调用 `localStorage`。元进度逻辑（`systems/meta/`）只接收值并返回值（参见「存档 / 持久化」节）
 
-## セーブ / 永続化（contract §6 のセーブ規約の phaser 実装正本）
+## 存档 / 持久化（contract §6 存档规范的 phaser 实现权威来源）
 
-- **保存先**: `localStorage` キー `arcaderelay-save`。形式は JSON、先頭フィールド `save_version`（number・必須）
-- **層の分離**（contract §11）: メタ進行ロジック = `src/systems/meta/`（`metaTypes.ts`=バージョン別プレーン型 / `metaSchema.ts`=マイグレーション関数チェーン+検証 / `metaProgression.ts`=RunResult を受けて新 SaveData を返す純粋 reducer）。I/O = `src/persistence/`（`SaveAdapter` 実装。`localStorage` 参照はここだけ — テストではインメモリ Storage を注入可能にする）
-- **マイグレーション**: v(n)→v(n+1) の関数を順に適用。現行より新しい版は変換せず破損相当として扱う（暗黙ダウングレード禁止）。関数は追加のみ・書き換え禁止
-- **破損時プロトコル（黙示初期化禁止 — rules/gameplay-code.md が強制）**: パース失敗・`save_version` 欠落・未来版・スキーマ検証失敗（必須フィールド欠落・型不正）のいずれも、(1) 生データを `arcaderelay-save.bak.<epoch>` キーへ退避 → (2) `console.error('[SaveCorruption] reason=... backup=...')` を1回 → (3) 既定値で再生成し `recovered: true` を UI 層（Title/Menu）に伝播
-- **保存タイミング**: Result 到達時に `applyRunResult` → 即 persist を1回（リスタート連打で二重保存しない）
-- **テスト規約**: 実 `localStorage` を使わずインメモリ Storage モックを注入（保存→新規インスタンスで再ロード→復元一致、破損→`.bak`+エラー1回+既定値復旧、の両テスト必須）
+- **保存位置**: `localStorage` 键 `arcaderelay-save`。格式为 JSON，首字段 `save_version`（number、必需）
+- **层的分离**（contract §11）: 元进度逻辑 = `src/systems/meta/`（`metaTypes.ts`=按版本区分的普通类型 / `metaSchema.ts`=迁移函数链+验证 / `metaProgression.ts`=接收 RunResult 并返回新 SaveData 的纯 reducer）。I/O = `src/persistence/`（`SaveAdapter` 实现。只有这里引用 `localStorage` — 测试中要能注入内存 Storage）
+- **迁移**: 依次应用 v(n)→v(n+1) 的函数。比当前版本更新的版本不做转换，按损坏处理（禁止隐式降级）。函数只增不改
+- **损坏时协议（禁止静默初始化 — rules/gameplay-code.md 强制执行）**: 解析失败、`save_version` 缺失、未来版本、schema 验证失败（必需字段缺失、类型错误）中的任一情况，均 (1) 将原始数据备份保存到 `arcaderelay-save.bak.<epoch>` 键 → (2) 执行 1 次 `console.error('[SaveCorruption] reason=... backup=...')` → (3) 以默认值重新生成并把 `recovered: true` 传递到 UI 层（Title/Menu）
+- **保存时机**: 到达 Result 时 `applyRunResult` → 立即 persist 1 次（连续重开不得重复保存）
+- **测试规范**: 不使用真实 `localStorage`，注入内存 Storage mock（必须包含两项测试: 保存→新实例重新加载→恢复一致，损坏→`.bak`+错误 1 次+默认值恢复）
 
-## 検証コマンド（実装ストーリーごと + バッチ）
+## 验证命令（每个实现 story + 批处理）
 
-- 実装ストーリーごと（並走レーン中）: `npm run typecheck` を実行し、**自分の編集ファイル起因のエラーのみ 0 にする**（他レーンの書きかけ WIP・他レーンが提供予定の API 参照に起因するエラーは無視してよい — バッチ検証が最終確認。`tsc --noEmit` はファイル書込なしで並走安全だが、結果には他レーンの WIP が混入し得る）。**レーン中は `npm run build` を実行しない**（dist/ が他レーンと衝突する — retro-e2 案A+B の検証バッチ化）
-- レーン合流後のバッチ検証区間（直列）: `npm run typecheck && npm run build` が exit 0。失敗はエラーのファイルパスと `git log --oneline -- <path>` で原因 story を特定し、最小修正と原因 story を `state/reviews/batch-verify.md` に記録（正本実装は workflow の batchVerify）
-- headless ブラウザで console エラー 0（QA-PLAY ゲートで実施。必須シーン遷移 Title→Menu→Game→Result→Menu と永続化検証を含む — gates.md QA-PLAY 観点2/5）
+- 每个实现 story（并行 lane 中）: 执行 `npm run typecheck`，**只把自己编辑的文件引起的错误清零**（其他 lane 的 WIP 半成品、对其他 lane 将要提供的 API 的引用所引起的错误可以忽略 — 批处理验证是最终确认。`tsc --noEmit` 不写文件、并行安全，但结果中可能混入其他 lane 的 WIP）。**lane 中不得执行 `npm run build`**（dist/ 会与其他 lane 冲突 — retro-e2 方案A+B 的验证批处理化）
+- lane 合流后的批处理验证区间（串行）: `npm run typecheck && npm run build` exit 0。失败时用错误的文件路径和 `git log --oneline -- <path>` 定位原因 story，并把最小修复与原因 story 记录到 `state/reviews/batch-verify.md`（权威实现是 workflow 的 batchVerify）
+- headless 浏览器中 console 错误为 0（在 QA-PLAY Gate 实施。包含必需场景切换 Title→Menu→Game→Result→Menu 与持久化验证 — gates.md QA-PLAY 要点2/5）
 
-## 将来のエンジン非依存化に向けた線引き
+## 面向未来引擎无关化的边界划分
 
-- `systems/` は Phaser API・`localStorage` を import/参照しない（型・数値ロジックのみ）— ここがエンジン非依存層（`systems/meta/` も同様）
-- Phaser 依存は `scenes/` `ui/` `main.ts` に、ブラウザ永続化 API は `persistence/` に閉じ込める
+- `systems/` 不 import/引用 Phaser API、`localStorage`（仅类型与数值逻辑）— 这里是引擎无关层（`systems/meta/` 同样）
+- Phaser 依赖封闭在 `scenes/` `ui/` `main.ts` 中，浏览器持久化 API 封闭在 `persistence/` 中

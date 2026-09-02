@@ -1,15 +1,15 @@
-// Workflow DSL スタブハーネス — .claude/workflows/*.js を注入グローバル（agent/parallel/pipeline/
-// phase/log/args/budget）のスタブ下で丸ごと実行する。
+// Workflow DSL 桩 harness — 在注入全局对象（agent/parallel/pipeline/
+// phase/log/args/budget）的桩之下完整执行 .claude/workflows/*.js。
 //
-// 検証対象は「スクリプトが自力で決める部分」だけ: プロンプト配線・分岐・エスカレーション蓄積・
-// レーン分配。本物の Workflow ランタイム挙動（キャッシュ・並列上限・schema 強制リトライ）は
-// 再現しない。parallel はスタブでも DSL と同じく「例外を null に潰す」（thunk が投げても落ちない）。
+// 验证对象仅限「脚本自行决定的部分」: 提示词接线、分支、上报累积、
+// lane 分配。不复现真实 Workflow 运行时的行为（缓存、并行上限、schema 强制重试）。
+// parallel 在桩中也与 DSL 一样「把异常压成 null」（thunk 抛出也不会崩）。
 //
-// 実行: node --test .claude/tests/workflows/*.test.mjs（ディレクトリ指定は Node 24 で MODULE_NOT_FOUND — glob 必須）
+// 执行: node --test .claude/tests/workflows/*.test.mjs（指定目录在 Node 24 下会 MODULE_NOT_FOUND — 必须用 glob）
 import { readFile } from 'node:fs/promises';
 
-// JSON Schema から最小の妥当値を合成する（required のみ・enum は先頭値・boolean は false —
-// budgetExceeded/overBudget 等の「true = 異常」フラグを既定で発火させないため）
+// 从 JSON Schema 合成最小的合法值（仅 required、enum 取首个值、boolean 为 false —
+// 以免默认触发 budgetExceeded/overBudget 等「true = 异常」标志）
 export function fromSchema(schema) {
   if (!schema || !schema.type) return 'ok';
   switch (schema.type) {
@@ -26,8 +26,8 @@ export function fromSchema(schema) {
   }
 }
 
-// routes: [{ match: RegExp(label), reply: object | (call) => object }] — 先勝ち。
-// 不一致は fromSchema(opts.schema) のデフォルト応答。
+// routes: [{ match: RegExp(label), reply: object | (call) => object }] — 先匹配者优先。
+// 不匹配时返回 fromSchema(opts.schema) 的默认响应。
 export async function runWorkflow(path, { args, routes = [] } = {}) {
   const src = await readFile(path, 'utf8');
   const body = src.replace(/^export const meta/m, 'const meta');

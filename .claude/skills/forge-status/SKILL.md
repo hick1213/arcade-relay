@@ -1,120 +1,120 @@
 ---
 name: forge-status
-description: ArcadeRelay の現在地表示（読み取り専用）。.claude/docs/pipeline.yaml と state/ とファイル実体を突き合わせ、現在stage・完了/欠落成果物・次に実行すべきコマンド・state/active.md の要約を表示する。何も書き込まない。
-argument-hint: "（引数なし）"
+description: ArcadeRelay 的当前位置显示（只读）。核对 .claude/docs/pipeline.yaml、state/ 与文件实体，显示当前 stage、已完成/缺失的产出物、接下来应执行的命令、state/active.md 的摘要。不写入任何内容。
+argument-hint: "（无参数）"
 allowed-tools: Read, Glob, Grep, Bash
 ---
 
-# /forge-status — 現在地と次アクションの表示
+# /forge-status — 当前位置与下一步操作的显示
 
-**読み取り専用スキル。** ファイル書き込み・修復・サブスキル起動は一切しない。矛盾を見つけても報告と提案のみ。
+**只读 skill。** 完全不做文件写入、修复、子 skill 启动。即使发现矛盾也只报告与建议。
 
-## Phase 1: 状態ファイル読み込み
+## Phase 1: 读取状态文件
 
-以下を読む（無いものは「未設定/未着手」として扱う）:
+读取以下内容（不存在的按「未设置/未开始」处理）:
 
-- `state/stage.txt` — 現在stage（`brief|concept|prototype|build|done` の1語。無ければ「未着手」）
-- `state/engine.txt` — `phaser|unity|unreal`（無ければ「未設定（既定 phaser）」— contract §11）
-- `state/engine-info.json` — エンジン preflight 済みか（unity/unreal のみ。binary 実在も確認）
-- `state/review-mode.txt` — `full|lean|solo`（無ければ「未初期化（既定 lean）」）
-- `state/budget.txt` — 予算上限USD（無ければ「未初期化（既定 20）」）
-- `state/active.md` — セッションハンドオフ（現在地/次アクション/未解決事項）
-- `state/asset-routing.json` — preflight済みか（`degraded` フラグも確認）
-- `.claude/docs/pipeline.yaml` — stage順序・各stageの required artifacts・command の情報源
+- `state/stage.txt` — 当前 stage（`brief|concept|prototype|build|done` 之一。不存在则为「未开始」）
+- `state/engine.txt` — `phaser|unity|unreal`（不存在则为「未设置（默认 phaser）」— contract §11）
+- `state/engine-info.json` — 引擎 preflight 是否已完成（仅 unity/unreal。同时确认 binary 实际存在）
+- `state/review-mode.txt` — `full|lean|solo`（不存在则为「未初始化（默认 lean）」）
+- `state/budget.txt` — 预算上限 USD（不存在则为「未初始化（默认 20）」）
+- `state/active.md` — 会话交接（当前位置/下一步操作/未解决事项）
+- `state/asset-routing.json` — preflight 是否已完成（同时确认 `degraded` 标志）
+- `.claude/docs/pipeline.yaml` — stage 顺序、各 stage 的 required artifacts、command 的信息源
 
-## Phase 2: 成果物の実体チェック
+## Phase 2: 产出物的实体检查
 
-pipeline.yaml の各 stage の `artifacts.required` を実体と突き合わせる（存在かつ非空を合格とする）。**`engine:` フィールド付きの成果物は、`state/engine.txt` の値（無ければ phaser）に一致する行だけを対象にする**（pipeline.yaml 冒頭コメント参照）:
+将 pipeline.yaml 各 stage 的 `artifacts.required` 与实体核对（存在且非空为合格）。**带 `engine:` 字段的产出物，仅以与 `state/engine.txt` 的值（不存在则为 phaser）一致的行为对象**（参见 pipeline.yaml 开头注释）:
 
 ```bash
 ENGINE="$(cat state/engine.txt 2>/dev/null || echo phaser)"
-# 共通成果物
+# 共通产出物
 for f in design/brief.md \
          design/concept.md design/gdd.md design/art-bible.md design/art-bible.json design/assets.md \
          docs/architecture.md docs/conventions.md state/stories.yaml qa/report.md; do
   [ -s "$f" ] && echo "OK  $f" || echo "--  $f"
 done
-# エンジン別成果物（pipeline.yaml の engine フィールド）
+# 引擎别产出物（pipeline.yaml 的 engine 字段）
 case "$ENGINE" in
   phaser) for f in game/package.json game/assets/MANIFEST.jsonl; do [ -s "$f" ] && echo "OK  $f" || echo "--  $f"; done ;;
   unity)  for f in game/ProjectSettings/ProjectVersion.txt game/_generated/MANIFEST.jsonl; do [ -s "$f" ] && echo "OK  $f" || echo "--  $f"; done ;;
   unreal) for f in game/ForgeGame.uproject game/_generated/MANIFEST.jsonl; do [ -s "$f" ] && echo "OK  $f" || echo "--  $f"; done ;;
-  *) echo "!! state/engine.txt が不正: '$ENGINE'（contract §11 の3値のみ）— エンジン別成果物は判定不能" ;;
+  *) echo "!! state/engine.txt 不合法: '$ENGINE'（仅限 contract §11 的 3 值）— 无法判定引擎别产出物" ;;
 esac
 ```
 
-（上のリストは pipeline.yaml 現行値。**pipeline.yaml を読んだ結果を正とし**、変更されていればそちらに従う。）
+（上面的列表是 pipeline.yaml 当前值。**以读取 pipeline.yaml 的结果为准**，若有变更则遵从之。）
 
-## Phase 3: 整合判定と「次コマンド」決定
+## Phase 3: 一致性判定与「下一命令」决定
 
-1. **現在stage**: `state/stage.txt` の値。stage値は「そのフェーズが完了済み」を意味する（contract.md §1）。
-2. **矛盾検出**: stage値が要求する成果物（当該stageまでの全 required）に欠落があれば警告する（例: stage=`concept` なのに `design/gdd.md` 欠落 → 「stage表記と実体が不一致。/forge-concept の再実行が必要」）。逆に stage未達なのに先の成果物が存在する場合も注記する。
-3. **次に実行すべきコマンド**（pipeline.yaml の `next` → その stage の `command`）:
+1. **当前 stage**: `state/stage.txt` 的值。stage 值表示「该阶段已完成」（contract.md §1）。
+2. **矛盾检测**: 若 stage 值所要求的产出物（到该 stage 为止的全部 required）有缺失则警告（例: stage=`concept` 但 `design/gdd.md` 缺失 → 「stage 标记与实体不一致。需要重新执行 /forge-concept」）。反之，stage 未到达但后续产出物已存在时也要注记。
+3. **接下来应执行的命令**（pipeline.yaml 的 `next` → 该 stage 的 `command`）:
 
-| 現在stage | 次コマンド |
+| 当前 stage | 下一命令 |
 |---|---|
-| 未着手 | `/forge`（preflightから開始）または `/forge-brainstorm` |
-| `brief` | `/forge-concept`（`state/asset-routing.json` が無ければ先に `/forge` で preflight） |
+| 未开始 | `/forge`（从 preflight 开始）或 `/forge-brainstorm` |
+| `brief` | `/forge-concept`（`state/asset-routing.json` 不存在则先用 `/forge` 做 preflight） |
 | `concept` | `/forge-prototype` |
 | `prototype` | `/forge-build` |
-| `build` | `/forge-build`（受領確認の再実施。`/forge` で再開しても Phase 5 = /forge-build 再実行に入る） |
-| `done` | なし（完成。起動コマンドはエンジン別 — phaser: `cd game && npm run dev` / unity: `open game/Build/ForgeGame.app` / unreal: `open game/Build/Mac/ForgeGame.app`） |
+| `build` | `/forge-build`（重新进行验收确认。用 `/forge` 恢复也会进入 Phase 5 = 重新执行 /forge-build） |
+| `done` | 无（已完成。启动命令按引擎 — phaser: `cd game && npm run dev` / unity: `open game/Build/ForgeGame.app` / unreal: `open game/Build/Mac/ForgeGame.app`） |
 
-いずれの位置からも `/forge` は冪等に再開できることを添える。
+附注: 从任何位置都可用 `/forge` 幂等恢复。
 
-## Phase 4: 補助情報の集計
+## Phase 4: 辅助信息的汇总
 
-存在するものだけ集計する（無ければスキップ）:
+仅汇总存在的内容（不存在则跳过）:
 
 ```bash
-# ストーリー進捗（state/stories.yaml）
+# story 进度（state/stories.yaml）
 grep -c 'status: done'        state/stories.yaml
 grep -c 'status: in-progress' state/stories.yaml
 grep -c 'status: todo'        state/stories.yaml
 
-# 資産コスト実績 vs 予算（MANIFEST はエンジン別正本 — phaser: game/assets/ / unity・unreal: game/_generated/）
+# 资产成本实际 vs 预算（MANIFEST 为引擎别权威来源 — phaser: game/assets/ / unity、unreal: game/_generated/）
 MANIFEST="game/assets/MANIFEST.jsonl"; [ "$ENGINE" != "phaser" ] && MANIFEST="game/_generated/MANIFEST.jsonl"
 jq -s 'map(.cost_usd // 0) | add' "$MANIFEST"
 cat state/budget.txt
 
-# 出荷前に差し替え必須の資産
+# 发布前必须替换的资产
 jq -c 'select(.must_replace == true) | .file' "$MANIFEST"
 
-# 未解決レビュー（最新 iteration が非APPROVEのまま終わっているファイル）
+# 未解决评审（最新 iteration 以非 APPROVE 结束的文件）
 grep -l 'CONCERNS\|REJECT' state/reviews/*.md 2>/dev/null
 ```
 
-`state/reviews/*.md` は grep でヒットしたファイルの**末尾の iteration 見出し**（`## <GATE-ID> iteration <n> — <verdict>`）を読み、最終verdictが APPROVE でないものだけを未解決として扱う。
+对 `state/reviews/*.md`，读取 grep 命中文件的**末尾 iteration 标题**（`## <GATE-ID> iteration <n> — <verdict>`），仅将最终 verdict 非 APPROVE 的视为未解决。
 
-## Phase 5: 表示
+## Phase 5: 显示
 
-以下のフォーマットで出力する（該当なしの行は省略）:
+按以下格式输出（不适用的行省略）:
 
 ```
 # ArcadeRelay Status
 
-現在stage : <stage>（<stageの意味>）    engine: <engine>    review-mode: <mode>    予算: $<実績> / $<上限>
-preflight : <済（degraded: false）| 未実施>    エンジンpreflight : <済（<version>）| 未実施 | 不要（phaser）>
+当前 stage : <stage>（<stage 的含义>）    engine: <engine>    review-mode: <mode>    预算: $<实际> / $<上限>
+preflight : <已完成（degraded: false）| 未执行>    引擎 preflight : <已完成（<version>）| 未执行 | 不需要（phaser）>
 
-## パイプライン進捗
-[x] brief      ブレスト            /forge-brainstorm
-[x] concept    企画・設計 (CP-A)    /forge-concept
-[ ] prototype  プロトタイプ (CP-B)  /forge-prototype   ← 現在地
-[ ] build      本実装 (CP-C)        /forge-build
+## 流水线进度
+[x] brief      头脑风暴            /forge-brainstorm
+[x] concept    策划与设计 (CP-A)    /forge-concept
+[ ] prototype  原型 (CP-B)          /forge-prototype   ← 当前位置
+[ ] build      正式实现 (CP-C)      /forge-build
 [ ] done       完成
 
-## 成果物
-OK/-- の一覧（Phase 2 の結果。欠落は「欠: <path>」として現在stageとの矛盾有無を明記）
+## 产出物
+OK/-- 的一览（Phase 2 的结果。缺失以「缺: <path>」标注，并明确与当前 stage 是否矛盾）
 
-## 未解決事項
-- ストーリー: done <n> / in-progress <n> / todo <n>
-- 未解決レビュー: <artifact名と最終verdict>
-- must_replace 資産: <一覧>
+## 未解决事项
+- story: done <n> / in-progress <n> / todo <n>
+- 未解决评审: <artifact 名与最终 verdict>
+- must_replace 资产: <一览>
 
-## 次のアクション
-→ <次コマンド>（理由1行）
-※ /forge でどこからでも再開可能
+## 下一步操作
+→ <下一命令>（理由 1 行）
+※ 可用 /forge 从任何位置恢复
 
-## state/active.md 要約
-<現在地/次アクション/未解決事項を3〜5行に要約。無ければ「未作成」>
+## state/active.md 摘要
+<将当前位置/下一步操作/未解决事项摘要为 3～5 行。不存在则为「未创建」>
 ```

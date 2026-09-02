@@ -1,69 +1,69 @@
-# E3 ラン監査（Crystal Bastion・unity・Phase 2 まで）— 辛口レトロスペクティブ
+# E3 run 审计（Crystal Bastion、unity、至 Phase 2）— 严苛复盘
 
-> 2026-07-22。監査者視点。E3 = v0.3.0.0 並列化ハーネスの初実走（Phase 1 → Checkpoint A → Phase 2 → Checkpoint B で人間判断により停止）。
-> 実測の一次情報: git コミットタイムライン（79 commits）・workflow usage（Phase 1: 18 agents / Phase 2: 69 agents・5.37M tokens）・qa/evidence・MANIFEST。
+> 2026-07-22。审计者视角。E3 = v0.3.0.0 并行化 harness 的首次实跑（Phase 1 → Checkpoint A → Phase 2 → Checkpoint B 时由人类判断停止）。
+> 实测的一手信息: git 提交时间线（79 commits）、workflow usage（Phase 1: 18 agents / Phase 2: 69 agents、5.37M tokens）、qa/evidence、MANIFEST。
 
-## 実測サマリ
+## 实测摘要
 
-| 区間 | 実測 | E2 比較 |
+| 区间 | 实测 | 与 E2 比较 |
 |---|---|---|
-| Phase 1（企画設計・3ゲート）| 75 分（agent 18・全ゲート 2周で収束） | 同等 |
-| Phase 2 Setup（scaffold+stories） | 24 分 | 同等 |
-| Phase 2 実装区間（S-01〜S-09 + CR-CODE） | **約 3.0h・19.7 分/story** | E2: 6h/11 stories = 32.7 分/story → **約 40% 短縮（案A の予測どおり）** |
-| Phase 2 直列尾部（batchVerify→Integrate→QA→CD） | 約 3h+ | E2 と同等（未改善） |
-| セッション断 + resume divergence の浪費 | **約 1.5〜2h** | E2 も同種（改善なし） |
-| 資産コスト | $2.80/$20（見積） | 健全 |
+| Phase 1（策划设计、3个 Gate）| 75 分钟（agent 18、全部 Gate 2轮收敛） | 同等 |
+| Phase 2 Setup（scaffold+stories） | 24 分钟 | 同等 |
+| Phase 2 实现区间（S-01～S-09 + CR-CODE） | **约 3.0h、19.7 分钟/story** | E2: 6h/11 stories = 32.7 分钟/story → **约缩短 40%（与方案A 的预测一致）** |
+| Phase 2 串行尾部（batchVerify→Integrate→QA→CD） | 约 3h+ | 与 E2 同等（未改善） |
+| 会话中断 + resume divergence 的浪费 | **约 1.5～2h** | E2 亦有同类（无改善） |
+| 资产成本 | $2.80/$20（估算） | 健康 |
 
-**結論: レーン並走は機能した（コミットログで gameplay∥ui∥資産3レーンの同時進行を確認・batch-verify 1回で合格・レーン競合による修正はテスト1件のみ）。だが Phase 2 全体の体感短縮は限定的。** ボトルネックは実装区間から「直列尾部 + 障害復旧」へ移動した。
+**结论: lane 并行起作用了（在提交日志中确认 gameplay∥ui∥资产 3条 lane 同时推进、batch-verify 1次合格、因 lane 冲突而做的修正仅测试1件）。但 Phase 2 整体的体感缩短有限。** 瓶颈从实现区间转移到了「串行尾部 + 故障恢复」。
 
-## 辛口指摘（優先度順）
+## 严苛问题（按优先度排序）
 
-### 1.【重大・再発】同一バグの世代間再発 — ハーネスは E2 から学んでいない
-E2 で踏んだ「Title シーンでクリック/任意キーが Menu 遷移しない」バグ（batchmode の InputSystem `[UnitySetUp]`/`[UnityTest]` 境界問題）を **E3 でも新規実装がそのまま踏んだ**（07-21 23:12 QA fix）。さらに同一族の問題を S-08 の GameHud テストでも踏み batch-verify 修正になった（1 ランで同族 2 回）。E2 の qa/report・レビュー履歴に既知と明記されていたのに、知識が**次のゲームのコード生成に注入される経路が無い**。
-**処方**: 恒久知識は run 成果物（qa/report）ではなく **ハーネス側（rules/unity-code.md か tech-stack-unity.md の「既知の落とし穴」節）** に昇格させる規約を作る。QA fix で「環境起因の一般則」と判定されたものは retro を待たず即 rules へ追記するステップを full-build/prototype の QA ループに入れる。
+### 1.【重大·再发】同一 bug 的跨轮次再发 — harness 没有从 E2 学到东西
+E2 中踩过的「Title 场景中点击/任意键不切换到 Menu」bug（batchmode 的 InputSystem `[UnitySetUp]`/`[UnityTest]` 边界问题），**E3 中的新实现又原样踩了一遍**（07-21 23:12 QA fix）。此外同族问题在 S-08 的 GameHud 测试中也踩到，成了 batch-verify 修正（1个 run 中同族 2 次）。E2 的 qa/report、审查历史中已明确记为已知，但**没有把知识注入到下一款游戏代码生成的路径**。
+**处方**: 制定规范，把永久知识提升到 **harness 侧（rules/unity-code.md 或 tech-stack-unity.md 的「已知陷阱」节）**，而不是 run 产出物（qa/report）。在 full-build/prototype 的 QA 循环中加入步骤: 在 QA fix 中被判定为「环境起因的一般规律」的内容，不等复盘，立即追加写入 rules。
 
-### 2.【重大】Checkpoint B の体感価値が構造的に低い — E2 フィードバックの主旨が未反映
-E3 の Game 盤面は真っ暗（地形/背景/カメラ本配置を build phase 送り）。E2 Checkpoint C で人間が言った「背景が欲しい・見た目がイメージと違う」は、**縦串の見た目最低ライン**の問題として retro-e2 §2（Unity 職能スキル）に積んだまま未実装。結果、Checkpoint B の「1 回きりの人間フィードバック」を『暗い盤面ですが骨格を見てください』に浪費する構造が 2 ラン連続。
-**処方**: prototype スコープの必須要素に「環境の最低限ビジュアル（地面+ライト+カメラ確定）」を昇格させる（tech-director のストーリー分解規約に 1 行）。retro-e2 §2 の craft スキル群はまだ P2 のまま — 優先度を上げるべき。
+### 2.【重大】Checkpoint B 的体感价值结构性偏低 — E2 反馈的主旨未反映
+E3 的 Game 盘面漆黑一片（地形/背景/相机正式布置推到 build 阶段）。E2 Checkpoint C 中人类说的「想要背景、外观与想象不同」，作为**垂直切片外观的最低线**问题堆在 retro-e2 §2（Unity 职能 skill）里一直未实现。结果，把 Checkpoint B「仅此1次的人类反馈」浪费在『盘面很暗但请看骨架』上的结构连续 2 个 run。
+**处方**: 把「环境的最低限度视觉表现（地面+光照+相机确定）」提升为 prototype 范围的必需要素（在 tech-director 的 story 分解规范中加1行）。retro-e2 §2 的 craft skill 群仍是 P2 — 应提高优先度。
 
-### 3.【重大】障害復旧の設計不在 — resume は「動く」が「安くない」
-セッション断で workflow が死に、resume したら **未完了 agent の再実行から findings が変わり、キャッシュ分岐が連鎖**。07-22 11:07〜12:01 に S-01/S-02/S-03/S-06/S-07/S-08 の重複コミットが発生（履歴汚染 + 約 1h の重複作業 + stories.yaml の status 揺り戻しリスク）。E2 の教訓（メモリに「尾部ワークフローの方が安い」と記録済み）を運用者（私）自身が破った。
-**処方**: (a) workflow に「フェーズ境界チェックポイント」を設計し、resume は最後の完了フェーズ境界から尾部だけ再構成する運用を正式手順化（スキル文書に書く）。(b) 重複コミット検出（同一メッセージの再コミット前に `git log` 照合）を CODE_COMMIT_RULE に追加済みの hash 検証と対で強制。
+### 3.【重大】故障恢复设计缺失 — resume「能动」但「不便宜」
+会话中断导致 workflow 死亡，resume 后**从未完成 agent 的重新执行开始 findings 发生变化，缓存分叉连锁**。07-22 11:07～12:01 发生了 S-01/S-02/S-03/S-06/S-07/S-08 的重复提交（历史污染 + 约 1h 的重复工作 + stories.yaml 的 status 回摆风险）。运维者（我）自己打破了 E2 的教训（已在记忆中记录「尾部 workflow 更便宜」）。
+**处方**: (a) 在 workflow 中设计「阶段边界 checkpoint」，把 resume 从最后完成的阶段边界只重构尾部的运维正式化为标准步骤（写进 skill 文档）。(b) 把重复提交检测（同一消息再次提交前用 `git log` 核对）与已添加到 CODE_COMMIT_RULE 的 hash 验证成对强制。
 
-### 4.【中】QA 視覚証跡ゲートの穴 — 「写っていない」スクショが合格した
-qa-visual-game.png はウェーブ 1 開始直後でタワー・敵・コアが実質写っていない（数ピクセルの点）。QA は正直に注記した上で ok 判定 — **ゲート文言が「対象が写っていること」を要求しながら撮影タイミングを規定していない**ため、正直な注記付きなら空盤面でも通る。
-**処方**: gates.md QA-PLAY の視覚証跡に「Game シーンはタワー設置済み + 敵が画面内に存在するフレームで撮影（PlayMode テストで設置→スポーンを進めてから撮影）」を明文化。
+### 4.【中】QA 视觉证据 Gate 的漏洞 — 「没拍到」的截图通过了
+qa-visual-game.png 是波次 1 刚开始，塔、敌人、核心实质上没拍到（几个像素的点）。QA 诚实地注记后判为 ok — **Gate 文字要求「对象已拍到」却未规定拍摄时机**，因此附上诚实注记的空盘面也能通过。
+**处方**: 在 gates.md QA-PLAY 的视觉证据中明文化「Game 场景在已放置塔 + 敌人存在于画面内的帧拍摄（在 PlayMode 测试中推进放置→生成（spawn）后拍摄）」。
 
-### 5.【中】レビュー欠落が黙って流れた — AR-ASSET（音声）未実施のまま出荷ライン到達
-音声バッチの AR-ASSET レビューが safety classifier の一時エラーで null → ループは「reviewer が結果を返さなかった」を記録して**先へ進んだ**。リトライは 1 回も無い。開示には載ったが、6 資産がレビューゼロで縦串に配線済み。
-**処方**: agent() null に対する 1 回の自動リトライを workflow 共通則にする（transient エラーは公式にも「retry often succeeds」）。リトライ後も null なら現行どおりエスカレーション。
+### 5.【中】审查缺失静默流过 — AR-ASSET（音频）未实施便到达发布线
+音频批次的 AR-ASSET 审查因 safety classifier 的临时错误变为 null → 循环记录了「reviewer 未返回结果」后**继续前进**。一次重试也没有。虽然载入了披露，但 6 个资产在零审查状态下已接线到垂直切片。
+**处方**: 把对 agent() null 的1次自动重试作为 workflow 通用规则（transient 错误官方也称「retry often succeeds」）。重试后仍为 null 则按现行上报。
 
-### 6.【中】contract ドリフトを現場判断で埋めた — 資産取込先の曖昧さ
-Integrate が `Assets/Generated/`（contract §11/tech-stack 記載）ではなく `Assets/Resources/Generated/` に配置（`Resources.Load` 前提の AssetKeys 設計との整合を優先し、判断根拠を README に記録）。判断自体は妥当だが、**正本が実装様式（Resources.Load か直参照か）を規定していない**ために現場解釈が必要になった。E2 でも取込先解釈は揺れた。
-**処方**: tech-stack-unity.md「資産の取り扱い」に取込先とロード方式（Resources.Load + `Assets/Resources/Generated/`、または Addressables 等）を 1 対 1 で確定させ、contract §11 の表を追随させる。
+### 6.【中】用现场判断填补了 contract 漂移 — 资产导入目标的模糊性
+Integrate 没有放在 `Assets/Generated/`（contract §11/tech-stack 记载）而是放在 `Assets/Resources/Generated/`（优先与以 `Resources.Load` 为前提的 AssetKeys 设计保持一致，判断依据记录在 README）。判断本身合理，但因为**权威来源未规定实现样式（Resources.Load 还是直接引用）**，才需要现场解释。E2 中导入目标的解释也曾摇摆。
+**处方**: 在 tech-stack-unity.md「资产处理」中把导入目标与加载方式（Resources.Load + `Assets/Resources/Generated/`，或 Addressables 等）一对一确定，并让 contract §11 的表跟进。
 
-### 7.【中】3D 生成の敵モデル失敗が 2 ラン連続 — fallback チェーンが実戦で機能していない
-E2: MDL-02（quadruped リグ）失敗 → コードモーション代替。E3: MDL-04 Warbeast 未生成 → カプセル代替。**2 ラン連続で「敵の第 2 モデル」が落ち、fallback チェーン（fal 経由→Tripo→Blender）が完走していない**。preflight で Tripo 200 を確認しながら使わずに placeholder へ落ちた経緯は開示からは不明瞭。
-**処方**: AssetGen の縮退報告に「試行したルートと各失敗理由（HTTP コード）」の列挙を必須化（degradedRoutes の粒度規定）。fallback を 1 段も試さず placeholder 化することを禁止する文言を assetBatchLoop プロンプトへ。
+### 7.【中】3D 生成的敌人模型失败连续 2 个 run — fallback 链在实战中未起作用
+E2: MDL-02（quadruped rig）失败 → 代码运动替代。E3: MDL-04 Warbeast 未生成 → 胶囊体替代。**连续 2 个 run「敌人的第 2 个模型」失败，fallback 链（经 fal→Tripo→Blender）没有跑完**。preflight 确认 Tripo 200 却未使用就落到 placeholder 的过程，从披露中看不清楚。
+**处方**: 在 AssetGen 的降级报告中强制列举「尝试过的路由与各失败理由（HTTP 代码）」（规定 degradedRoutes 的粒度）。在 assetBatchLoop 提示词中加入禁止不尝试任何一段 fallback 就 placeholder 化的文字。
 
-### 8.【小】タイムスタンプの信頼性 — active.md の時刻が実時系列と矛盾
-active.md の「Integrate 完了 22:28:00Z」はコミット実時刻（07-22 03:22Z）と 5 時間ズレ。agent が現在時刻を推測で書いている。date コマンド必須の規約はあるが徹底されていない。
-**処方**: 状態ファイルへの時刻記入は「`date -u` の出力を貼る」ことをプロンプト定型に含める（既にある箇所と無い箇所が混在 — 全プロンプトへ統一）。
+### 8.【小】时间戳的可靠性 — active.md 的时间与实际时间线矛盾
+active.md 的「Integrate 完成 22:28:00Z」与提交实际时间（07-22 03:22Z）相差 5 小时。agent 在凭推测写当前时间。虽有必须使用 date 命令的规范，但未彻底执行。
+**处方**: 把向状态文件写时间时「粘贴 `date -u` 的输出」纳入提示词定型文（已有的地方与没有的地方混杂 — 统一到全部提示词）。
 
-### 9.【小】同一メッセージの重複コミット（S-08 fix iter1 ×3 等）
-リトライ・並走の副作用で同一メッセージのコミットが複数回発生。hash-by-message 取得の「最新行」規定でランタイムは壊れないが、履歴の可読性と bisect 精度を下げる。
-**処方**: コミットメッセージに試行識別子は不要だが、「同一メッセージが直近履歴にある場合は amend せず理由をメッセージ末尾に付す」程度の規約は検討余地。優先度低。
+### 9.【小】同一消息的重复提交（S-08 fix iter1 ×3 等）
+因重试、并行的副作用，同一消息的提交多次发生。凭借 hash-by-message 获取的「最新行」规定，运行时不会损坏，但降低了历史的可读性与 bisect 精度。
+**处方**: 提交消息不需要尝试标识符，但「最近历史中已有同一消息时不 amend，而在消息末尾附上理由」这种程度的规范有探讨余地。优先度低。
 
-## 良かった点（記録として）
+## 好的方面（作为记录）
 
-- **レーン並走は本物**: 18:26 時点で S-02(ui)・S-04(gameplay)・IMG 再生成(art)・SFX(audio) の 4 レーンが同時進行している。実装区間 40% 短縮は予測レンジどおり
-- batch-verify は 1 回で合格し、唯一の修正（S-08 テスト）も原因特定→最小修正→記録の規約どおりの動作。プロダクションコード無修正
-- 開示の正直さ: 縮退・未検証・コスト見積が全て Checkpoint 素材の冒頭に上がった（E1 の隠蔽体質は根絶されている）
-- メタ進行・永続化・破損プロトコル・5 シーン遷移は新規ゲームでも一発で規約準拠（E2 で入れた機械検証が効いている）
-- 予算管理（$2.80/$20・全ルート shippable・provenance 完備）
+- **lane 并行是真的**: 18:26 时点 S-02(ui)、S-04(gameplay)、IMG 重新生成(art)、SFX(audio) 的 4 条 lane 同时推进。实现区间缩短 40% 与预测范围一致
+- batch-verify 1次合格，唯一的修正（S-08 测试）也按定位原因→最小修正→记录的规范运作。生产代码未修改
+- 披露的诚实性: 降级、未验证、成本估算全部出现在 Checkpoint 材料的开头（E1 的隐瞒体质已根除）
+- 元进度、持久化、损坏协议、5 场景切换在新游戏中也一次就符合规范（E2 中加入的机器验证起效了）
+- 预算管理（$2.80/$20、全部路由 shippable、provenance 完备）
 
-## 次アクション候補（Phase 3 再開時の Replan 入力を兼ねる）
+## 下一步操作候选（兼作 Phase 3 重启时的 Replan 输入）
 
-1. 指摘 1/4/5 は harness 修正が小さく効果大 — Phase 3 前に当てるべき
-2. 指摘 2 は E3 Phase 3（S-19 資産統合）で当ゲームには解消されるが、ハーネス規約化は別途必要
-3. 指摘 3 の「フェーズ境界チェックポイント」は次の長時間ラン前に設計する価値が高い
+1. 问题 1/4/5 的 harness 修正小而效果大 — 应在 Phase 3 前应用
+2. 问题 2 会在 E3 Phase 3（S-19 资产整合）中对本游戏解决，但 harness 规范化另需进行
+3. 问题 3 的「阶段边界 checkpoint」在下一次长时间 run 前有很高的设计价值

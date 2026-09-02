@@ -1,141 +1,141 @@
-# ArcadeRelay 技術スタック規約（game/ 配下・engine=unity の正本）
+# ArcadeRelay 技术栈规范（game/ 下、engine=unity 的权威来源）
 
-> エンジン選択は contract.md §11（`state/engine.txt`）。このファイルは **engine=`unity`（3D）** の正本。
-> phaser は tech-stack.md、unreal は tech-stack-unreal.md。共通思想（マジックナンバー禁止 / delta-time / エンジン非依存コア / 入力抽象化 / 資産キー集約）は全エンジン同一で、ここでは Unity イディオムに翻訳する。
+> 引擎选择见 contract.md §11（`state/engine.txt`）。本文件是 **engine=`unity`（3D）** 的权威来源。
+> phaser 见 tech-stack.md，unreal 见 tech-stack-unreal.md。共通思想（禁止魔法数字 / delta-time / 引擎无关核心 / 输入抽象化 / 资产键集中）在全部引擎中相同，这里将其翻译为 Unity 惯用写法。
 
-## スタック（固定）
+## 技术栈（固定）
 
 - **Unity 6.3 LTS（6000.3.x）** + **URP** + **C#** + **Input System**（`com.unity.inputsystem`）+ **Unity Test Framework**（`com.unity.test-framework` 1.6）
-- レンダリングは **URP 固定**（Built-in は Unity 6 で非推奨。HDRP は macOS/Metal でレイトレーシング不可・設定分散のため不採用。URP は設定が URP Asset 1つに集約されコード管理しやすい）
-- `game/` は自己完結 Unity プロジェクト。使用エディタは preflight が `state/engine-info.json` に解決した `binary`（以下 `$UNITY`）を使う。**実行中のバージョン再解決禁止**
-- 3D 資産インポート: 静的モデルは **GLB（`com.unity.cloud.gltfast`）**、リグ・アニメーション付きは **FBX（ネイティブ ModelImporter）**。glTFast は Humanoid Avatar 非対応のため、ヒューマノイドは FBX 経由で `ModelImporter.animationType = Human` を設定する
+- 渲染**固定为 URP**（Built-in 在 Unity 6 中已不推荐。HDRP 在 macOS/Metal 上无法光线追踪、设置分散，故不采用。URP 的设置集中在 1 个 URP Asset 中，便于代码管理）
+- `game/` 是自包含 Unity 项目。使用的编辑器为 preflight 在 `state/engine-info.json` 中解析出的 `binary`（下称 `$UNITY`）。**禁止在执行过程中重新解析版本**
+- 3D 资产导入: 静态模型用 **GLB（`com.unity.cloud.gltfast`）**，带 rig、动画的用 **FBX（原生 ModelImporter）**。glTFast 不支持 Humanoid Avatar，因此人形经由 FBX 设置 `ModelImporter.animationType = Human`
 
-## プロジェクト生成（scaffold）
+## 项目生成（scaffold）
 
 ```bash
 UNITY="$(jq -r .binary state/engine-info.json)"
-# 1) URP 系テンプレートを探す（優先順: Hub 管理下 → エディタバンドル内）
+# 1) 查找 URP 系模板（优先顺序: Hub 管理下 → 编辑器捆绑内）
 TPL="$(ls "$HOME/Library/Application Support/UnityHub/Templates"/com.unity.template.urp-blank-*.tgz \
         "$(dirname "$(dirname "$UNITY")")/Resources/PackageManager/ProjectTemplates"/com.unity.template.3d-cross-platform-*.tgz \
         2>/dev/null | sort -V | tail -1)"
 [ -n "$TPL" ] && "$UNITY" -batchmode -quit -createProject "$PWD/game" -cloneFromTemplate "$TPL" -logFile -
-# 2) 無ければ空プロジェクト生成 → Packages/manifest.json に依存を明記 → 再起動でインポート
+# 2) 没有则生成空项目 → 在 Packages/manifest.json 中明确写出依赖 → 重启以导入
 [ -z "$TPL" ] && "$UNITY" -batchmode -quit -createProject "$PWD/game" -logFile -
 ```
 
-テンプレート適用時の後処理: `SampleScene` は削除し Boot/Title/Menu/Game/Result の5シーンに正規化、EditorBuildSettings を5シーンで再構成する（contract §11 必須シーン集合）。`3d-cross-platform` テンプレートは URP / Input System / Test Framework 同梱（追加が必要なのは通常 glTFast のみ）で、`activeInputHandler` は既定で Input System（new）。
+应用模板后的后处理: 删除 `SampleScene`，规范化为 Boot/Title/Menu/Game/Result 5 个场景，并用这 5 个场景重新构成 EditorBuildSettings（contract §11 必需场景集合）。`3d-cross-platform` 模板已捆绑 URP / Input System / Test Framework（通常只需追加 glTFast），`activeInputHandler` 默认为 Input System（new）。
 
-必須パッケージ（`game/Packages/manifest.json` の dependencies に明記。バージョンはエディタ推奨解決に任せてよい）:
+必需包（在 `game/Packages/manifest.json` 的 dependencies 中明确写出。版本可交给编辑器推荐解析）:
 `com.unity.render-pipelines.universal` / `com.unity.inputsystem` / `com.unity.cloud.gltfast` / `com.unity.test-framework`
 
-テンプレ無しで生成した場合は、エディタスクリプトで URP Asset を生成し Graphics Settings に割り当てるまでを scaffold の完了条件とする。
+无模板生成时，用编辑器脚本生成 URP Asset 并分配到 Graphics Settings，以此作为 scaffold 的完成条件。
 
-## ディレクトリ構造
+## 目录结构
 
 ```
 game/
   Assets/
-    Scenes/                 # Boot / Title / Menu / Game / Result の5シーン（contract §11 必須シーン集合。gdd のゲームフローと一致）
+    Scenes/                 # Boot / Title / Menu / Game / Result 5 个场景（contract §11 必需场景集合。与 gdd 的游戏流程一致）
     Scripts/
-      GameConfig.cs         # ★全ゲームパラメータ + AssetKeys（パス文字列の唯一の置き場）
-      Types.cs              # 共有型（EntityState 等）
-      Systems/              # エンジン非依存ロジック（pure C#。MonoBehaviour/シーンAPI/File I/O 禁止）
-        Meta/               # メタ進行ロジック（MetaTypes.cs / MetaSchema.cs / MetaProgression.cs — pure C#・contract §11）
-      Persistence/          # 永続化 I/O 層（File I/O・persistentDataPath の唯一の置き場。Systems/ から直接 I/O 禁止）
-      Components/           # MonoBehaviour（ライフサイクルと配線のみ）
-      Input/                # 入力集約（Input System。アクションはコードで生成）
-      Ui/                   # HUD・メニュー（uGUI/UI Toolkit）
+      GameConfig.cs         # ★全部游戏参数 + AssetKeys（路径字符串的唯一放置处）
+      Types.cs              # 共享类型（EntityState 等）
+      Systems/              # 引擎无关逻辑（pure C#。禁止 MonoBehaviour/场景 API/File I/O）
+        Meta/               # 元进度逻辑（MetaTypes.cs / MetaSchema.cs / MetaProgression.cs — pure C#、contract §11）
+      Persistence/          # 持久化 I/O 层（File I/O、persistentDataPath 的唯一放置处。禁止从 Systems/ 直接 I/O）
+      Components/           # MonoBehaviour（仅生命周期与接线）
+      Input/                # 输入集中（Input System。action 用代码生成）
+      Ui/                   # HUD、菜单（uGUI/UI Toolkit）
       Editor/
-        ForgeBuild.cs       # ビルド・検証用 static メソッド（-executeMethod の入口）
+        ForgeBuild.cs       # 构建、验证用 static 方法（-executeMethod 的入口）
     Resources/
-      Generated/            # AI生成資産の取込先（raw からコピー。Resources.Load 方式 —「資産の取り扱い」節）
+      Generated/            # AI 生成资产的导入目标（从 raw 复制。Resources.Load 方式 —「资产处理」节）
     Tests/
-      EditMode/             # コンパイル検証を兼ねる最小テスト（必ず1本以上置く）
-      PlayMode/             # コアループ検証・永続化検証・スクリーンショット取得テスト
+      EditMode/             # 兼作编译验证的最小测试（必须放至少 1 个）
+      PlayMode/             # 核心循环验证、持久化验证、截图获取测试
   Packages/manifest.json
-  ProjectSettings/          # ProjectVersion.txt がプロジェクトマーカー（contract §11）
-  _generated/               # raw 生成資産 + MANIFEST.jsonl（Assets/ 外 = Unity はインポートしない）
+  ProjectSettings/          # ProjectVersion.txt 是项目标记（contract §11）
+  _generated/               # raw 生成资产 + MANIFEST.jsonl（Assets/ 外 = Unity 不会导入）
 ```
 
-バージョン管理除外（.gitignore 済み）: `Library/ Temp/ Logs/ UserSettings/ obj/ Build/`。`Assets/ Packages/ ProjectSettings/` はコミット対象。`.meta` はコミットする（Visible Meta Files / Force Text が既定）。
+版本管理排除（已 .gitignore）: `Library/ Temp/ Logs/ UserSettings/ obj/ Build/`。`Assets/ Packages/ ProjectSettings/` 为提交对象。`.meta` 要提交（Visible Meta Files / Force Text 为默认）。
 
-## 検証コマンド
+## 验证命令
 
-`$UNITY` は `state/engine-info.json` の `binary`。**`-runTests` と `-quit` は併用禁止**（テスト完了前にエディタが終了する既知問題）。
+`$UNITY` 是 `state/engine-info.json` 的 `binary`。**禁止同时使用 `-runTests` 与 `-quit`**（测试完成前编辑器就退出的已知问题）。
 
-| 目的（phaser 対応） | コマンド | 合格条件 |
+| 目的（对应 phaser） | 命令 | 合格条件 |
 |---|---|---|
-| typecheck 相当 | `"$UNITY" -batchmode -projectPath game -runTests -testPlatform EditMode -testResults "$PWD/qa/evidence/editmode-results.xml" -logFile -` | exit 0 かつ結果XMLに failed 0（コンパイルエラーでもテスト起動が失敗するため typecheck を兼ねる） |
-| build 相当 | `"$UNITY" -batchmode -projectPath game -executeMethod ForgeBuild.BuildMac -quit -logFile game/Logs/build.log` | exit 0 かつログに `Build succeeded`。成果物 `game/Build/ForgeGame.app` |
-| test（QA用） | `"$UNITY" -batchmode -projectPath game -runTests -testPlatform PlayMode -testResults "$PWD/qa/evidence/playmode-results.xml" -logFile -` | exit 0 かつ failed 0 |
-| dev/preview 相当（人間向け） | `open -a "$UNITY_APP" --args -projectPath "$PWD/game"`（エディタで開く）または `open game/Build/ForgeGame.app`（ビルド済みを起動） | — |
+| 相当于 typecheck | `"$UNITY" -batchmode -projectPath game -runTests -testPlatform EditMode -testResults "$PWD/qa/evidence/editmode-results.xml" -logFile -` | exit 0 且结果 XML 中 failed 0（编译错误也会导致测试启动失败，因此兼作 typecheck） |
+| 相当于 build | `"$UNITY" -batchmode -projectPath game -executeMethod ForgeBuild.BuildMac -quit -logFile game/Logs/build.log` | exit 0 且日志中有 `Build succeeded`。产出物 `game/Build/ForgeGame.app` |
+| test（QA 用） | `"$UNITY" -batchmode -projectPath game -runTests -testPlatform PlayMode -testResults "$PWD/qa/evidence/playmode-results.xml" -logFile -` | exit 0 且 failed 0 |
+| 相当于 dev/preview（面向人类） | `open -a "$UNITY_APP" --args -projectPath "$PWD/game"`（在编辑器中打开）或 `open game/Build/ForgeGame.app`（启动已构建产物） | — |
 
-`ForgeBuild.BuildMac` は `Assets/Scripts/Editor/ForgeBuild.cs` の static メソッドで、`BuildPipeline.BuildPlayer`（`BuildTarget.StandaloneOSX`・Apple silicon）を呼び、失敗時は `EditorApplication.Exit(1)` で非0終了させる。**`-executeMethod` は名前空間込みの完全修飾名で指定する**（例: `ForgeGame.EditorTools.ForgeBuild.BuildMac`。namespace に置いた場合、裸名では解決されない）。
+`ForgeBuild.BuildMac` 是 `Assets/Scripts/Editor/ForgeBuild.cs` 的 static 方法，调用 `BuildPipeline.BuildPlayer`（`BuildTarget.StandaloneOSX`、Apple silicon），失败时用 `EditorApplication.Exit(1)` 以非 0 退出。**`-executeMethod` 必须指定包含命名空间的完全限定名**（例: `ForgeGame.EditorTools.ForgeBuild.BuildMac`。放在 namespace 中时，裸名无法解析）。
 
-**単一インスタンスロック（重要）**: Unity は同一プロジェクトを同時に1エディタプロセスしか開けない。**Unity を起動する工程（テスト実行・ビルド・エディタスクリプトによる資産取込）は全て直列化すること**。並走レーン設計（Build∥AssetGen）では、AssetGen 側は生成と Unity 外の機械検証（gltf validate / Blender 検査）までに留め、エンジン取込は Integrate フェーズ（直列区間）で行う。
+**单实例锁（重要）**: Unity 对同一项目只能同时打开 1 个编辑器进程。**启动 Unity 的工序（测试执行、构建、编辑器脚本的资产导入）必须全部串行化**。在并行 lane 设计（Build∥AssetGen）中，AssetGen 侧止步于生成与 Unity 外的机器验证（gltf validate / Blender 检查），引擎导入在 Integrate 阶段（串行区间）进行。
 
-**検証バッチ化（Build/Polish 並走レーン規約 — retro-e2 案A+B）**: コード story の実装は assignee レーン（gameplay/ui）で並走するため、**レーン中の agent は Unity を一切起動しない**（上記ロックと衝突する）。story ごとの検証は「参照する型・メンバ・アセットキー・シリアライズ対象の実在を Read/Grep で静的確認」までとし、EditMode+build の一括検証は**レーン合流後のバッチ検証区間（直列）**で行う。バッチ検証で失敗した場合はエラーのファイルパスと `git log --oneline -- <path>` で原因 story を特定（困難なら story コミット単位の二分探索）し、最小修正と原因 story を `state/reviews/batch-verify.md` に記録する。検証粒度が粗くなるトレードオフはこの切り分け規約で緩和する（正本実装は workflow の batchVerify）。
+**验证批处理化（Build/Polish 并行 lane 规范 — retro-e2 方案A+B）**: 代码 story 的实现在 assignee lane（gameplay/ui）中并行，因此**lane 中的 agent 一律不启动 Unity**（与上述锁冲突）。每个 story 的验证止步于「用 Read/Grep 静态确认所引用的类型、成员、资产键、序列化对象的实际存在」，EditMode+build 的一次性验证在**lane 合流后的批处理验证区间（串行）**进行。批处理验证失败时，用错误的文件路径和 `git log --oneline -- <path>` 定位原因 story（困难时按 story 提交单位二分查找），并把最小修复与原因 story 记录到 `state/reviews/batch-verify.md`。验证粒度变粗的取舍由这套定位规范来缓解（权威实现是 workflow 的 batchVerify）。
 
-## コード規約（rules/unity-code.md が編集時に強制する内容の正本）
+## 代码规范（rules/unity-code.md 在编辑时强制执行的内容的权威来源）
 
-1. **マジックナンバー禁止** — 全ゲームパラメータは `Assets/Scripts/GameConfig.cs` の静的定数クラスに集約。チューニングは GameConfig.cs だけで完結させる
-2. **delta-time 必須** — `Update()` は `Time.deltaTime`、物理は `FixedUpdate()` + `Time.fixedDeltaTime`。フレームレート依存の実装禁止
-3. **Components は薄く** — MonoBehaviour はライフサイクルと配線のみ。ロジックは `Systems/` の純粋 C#（MonoBehaviour 継承・`GameObject.Find`/`Instantiate`/`GetComponent` 禁止。`Vector3`/`Mathf` 等の値型は可）
-4. **入力抽象化** — Input System を使い `Scripts/Input/` に集約。旧 `Input.GetKey` 禁止。アクションは **コードで生成**（`new InputActionMap(...)` + `AddAction`/`AddBinding`。`.inputactions` JSON の直接編集はスキーマ非公開のため禁止）
-5. **資産参照はキー集約** — 動的ロードのパス/アドレスは `GameConfig.cs` の `AssetKeys` 経由。`Resources.Load("文字列直書き")` 禁止。インスペクタ直参照（SerializeField）は可
-6. **シーン構成固定** — Boot / Title / Menu / Game / Result の5シーン（contract §11 必須シーン集合。正準フロー: Boot→Title→Menu→Game→Result→{Game|Menu}）。遷移トリガーは gdd のゲームフローに一致させる。Menu の必須要素: プレイ開始・アウトゲーム表示（アンロック/実績/統計）・設定（音量・操作表示）・終了導線
-7. **テスト必須** — EditMode に最低1本（コンパイル検証を兼ねる）、PlayMode にコアループ1周（開始→挑戦→結果→リスタート）を検証するテストを置く
-8. **PlayMode の入力擬似発行は `InputTestFixture` 必須** — batchmode は Game View がフォーカスを持たないため、生の `InputSystem.QueueStateEvent` は既定設定（PointersAndKeyboardsRespectGameViewFocus）で握り潰され、`InputAction` 側が反応しない。scaffold 時点で `Packages/manifest.json` に `"testables": ["com.unity.inputsystem"]` を追加し、PlayMode の asmdef から `Unity.InputSystem.TestFramework` を参照して `InputTestFixture` を使うこと
-9. **Components の Awake 配線罠** — 配線フィールドを `Awake()` で読むコンポーネントをテストから組む時は、GameObject を非アクティブで生成→フィールド注入→アクティブ化（`Awake()` を遅延させる）
-10. **プレースホルダ⇔実モデル両対応の Renderer 参照** — `[RequireComponent(typeof(Renderer))]` 禁止（抽象型は自動付与不可・リグ付き FBX では SkinnedMeshRenderer が子に付く）。`GetComponentInChildren<Renderer>()` + null チェックで参照する
-11. **batchmode ツールの失敗は exit code に昇格必須** — `-executeMethod` で呼ぶエディタスクリプト（ビルド・取込・シーン配線）は、回復不能エラーを `Debug.LogError` + `return` で済ませない（batchmode は exit 0 のまま = ハーネスの成否判定が失敗を成功と誤認する）。例外を throw するか `EditorApplication.Exit(1)` で必ず非0終了させ、壊れた状態でシーン/アセットを保存しない
-12. **配線破損は Start で1回 LogError** — Components 層の「Editor ツールが注入する前提」のフィールドが null の場合、毎フレーム無言 return で隠さず `Start()` で1回 `Debug.LogError` を出す（縮退が正当なケースはヘッダコメントで文書化した上で LogWarning）
-13. **アニメ切替はコードでなく AnimatorController 資産** — MDL のアニメ切替（idle/run 等）は `UnityEditor.Animations` API でエディタスクリプトから AnimatorController を生成し（states/transitions/threshold 条件。追加 asmdef 参照不要）、コード側は `animator.SetFloat` でパラメータを流すだけにする。**Unity 自動生成の `__preview__` クリップを選ばないこと**（クリップ検索で名前 `__preview__` を除外）
-14. **HUD/メニューの Canvas は `RenderMode.ScreenSpaceCamera` 固定** — QA-PLAY の RenderTexture 撮影は Screen Space - Overlay の Canvas を構造的に写せない（Overlay は特定カメラに紐付かず、単一カメラの RenderTexture に一切描画されない）。全 UI Canvas は ScreenSpaceCamera とし `worldCamera` にメインカメラを割り当てる。PlayMode テストに `Assert.AreEqual(RenderMode.ScreenSpaceCamera, canvas.renderMode)` のスモークチェックを置く
-15. **永続化 I/O は `Assets/Scripts/Persistence/` に集約** — `Application.persistentDataPath`・`File` I/O・`PlayerPrefs` を Systems/・Components/・Ui/ から直接呼ばない。メタ進行ロジック（`Systems/Meta/` の pure C#）は値を受けて値を返すのみで、保存・読込は Persistence 層が仲介する（「セーブ / 永続化」節参照）
+1. **禁止魔法数字** — 全部游戏参数集中在 `Assets/Scripts/GameConfig.cs` 的静态常量类。调参只在 GameConfig.cs 中完成
+2. **必须使用 delta-time** — `Update()` 用 `Time.deltaTime`，物理用 `FixedUpdate()` + `Time.fixedDeltaTime`。禁止依赖帧率的实现
+3. **Components 保持轻薄** — MonoBehaviour 只负责生命周期与接线。逻辑放入 `Systems/` 的纯 C#（禁止继承 MonoBehaviour、禁止 `GameObject.Find`/`Instantiate`/`GetComponent`。`Vector3`/`Mathf` 等值类型允许）
+4. **输入抽象化** — 使用 Input System 并集中到 `Scripts/Input/`。禁止旧 `Input.GetKey`。action **用代码生成**（`new InputActionMap(...)` + `AddAction`/`AddBinding`。`.inputactions` JSON 的 schema 未公开，禁止直接编辑）
+5. **资产引用键集中** — 动态加载的路径/地址经由 `GameConfig.cs` 的 `AssetKeys`。禁止 `Resources.Load("直接写字符串")`。Inspector 直接引用（SerializeField）允许
+6. **场景构成固定** — Boot / Title / Menu / Game / Result 5 个场景（contract §11 必需场景集合。正规流程: Boot→Title→Menu→Game→Result→{Game|Menu}）。切换触发与 gdd 的游戏流程一致。Menu 的必需要素: 开始游戏、游戏外显示（解锁/成就/统计）、设置（音量、操作说明）、退出入口
+7. **测试必需** — EditMode 至少 1 个（兼作编译验证），PlayMode 放置验证核心循环 1 周（开始→挑战→结果→重开）的测试
+8. **PlayMode 的模拟输入发送必须使用 `InputTestFixture`** — batchmode 下 Game View 不持有焦点，原始的 `InputSystem.QueueStateEvent` 在默认设置（PointersAndKeyboardsRespectGameViewFocus）下会被静默吞掉，`InputAction` 侧不响应。scaffold 时就在 `Packages/manifest.json` 中追加 `"testables": ["com.unity.inputsystem"]`，从 PlayMode 的 asmdef 引用 `Unity.InputSystem.TestFramework` 并使用 `InputTestFixture`
+9. **Components 的 Awake 接线陷阱** — 从测试中组装在 `Awake()` 中读取接线字段的组件时，以非激活状态生成 GameObject→注入字段→激活（延迟 `Awake()`）
+10. **兼容占位符⇔真实模型的 Renderer 引用** — 禁止 `[RequireComponent(typeof(Renderer))]`（抽象类型无法自动附加、带 rig 的 FBX 中 SkinnedMeshRenderer 附在子节点上）。用 `GetComponentInChildren<Renderer>()` + null 检查引用
+11. **batchmode 工具的失败必须提升到 exit code** — 用 `-executeMethod` 调用的编辑器脚本（构建、导入、场景接线）不得以 `Debug.LogError` + `return` 了结不可恢复的错误（batchmode 仍以 exit 0 退出 = harness 的成败判定会把失败误认为成功）。必须 throw 异常或用 `EditorApplication.Exit(1)` 以非 0 退出，且不得在损坏状态下保存场景/资产
+12. **接线损坏在 Start 中 LogError 1 次** — Components 层「以 Editor 工具注入为前提」的字段为 null 时，不得每帧无声 return 隐藏，而要在 `Start()` 中输出 1 次 `Debug.LogError`（降级正当的情形在头部注释中文档化后用 LogWarning）
+13. **动画切换用 AnimatorController 资产而非代码** — MDL 的动画切换（idle/run 等）用 `UnityEditor.Animations` API 从编辑器脚本生成 AnimatorController（states/transitions/threshold 条件。无需追加 asmdef 引用），代码侧只用 `animator.SetFloat` 传参数。**不要选到 Unity 自动生成的 `__preview__` 剪辑**（剪辑搜索时排除名称 `__preview__`）
+14. **HUD/菜单的 Canvas 固定为 `RenderMode.ScreenSpaceCamera`** — QA-PLAY 的 RenderTexture 拍摄在结构上无法拍到 Screen Space - Overlay 的 Canvas（Overlay 不绑定特定相机，完全不会绘制到单相机的 RenderTexture 中）。全部 UI Canvas 设为 ScreenSpaceCamera 并把主相机分配给 `worldCamera`。在 PlayMode 测试中放置 `Assert.AreEqual(RenderMode.ScreenSpaceCamera, canvas.renderMode)` 的冒烟检查
+15. **持久化 I/O 集中在 `Assets/Scripts/Persistence/`** — 不得从 Systems/、Components/、Ui/ 直接调用 `Application.persistentDataPath`、`File` I/O、`PlayerPrefs`。元进度逻辑（`Systems/Meta/` 的 pure C#）只接收值并返回值，保存、读取由 Persistence 层中介（参见「存档 / 持久化」节）
 
-## 資産の取り扱い
+## 资产处理
 
-- raw 生成物と MANIFEST.jsonl は `game/_generated/`（contract §6/§11）。**取込先 = `Assets/Resources/Generated/{models,textures,audio}/`** にコピーし Unity のインポートに任せる。動的ロードは `Resources.Load(GameConfig.AssetKeys.*)` で行い、**AssetKeys の値は Resources 相対パス**（例 `"Generated/models/model-hero"`）。`Assets/Generated/` 直下への配置は廃止
-- リグ付きキャラ: FBX を取込後、エディタスクリプトで `ModelImporter.animationType`（Humanoid なら `Human`、クリーチャー等は `Generic`）を設定し Avatar を生成。アニメーション FBX も同一スケルトンでインポートしリターゲット。**取込（Integrate）の必須検証**: `Avatar.isValid`（Humanoid 化成功）とアニメクリップの存在をエディタスクリプトで機械確認し、失敗時は `Generic` へ縮退した上で MANIFEST に注記する
-- 静的プロップ/環境: GLB を `Assets/Resources/Generated/models/` に置き glTFast の ScriptedImporter に処理させる
-- 音声: Unity は Ogg Vorbis / WAV をネイティブ対応。**OGG のみで良い**（Safari 用 M4A は不要 — phaser 専用要件）
-- スケール検証必須: Unity は 1 unit = 1m。取込後にバウンディングボックスを検査し、想定サイズ（ヒト型 ≈ 1.6–2.0m）から外れていたら ModelImporter の scaleFactor で補正
+- raw 生成物与 MANIFEST.jsonl 放在 `game/_generated/`（contract §6/§11）。**导入目标 = `Assets/Resources/Generated/{models,textures,audio}/`**，复制到此并交给 Unity 导入。动态加载用 `Resources.Load(GameConfig.AssetKeys.*)`，**AssetKeys 的值是 Resources 相对路径**（例 `"Generated/models/model-hero"`）。已废止直接放在 `Assets/Generated/` 下的做法
+- 带 rig 的角色: 导入 FBX 后，用编辑器脚本设置 `ModelImporter.animationType`（人形为 `Human`，生物等为 `Generic`）并生成 Avatar。动画 FBX 也用同一骨架导入并重定向。**导入（Integrate）的必需验证**: 用编辑器脚本机器确认 `Avatar.isValid`（Humanoid 化成功）与动画剪辑的存在，失败时降级为 `Generic` 并在 MANIFEST 中注记
+- 静态道具/环境: 把 GLB 放到 `Assets/Resources/Generated/models/` 交给 glTFast 的 ScriptedImporter 处理
+- 音频: Unity 原生支持 Ogg Vorbis / WAV。**仅 OGG 即可**（Safari 用的 M4A 不需要 — phaser 专属要求）
+- 必须做尺度验证: Unity 是 1 unit = 1m。导入后检查包围盒，偏离预期尺寸（人形 ≈ 1.6–2.0m）时用 ModelImporter 的 scaleFactor 修正
 
-## QA-PLAY の実行方法（gates.md QA-PLAY の unity 節から参照される）
+## QA-PLAY 的执行方法（由 gates.md QA-PLAY 的 unity 节引用）
 
-1. build 相当コマンドが exit 0
-2. PlayMode テストでコアループ1周＋**必須シーン遷移 `Title → Menu → Game → Result → Menu` の1周**を実操作相当（`InputTestFixture` による入力の擬似発行）で検証。`LogAssert.NoUnexpectedReceived()` で console エラー 0 を機械検証
-3. スクリーンショット証跡: PlayMode テスト内から `qa/evidence/` に保存（**-nographics は使わない**）。`ScreenCapture.CaptureScreenshot()` は batchmode で機能しないことがある（バックバッファ無し）— その場合はカメラを `RenderTexture` にレンダリングして `Texture2D.ReadPixels` → `EncodeToPNG` で保存する方式に切替える（UI はコード規約14の ScreenSpaceCamera Canvas なら同カメラに写る。Overlay のままの撮影は「UI キャプチャ不能」として不合格）。撮影方式の成否は機械判定を先行させる: `magick identify -format "%[fx:mean]" <shot>.png` が 0.02 未満/0.98 超なら SUSPECT_BLANK として方式を切替えて再撮影。**撮影した画像は必ず Read で目視し、対象（モデル・UI 文字）が実際に写っていることを確認**（黒画面・文字欠落は不合格。値の内部整合性テストだけではレンダリング欠陥を検知できない）
-4. acceptance は stories.yaml の各項目を PlayMode テストとして実装・実行
-5. **視覚サニティテスト（必須・LogAssert では検知できない欠陥クラス）**: PlayMode テストに以下を置く —
-   - NaN 座標検査: `Assert.IsFalse(float.IsNaN(player.position.x) || float.IsNaN(player.position.y) || float.IsNaN(player.position.z))`
-   - カメラ向き検査: `Assert.Greater(Vector3.Dot(cam.transform.forward, (target.position - cam.transform.position).normalized), 0.2f)`（主要被写体を向いているか）
-   - マテリアル欠落検査: 全 Renderer の sharedMaterials に null / `InternalErrorShader`（ピンク）が無いこと
-   - Animator 進行検査（MDL 使用時）: 現在 state が `__preview__` でないこと、および `GetCurrentAnimatorStateInfo(0).normalizedTime` が 0.2 秒待機の前後で進んでいること（固着検知）
-6. **メタ進行の永続化テスト（必須）**: gates.md QA-PLAY 観点5 のとおり、(a) 保存→新規インスタンスで再ロード→復元一致、(b) 破損データ→`.bak` 退避＋`[SaveCorruption]` エラー1回（`LogAssert.Expect(LogType.Error, new Regex("^\\[SaveCorruption\\]"))` でホワイトリスト検知）＋既定値復旧、を PlayMode テストで検証。テストのセーブ先は「セーブ / 永続化」節の一時パス規約に従う
+1. 相当于 build 的命令 exit 0
+2. 用 PlayMode 测试验证核心循环 1 周＋**必需场景切换 `Title → Menu → Game → Result → Menu` 的 1 周**，以相当于实际操作的方式（用 `InputTestFixture` 模拟输入发送）。用 `LogAssert.NoUnexpectedReceived()` 机器验证 console 错误为 0
+3. 截图证据: 从 PlayMode 测试内保存到 `qa/evidence/`（**不使用 -nographics**）。`ScreenCapture.CaptureScreenshot()` 在 batchmode 下有时不起作用（无后备缓冲）— 此时切换为把相机渲染到 `RenderTexture` 再 `Texture2D.ReadPixels` → `EncodeToPNG` 保存的方式（UI 若为代码规范 14 的 ScreenSpaceCamera Canvas 则会被同一相机拍到。保持 Overlay 的拍摄视为「UI 无法捕获」不合格）。拍摄方式的成败先做机器判定: `magick identify -format "%[fx:mean]" <shot>.png` 低于 0.02/超过 0.98 视为 SUSPECT_BLANK，切换方式重新拍摄。**拍摄的图像必须用 Read 目视，确认对象（模型、UI 文字）确实被拍到**（黑屏、文字缺失为不合格。仅靠值的内部一致性测试无法检测渲染缺陷）
+4. acceptance 将 stories.yaml 的各项作为 PlayMode 测试实现并执行
+5. **视觉健全性测试（必需、LogAssert 无法检测的缺陷类别）**: 在 PlayMode 测试中放置以下内容 —
+   - NaN 坐标检查: `Assert.IsFalse(float.IsNaN(player.position.x) || float.IsNaN(player.position.y) || float.IsNaN(player.position.z))`
+   - 相机朝向检查: `Assert.Greater(Vector3.Dot(cam.transform.forward, (target.position - cam.transform.position).normalized), 0.2f)`（是否朝向主要被摄体）
+   - 材质缺失检查: 全部 Renderer 的 sharedMaterials 中没有 null / `InternalErrorShader`（粉色）
+   - Animator 推进检查（使用 MDL 时）: 当前 state 不是 `__preview__`，且 `GetCurrentAnimatorStateInfo(0).normalizedTime` 在等待 0.2 秒前后有推进（卡死检测）
+6. **元进度的持久化测试（必需）**: 按 gates.md QA-PLAY 要点5，用 PlayMode 测试验证 (a) 保存→新实例重新加载→恢复一致，(b) 损坏数据→`.bak` 备份保存＋`[SaveCorruption]` 错误 1 次（用 `LogAssert.Expect(LogType.Error, new Regex("^\\[SaveCorruption\\]"))` 白名单检测）＋默认值恢复。测试的存档位置遵循「存档 / 持久化」节的临时路径规范
 
-## セーブ / 永続化（contract §6 のセーブ規約の unity 実装正本）
+## 存档 / 持久化（contract §6 存档规范的 unity 实现权威来源）
 
-- **保存先**: `Application.persistentDataPath/save.json`。書込は `.tmp` に書いてからコピー/リネームするアトミック方式（書込中クラッシュで本体を壊さない）
-- **形式**: JSON。先頭フィールド `save_version`（int・必須）。シリアライザは Unity 公式の `JsonUtility` を第一候補とする（追加依存なし。Dictionary 非対応のため SaveData はフラットな配列+プレーンクラスで設計する）。`System.Text.Json` は Unity ランタイムでの同梱状況が構成依存のため、使う場合は EditMode テストでシリアライズ往復を先に検証してから採用する
-- **層の分離**（contract §11）: メタ進行ロジック = `Assets/Scripts/Systems/Meta/`（pure C#。`MetaTypes.cs`=バージョン別プレーン型 / `MetaSchema.cs`=マイグレーション関数チェーン+検証 / `MetaProgression.cs`=RunResult を受けて新 SaveData を返す純粋 reducer）。I/O = `Assets/Scripts/Persistence/`（`FileSaveAdapter` 等。`persistentDataPath` 文字列はここだけ）
-- **マイグレーション**: `save_version` が古ければ v(n)→v(n+1) の関数を順に適用。**現行より新しい版は変換せず破損相当として扱う**（暗黙ダウングレード禁止）。マイグレーション関数は追加のみ・書き換え禁止
-- **破損時プロトコル（黙示初期化禁止 — rules/unity-code.md が強制）**: パース失敗・`save_version` 欠落・未来版・チェックサム不一致・スキーマ検証失敗（必須フィールド欠落・型不正）のいずれも、(1) 生データを `save.json.bak.<UTC時刻>` へ退避 → (2) `Debug.LogError("[SaveCorruption] reason=... backup=...")` を1回 → (3) 既定値で再生成し `recovered: true` を UI 層（Title/Menu）に伝播（トースト等の表示は任意だが、フラグの伝播は必須）
-- **保存タイミング**: Result 到達時に `MetaProgression.ApplyRunResult` → 即 persist を1回（Result→リスタート連打で二重保存しない。メモリ上の SaveData を使い回す）
-- **テスト規約**: PlayMode テストは実ユーザーのセーブを汚さないため `Application.temporaryCachePath` 配下の一時ファイル（テストごとに一意名）を使い、`[TearDown]` で削除する。`persistentDataPath` を直接使うテスト禁止
+- **保存位置**: `Application.persistentDataPath/save.json`。写入采用先写 `.tmp` 再复制/重命名的原子方式（写入中崩溃不会损坏本体）
+- **格式**: JSON。首字段 `save_version`（int、必需）。序列化器以 Unity 官方 `JsonUtility` 为第一候选（无追加依赖。不支持 Dictionary，因此 SaveData 用扁平数组+普通类设计）。`System.Text.Json` 在 Unity 运行时的捆绑情况依配置而异，若使用须先在 EditMode 测试中验证序列化往返后再采用
+- **层的分离**（contract §11）: 元进度逻辑 = `Assets/Scripts/Systems/Meta/`（pure C#。`MetaTypes.cs`=按版本区分的普通类型 / `MetaSchema.cs`=迁移函数链+验证 / `MetaProgression.cs`=接收 RunResult 并返回新 SaveData 的纯 reducer）。I/O = `Assets/Scripts/Persistence/`（`FileSaveAdapter` 等。`persistentDataPath` 字符串只出现在这里）
+- **迁移**: `save_version` 较旧时依次应用 v(n)→v(n+1) 的函数。**比当前版本更新的版本不做转换，按损坏处理**（禁止隐式降级）。迁移函数只增不改
+- **损坏时协议（禁止静默初始化 — rules/unity-code.md 强制执行）**: 解析失败、`save_version` 缺失、未来版本、校验和不一致、schema 验证失败（必需字段缺失、类型错误）中的任一情况，均 (1) 将原始数据备份保存到 `save.json.bak.<UTC时间>` → (2) 执行 1 次 `Debug.LogError("[SaveCorruption] reason=... backup=...")` → (3) 以默认值重新生成并把 `recovered: true` 传递到 UI 层（Title/Menu）（toast 等显示可选，但标志的传递必需）
+- **保存时机**: 到达 Result 时 `MetaProgression.ApplyRunResult` → 立即 persist 1 次（Result→连续重开不得重复保存。复用内存中的 SaveData）
+- **测试规范**: PlayMode 测试为不污染真实用户的存档，使用 `Application.temporaryCachePath` 下的临时文件（每个测试唯一名称），并在 `[TearDown]` 中删除。禁止直接使用 `persistentDataPath` 的测试
 
-## 既知の落とし穴（世代間で再発させない）
+## 已知陷阱（不让其跨轮次再发）
 
-> QA fix で「環境起因の一般則（エンジン/テストランナーの落とし穴）」と判明した知見は、qa/report.md への記録に加えてこの節へ**即時追記**する（gates.md QA-PLAY。qa-lead → fix 担当 engineer の責務。run 成果物だけに埋めない）。
+> 在 QA fix 中判明为「环境起因的一般规则（引擎/测试运行器的陷阱）」的知识，除记录到 qa/report.md 外还要**立即追加写入**本节（gates.md QA-PLAY。qa-lead → fix 负责 engineer 的责任。不要只埋在 run 产出物中）。
 
-1. **InputSystem の batchmode 境界問題（E2/E3 で再発実績）** — PlayMode テストで `[UnitySetUp]` と `[UnityTest]` の境界を跨ぐと、`InputSystem.AddDevice<Mouse>()` したデバイスの Press/Release が `InputActionMap.WasPressedThisFrame()` に反映されない。**シーンロードと入力擬似発行は同一コルーチンに収める**。実装側も同じ理由で Title/Menu/HUD のクリック判定は入力ポーリングの初期化タイミングに注意する
-2. **正当縮退の `Debug.LogWarning` と `LogAssert.NoUnexpectedReceived()` の衝突（E3 で発見）** — 規約12が正当化する「未取込/未生成資産への縮退時の1回だけの LogWarning」は、その GameObject/Component を経由する PlayMode テスト（例: Game シーンをロードする HUD/操作系テスト）を無条件に false-fail させる。資産（例: タイルテクスチャ）が実際には AR-ASSET 承認済みで `game/_generated/` に存在するのに `Assets/Resources/Generated/` への取込（Integrate）だけがまだの場合、**バッチ検証実施者は該当資産の Integrate をテスト修正より優先する**（LogAssert.Expect を各テストへ後付けする対症療法より、「取込済みなら警告自体が発生しない」という設計を活かす方が実装意図に忠実）。取込対象が本当に未生成（プレースホルダのまま出荷確定）の場合のみ `LogAssert.Expect(LogType.Warning, ...)` で許容する
-3. **PlayMode テストの AudioListener 生成は「既存が無い場合のみ追加」にする（E3 で発見）** — `SceneManager.LoadScene`（既定 Single）で実シーン遷移まで進める PlayMode テスト（例: 勝敗確定→Result 遷移まで検証するテスト）は、遷移先シーン自身の Main Camera+AudioListener をテストランナーに残す。後続テストの `[SetUp]` が無条件に新しい `AudioListener` を追加すると「There are 2 audio listeners」で false-fail する一方、残存 Listener を無条件に破棄すると、自前の Listener を持たない設計のテスト（本番シーンは常に Listener が1つ存在する前提に暗黙依存）が「There are no audio listeners」で false-fail する（使い捨て `AudioSource`（`PlayClipAtPoint` 等）の自己破棄タイマーがまだ切れていない場合に発生）。**`Object.FindAnyObjectByType<AudioListener>() == null` の場合だけ自前で追加し、TearDown では自分が追加した分だけ破棄する（所有権を bool フィールドで記録）**のが両方の警告を同時に避ける唯一の方式
-4. **-batchmode の PlayMode は vsync 無しで極めて高速に回る（E3 Polish バッチ検証で発見）** — `-batchmode -runTests -testPlatform PlayMode` の実フレームは画面描画を伴わないため、本環境の実測で平均 `Time.deltaTime ≈ 0.00013秒/フレーム`（約7500fps相当）と、60fps 前提の感覚より2桁以上速く進む。「`Time.deltaTime` 駆動の演出（リコイル・撃破スケールダウン・被弾フラッシュ等）が持続時間経過後に既定状態へ戻ることを `for (int i = 0; i < N; i++) { yield return null; ... }` の**フレーム数上限のみ**で待つテスト」は、`N=300` 程度では実時間換算 約0.04秒しか経過せず、`0.15〜0.2s` 級の演出時間に届かず false-fail する。**frame-timing に依存する「戻り待ち」ループのフレーム予算は、対象 duration に対して2桁以上のマージンを持つ値（例: 20000）にする**か、`Time.time`/`Time.realtimeSinceStartup` ベースの経過時間を主条件にしフレーム数は安全弁（無限ループ防止）としてのみ使う
-5. **ビルドスポットのクリック判定は「占有有無で走査を分けない」（E3 Polish バッチ検証で発見）** — `GameConfig.Build.SpotPositions` は同一列（同じX）に経路を挟んで2スポット（Z=+3m/-3m）を配置するが、固定俯瞰カメラ構図では同一列2スポットの画面距離が `GameConfig.Ui.BuildSpotClickPickRadiusPx`（70px）と同程度かそれ以下になりうる（実測 約53〜58px）。「空きスポットを全走査 → 見つからなければ占有スポットを全走査」のように2段階に分けてヒットテストすると、片方のスポットをクリックしたつもりが pick 半径の重なりで隣接する反対側スポットを誤検出する。**クリック地点に最も近いスポットを1つだけ（占有有無を問わず）求めてから、そのスポットの占有状態で分岐する一本化されたヒットテスト**にすること（Ui/HudPanel.FindClickedSpot 参照）
+1. **InputSystem 的 batchmode 边界问题（E2/E3 中有再发记录）** — PlayMode 测试中跨越 `[UnitySetUp]` 与 `[UnityTest]` 的边界时，`InputSystem.AddDevice<Mouse>()` 添加的设备的 Press/Release 不会反映到 `InputActionMap.WasPressedThisFrame()`。**场景加载与模拟输入发送放在同一协程内**。实现侧出于同样原因，Title/Menu/HUD 的点击判定要注意输入轮询的初始化时机
+2. **正当降级的 `Debug.LogWarning` 与 `LogAssert.NoUnexpectedReceived()` 的冲突（E3 中发现）** — 规范 12 所正当化的「对未导入/未生成资产降级时仅 1 次的 LogWarning」，会让经过该 GameObject/Component 的 PlayMode 测试（例: 加载 Game 场景的 HUD/操作系测试）无条件 false-fail。当资产（例: 图块纹理）实际上已获 AR-ASSET 批准并存在于 `game/_generated/`、只是尚未导入（Integrate）到 `Assets/Resources/Generated/` 时，**批处理验证实施者应优先对该资产做 Integrate，而不是修改测试**（比起给各测试后补 `LogAssert.Expect` 的对症疗法，发挥「已导入则警告本身不会发生」的设计更忠实于实现意图）。仅当导入对象确实未生成（确定以占位符发布）时，才用 `LogAssert.Expect(LogType.Warning, ...)` 允许
+3. **PlayMode 测试的 AudioListener 生成采用「仅在不存在时添加」（E3 中发现）** — 用 `SceneManager.LoadScene`（默认 Single）推进到真实场景切换的 PlayMode 测试（例: 验证到胜负确定→切换 Result 的测试）会把切换目标场景自身的 Main Camera+AudioListener 留在测试运行器中。后续测试的 `[SetUp]` 若无条件添加新的 `AudioListener`，会以「There are 2 audio listeners」false-fail；而若无条件销毁残留 Listener，则不自带 Listener 的设计的测试（隐式依赖「正式场景总有 1 个 Listener」的前提）会以「There are no audio listeners」false-fail（在一次性 `AudioSource`（`PlayClipAtPoint` 等）的自销毁计时器尚未到期时发生）。**仅在 `Object.FindAnyObjectByType<AudioListener>() == null` 时自行添加，TearDown 中只销毁自己添加的那份（用 bool 字段记录所有权）**是同时避开两种警告的唯一方式
+4. **-batchmode 的 PlayMode 无 vsync、运行极快（E3 Polish 批处理验证中发现）** — `-batchmode -runTests -testPlatform PlayMode` 的实际帧不伴随画面绘制，本环境实测平均 `Time.deltaTime ≈ 0.00013秒/帧`（约相当于 7500fps），比 60fps 前提的直觉快 2 个数量级以上。「仅用 `for (int i = 0; i < N; i++) { yield return null; ... }` 的**帧数上限**等待 `Time.deltaTime` 驱动的演出（后坐、击破缩小、受击闪烁等）在持续时间过后回到默认状态的测试」，在 `N=300` 左右时实时间换算只经过约 0.04 秒，达不到 `0.15～0.2s` 级的演出时长而 false-fail。**依赖 frame-timing 的「等待复位」循环的帧预算，要设为相对目标 duration 有 2 个数量级以上余量的值（例: 20000）**，或以基于 `Time.time`/`Time.realtimeSinceStartup` 的经过时间为主条件、帧数仅作为安全阀（防止无限循环）
+5. **建造点的点击判定「不按占用与否分开扫描」（E3 Polish 批处理验证中发现）** — `GameConfig.Build.SpotPositions` 在同一列（同一 X）隔着路径放置 2 个点（Z=+3m/-3m），但在固定俯视相机构图下同一列 2 个点的屏幕距离可能与 `GameConfig.Ui.BuildSpotClickPickRadiusPx`（70px）相当或更小（实测约 53～58px）。若像「先全扫描空点 → 找不到再全扫描占用点」那样分两段做命中测试，本想点击一侧的点，却因 pick 半径重叠误检出相邻的另一侧点。**要做成先求出距点击位置最近的唯一一个点（不问占用与否），再按该点的占用状态分支的一体化命中测试**（参见 Ui/HudPanel.FindClickedSpot）
 
-## 将来のエンジン非依存化に向けた線引き
+## 面向未来引擎无关化的边界划分
 
-- `Assets/Scripts/Systems/` は UnityEngine のシーン API・MonoBehaviour・File I/O を import しない（値型・数学型のみ可）— ここがエンジン非依存層（`Systems/Meta/` も同様）
-- Unity 依存は `Components/` `Ui/` `Input/` `Scenes/` `Persistence/` に閉じ込める
+- `Assets/Scripts/Systems/` 不 import UnityEngine 的场景 API、MonoBehaviour、File I/O（仅值类型、数学类型允许）— 这里是引擎无关层（`Systems/Meta/` 同样）
+- Unity 依赖封闭在 `Components/` `Ui/` `Input/` `Scenes/` `Persistence/` 中

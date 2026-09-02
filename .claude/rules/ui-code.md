@@ -2,33 +2,33 @@
 paths: ["game/src/ui/**"]
 ---
 
-# ui-code — game/src/ui 編集時の強制規約
+# ui-code — 编辑 game/src/ui 时的强制规范
 
-HUD・メニューはプレイヤーの1秒未満の判断を支えるためにある。gameplay-code.md の規約（config.ts 集約・delta-time・ASSET_KEYS）も同時に適用される。
+HUD 与菜单存在的目的是支撑玩家不到1秒的判断。gameplay-code.md 的规范（config.ts 集中、delta-time、ASSET_KEYS）同时适用。
 
 ## Do / Don't
 
-- **Do**: プレイ中に読む HUD 要素（HP・スコア・残時間）は一目で読めるサイズ・コントラストにする。フォントサイズ・色・座標は `src/config.ts` の `UI` 定数に置き、背景と区別できる縁取りか半透明パネルを敷く
-- **Don't**: HUD をゲームプレイ領域の中央や操作対象の導線上に置かない。装飾で可読性を犠牲にしない
-- **Do**: UI の表示値は game state（`systems/` の状態）から毎回導出する。UI クラスは「受け取って描く」だけ
-- **Don't**: UI 側に `score` 等の状態コピーを持って二重管理しない（加算忘れ・不整合の温床）
-- **Do**: 画面に出すテキストは `src/config.ts` の `STRINGS` 定数経由にする（将来のローカライズ線。フォーマットは関数化）
-- **Don't**: `this.add.text(x, y, 'Game Over')` のような文字列直書き禁止
-- **Do**: 「Press Z to jump」等の入力プロンプトのキー表示は、実際のキーバインド定義（入力モジュールの割当）から導出する
-- **Don't**: プロンプト文字列にキー名をハードコードしない（リマップ・モバイル対応で表示と実キーがズレる）
+- **Do**: 游玩中需要阅读的 HUD 要素（HP、分数、剩余时间）须做到一眼可读的尺寸与对比度。字号、颜色、坐标放在 `src/config.ts` 的 `UI` 常量中，并铺设可与背景区分的描边或半透明面板
+- **Don't**: 不要把 HUD 放在游玩区域中央或操作对象的动线上。不要为了装饰牺牲可辨识性
+- **Do**: UI 的显示值每次都从 game state（`systems/` 的状态）推导。UI 类只做「接收并绘制」
+- **Don't**: 不要在 UI 侧持有 `score` 等状态副本做双重管理（漏加、不一致的温床）
+- **Do**: 显示在画面上的文本经由 `src/config.ts` 的 `STRINGS` 常量（面向未来本地化的边界。格式化做成函数）
+- **Don't**: 禁止 `this.add.text(x, y, 'Game Over')` 这类字符串直写
+- **Do**: 「Press Z to jump」等输入提示中的按键显示，从实际的键位绑定定义（输入模块的分配）推导
+- **Don't**: 不要在提示字符串中硬编码键名（重映射、移动端适配时显示与实际按键会错位）
 
-## 正誤例
+## 正误示例
 
-### UI 状態は導出（二重管理禁止）
+### UI 状态为推导（禁止双重管理）
 
 ```ts
-// NG: UI が独自にスコアを保持・加算
+// NG: UI 自行持有并累加分数
 export class Hud {
   private score = 0;
   addScore(n: number) { this.score += n; this.text.setText(`SCORE ${this.score}`); }
 }
 
-// OK: game state を受け取って描くだけ
+// OK: 仅接收 game state 并绘制
 import { STRINGS } from '../config';
 import type { GameState } from '../types';
 export class Hud {
@@ -38,7 +38,7 @@ export class Hud {
 }
 ```
 
-### テキストは STRINGS 経由
+### 文本经由 STRINGS
 
 ```ts
 // NG
@@ -50,34 +50,34 @@ export const STRINGS = {
   HUD_SCORE: (n: number) => `SCORE ${n}`,
 } as const;
 
-// 使用側
+// 使用侧
 this.add.text(UI.RESULT_X, UI.RESULT_Y, STRINGS.GAME_OVER, UI.RESULT_STYLE);
 ```
 
-### 入力プロンプトは実キーバインドから導出
+### 输入提示从实际键位绑定推导
 
 ```ts
-// NG: キー名ハードコード（リマップすると嘘になる）
+// NG: 键名硬编码（重映射后就成了谎言）
 this.add.text(x, y, 'Press Z to jump');
 
-// OK: 入力モジュールの割当から表示を作る
+// OK: 从输入模块的分配生成显示
 // src/config.ts
 export const KEY_BINDINGS = { JUMP: 'Z', DASH: 'X' } as const;
 export const STRINGS = {
   PROMPT_JUMP: (key: string) => `Press ${key} to jump`,
 } as const;
 
-// 使用側（入力モジュールと同じ定義を参照）
+// 使用侧（引用与输入模块相同的定义）
 this.add.text(x, y, STRINGS.PROMPT_JUMP(KEY_BINDINGS.JUMP), UI.PROMPT_STYLE);
 ```
 
-### HUD 可読性
+### HUD 可辨识性
 
 ```ts
-// NG: 小さく低コントラスト、位置も数値直書き
+// NG: 小且低对比度，位置也是数值直写
 this.add.text(10, 10, `${score}`, { fontSize: '10px', color: '#888888' });
 
-// OK: config の UI 定数 + 縁取りで背景から分離
+// OK: config 的 UI 常量 + 描边与背景分离
 // src/config.ts
 export const UI = {
   HUD_MARGIN: 16,

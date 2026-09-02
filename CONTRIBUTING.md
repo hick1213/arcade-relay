@@ -44,7 +44,7 @@ npm run build
 
 For unity (marker: `game/ProjectSettings/ProjectVersion.txt`) or unreal
 (marker: `game/ForgeGame.uproject`) games, use the verification commands from
-the "検証コマンド" section of the matching `.claude/docs/tech-stack-unity.md`
+the "验证命令" section of the matching `.claude/docs/tech-stack-unity.md`
 or `.claude/docs/tech-stack-unreal.md`.
 
 If those commands are unavailable because no game has been generated yet, state

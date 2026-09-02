@@ -1,7 +1,7 @@
 #!/bin/bash
 # ArcadeRelay hook: Stop
-# state/ が存在する場合のみ、セッション終了を state/session-log.txt に1行追記する。
-# advisory hook: いかなる場合も exit 0。標準出力には何も出さない。
+# 仅在 state/ 存在时，向 state/session-log.txt 追加写入 1 行会话结束记录。
+# advisory hook: 任何情况下都 exit 0。标准输出不输出任何内容。
 
 ROOT="${CLAUDE_PROJECT_DIR:-}"
 if [ -z "$ROOT" ]; then

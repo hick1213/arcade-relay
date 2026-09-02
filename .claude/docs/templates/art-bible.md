@@ -1,91 +1,91 @@
 <!--
-  テンプレート: design/art-bible.md（出力先は contract.md §6 のこのパス固定）
+  模板: design/art-bible.md（输出位置固定为 contract.md §6 的此路径）
   producer: art-director / reviewer: art-reviewer（Gate: AR-BIBLE, MAX_ITER 3）
-  役割: 人間可読のアート方針書。機械可読のスタイルロックは design/art-bible.json が正本で、
-  このファイルは json の各値の「意図」を説明する側。値そのものを二重管理しない。
-  執筆ルール: AR-BIBLE の4観点（機械可読性 / ゲーム内可読性 / 生成再現性 / 技術整合）に直接答える。
-  曖昧形容詞のみの指定（「かわいい感じ」等）は不合格。完成時にガイドコメントはすべて削除する。
+  角色: 人类可读的美术方针书。机器可读的风格锁定以 design/art-bible.json 为权威来源，
+  本文件负责说明 json 各值的「意图」。不要对值本身做双重管理。
+  撰写规则: 直接回应 AR-BIBLE 的4要点（机器可读性 / 游戏内可辨识性 / 生成可复现性 / 技术一致性）。
+  仅有模糊形容词的指定（「可爱的感觉」等）不合格。完成时删除全部指引注释。
 -->
 
-# Art Bible — <ゲームタイトル>
+# Art Bible — <游戏标题>
 
-## スタイル宣言
+## 风格宣言
 
-<!-- 3〜5文でスタイルを宣言する。必ず含めること:
-     (1) ピクセルアートか否か（brief.md と一致）
-     (2) 画風の固有名詞的な参照（例: 「16bit末期のアーケードSTG風」）
-     (3) 線・塗り・光源の扱い（例: 「アウトライン1px黒・セル塗り・光源は左上固定」）
-     この宣言を機械化したものが art-bible.json の style_block。 -->
+<!-- 用 3～5 句宣言风格。必须包含:
+     (1) 是否为像素美术（与 brief.md 一致）
+     (2) 画风的专有名词式参照（例: 「16bit 末期的街机 STG 风」）
+     (3) 线条、上色、光源的处理（例: 「1px 黑色描边、赛璐璐上色、光源固定左上」）
+     把此宣言机械化即为 art-bible.json 的 style_block。 -->
 
 ## Key Image
 
-<!-- Checkpoint A で人間承認を得た1枚。パスとその生成情報を記録する。
-     以後の全資産はこの1枚との一致で採点される（AR-ASSET）。 -->
+<!-- 在 Checkpoint A 获得人类批准的1张。记录路径及其生成信息。
+     此后的全部资产都按与这1张的一致度评分（AR-ASSET）。 -->
 
-- パス: `design/refs/<ファイル名>.png`
-- 生成: provider / model / seed / style_codes（art-bible.json と同値）
-- この画で承認された点: <構図・質感・色などを箇条書き>
+- 路径: `design/refs/<文件名>.png`
+- 生成: provider / model / seed / style_codes（与 art-bible.json 同值）
+- 此图中获批准的要点: <构图、质感、颜色等的要点列表>
 
-## パレット
+## 调色板
 
-<!-- 8〜16色を推奨。役割を必ず割り当てる（プレイヤー系/敵系/背景系/UI系/警告色）。
-     hex 値は art-bible.json の palette と完全一致させること（食い違いは AR-BIBLE 不合格）。
-     背景系とキャラ系で明度帯を分離するとシルエット可読性が上がる。 -->
+<!-- 推荐 8～16 色。必须分配角色（玩家系/敌人系/背景系/UI系/警告色）。
+     hex 值须与 art-bible.json 的 palette 完全一致（不一致则 AR-BIBLE 不合格）。
+     背景系与角色系分离明度带可提升轮廓可辨识性。 -->
 
-| 役割 | hex | 用途メモ |
+| 角色 | hex | 用途备注 |
 |---|---|---|
-| プレイヤー主色 | `#RRGGBB` | |
-| 敵主色 | `#RRGGBB` | |
-| 背景基調 | `#RRGGBB` | |
-| UI/テキスト | `#RRGGBB` | |
-| 警告・ダメージ | `#RRGGBB` | |
+| 玩家主色 | `#RRGGBB` | |
+| 敌人主色 | `#RRGGBB` | |
+| 背景基调 | `#RRGGBB` | |
+| UI/文本 | `#RRGGBB` | |
+| 警告、伤害 | `#RRGGBB` | |
 
-## シルエット方針
+## 轮廓方针
 
-<!-- ゲームは1画面・秒単位の判断。以下を明文化する:
-     - プレイヤー/敵/障害物/収集物を「形」だけで区別するルール
-       （例: プレイヤー=縦長・敵=角張り・収集物=円形）
-     - ゲーム内表示サイズに縮小しても潰れない最小ディテール単位
-     - 背景に対する前景のコントラスト確保策（縁取り・明度差など） -->
+<!-- 游戏是1个画面、以秒为单位的判断。明文化以下内容:
+     - 仅凭「形状」区分玩家/敌人/障碍物/收集物的规则
+       （例: 玩家=纵长、敌人=有棱角、收集物=圆形）
+     - 缩小到游戏内显示尺寸也不会糊掉的最小细节单位
+     - 前景相对背景的对比度保障措施（描边、明度差等） -->
 
-## 解像度・タイルサイズ
+## 分辨率与瓦片尺寸
 
-<!-- art-bible.json の resolution と一致させ、意図を添える。
-     assets.md の全資産サイズ・tech-stack.md の表示系と矛盾しないこと（AR-BIBLE 観点4）。 -->
+<!-- 与 art-bible.json 的 resolution 一致，并附上意图。
+     不得与 assets.md 的全部资产尺寸、tech-stack.md 的显示系统矛盾（AR-BIBLE 要点4）。 -->
 
-- スプライト生成解像度: <Npx>（ゲーム内表示: <Mpx>、縮小方式: <nearest / linear>）
-- タイルサイズ: <Npx>
-- 透過方針: 全スプライトはアルファチャンネル必須（白背景PNGは出荷禁止 — assets-config.md）
+- 精灵生成分辨率: <Npx>（游戏内显示: <Mpx>，缩小方式: <nearest / linear>）
+- 瓦片尺寸: <Npx>
+- 透明方针: 所有精灵必须带 Alpha 通道（禁止发布白背景 PNG — assets-config.md）
 
-## アニメ方針
+## 动画方针
 
-<!-- 何を動かし何を止めるかの割り切りを書く。
-     - アニメさせる対象とフレーム数（例: hero 歩行4フレーム、敵は2フレーム明滅のみ）
-     - スプライトシートの並び規約（横並び・フレーム順）
-     - コードで代替する動き（tween での上下揺れ・点滅など）はアニメ資産を作らない、と明記 -->
+<!-- 写明「动什么、不动什么」的取舍。
+     - 需要动画的对象及帧数（例: hero 行走4帧，敌人仅2帧闪烁）
+     - 精灵表的排列规范（横向排列、帧顺序）
+     - 明确写出: 用代码替代的动作（tween 上下摇动、闪烁等）不制作动画资产 -->
 
-## 3D スタイル方針（engine=unity/unreal のみ。phaser では節ごと削除）
+## 3D 风格方针（仅 engine=unity/unreal。phaser 时整节删除）
 
-<!-- 3D 版の技術整合（AR-BIBLE 観点4 の 3D 対応）。必ず含めること:
-     - ポリゴン予算: hero / prop / 環境 の tri 上限（assets-config.md 既定から逸脱するなら理由）
-     - テクスチャ解像度と PBR 方針（例: 2048px・albedo+metallic-roughness / フラット単色）
-     - リグ方針: ヒューマノイドか否か、必要アニメクリップの語彙（idle/walk/run 等）
-     - コンセプト画プロトコル: 全モデルは key image 系列のコンセプト画 → image-to-3D の
-       二段生成（assets-config.md「スタイル一貫性プロトコル（3D 追記）」）。
-     - スケール規約: glTF=m 基準・ヒト型 1.6–2.0m。unreal は取込時に cm 換算 -->
+<!-- 3D 版的技术一致性（AR-BIBLE 要点4 的 3D 对应）。必须包含:
+     - 多边形预算: hero / prop / 环境 的 tri 上限（若偏离 assets-config.md 默认值则说明理由）
+     - 纹理分辨率与 PBR 方针（例: 2048px、albedo+metallic-roughness / 平面单色）
+     - rig 方针: 是否为人形，所需动画剪辑的词汇（idle/walk/run 等）
+     - 概念图协议: 全部模型采用 key image 系列的概念图 → image-to-3D 的
+       两段生成（assets-config.md「风格一致性协议（3D 补充）」）。
+     - 缩放规范: 以 glTF=m 为基准、人形 1.6–2.0m。unreal 在导入时换算为 cm -->
 
-- ポリゴン予算: hero <N> tri / prop <N> tri / 環境 <N> tri
-- テクスチャ: <解像度・PBR 有無>
-- リグ: <humanoid / quadruped / none> / アニメクリップ: <一覧>
-- スケール: 1 unit = <m/cm>、hero 身長 <N>m
+- 多边形预算: hero <N> tri / prop <N> tri / 环境 <N> tri
+- 纹理: <分辨率、是否 PBR>
+- rig: <humanoid / quadruped / none> / 动画剪辑: <一览>
+- 缩放: 1 unit = <m/cm>，hero 身高 <N>m
 
-## 機械可読スタイルロック（art-bible.json への参照）
+## 机器可读风格锁定（对 art-bible.json 的引用）
 
-<!-- 値の正本は design/art-bible.json。ここには各キーの意図だけを書く。
-     json のキー構成は assets-config.md「スタイル一貫性プロトコル」で固定:
+<!-- 值的权威来源是 design/art-bible.json。此处只写各键的意图。
+     json 的键结构由 assets-config.md「风格一致性协议」固定:
      style_block / palette / style_codes / reference_images / character_reference / resolution -->
 
-| art-bible.json キー | 意図（なぜこの値か） |
+| art-bible.json 键 | 意图（为何是此值） |
 |---|---|
 | `style_block` | |
 | `palette` | |
