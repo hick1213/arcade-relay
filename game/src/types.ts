@@ -69,3 +69,21 @@ export interface TapHit {
 }
 
 export type TapEventHandler = (hit: TapHit) => void;
+
+// ==== HUD（S-10: HUD 与帐本暂停面板 — ui-engineer）====
+
+/**
+ * HUD 显示状态。真值在 Systems 层（economy / dayCycle）;
+ * UI 仅接收此状态绘制，禁止在 UI 侧持有独立计数器（双重管理禁止）。
+ */
+export interface HudState {
+  readonly silver: number;
+  readonly reputation: number;
+  readonly day: number;
+}
+
+/**
+ * 文案查表 provider（conventions 规则 4: 文案零硬编码 — 玩家可见文本全部经 key 取得）。
+ * S-11 systems/i18n 落地后由其 t() 实现（缺 key 回落中文）。
+ */
+export type TextProvider = (key: string) => string;
