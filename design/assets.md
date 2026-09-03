@@ -117,7 +117,8 @@ BGM 共通 style block（机械前置）:
 - **占位 BGM 的实现方式（确定性、可复现）**: jsfxr 正弦拨弦音色 → 按目标音高重采样至 A 羽调五声音阶（A C D E G）→ 92/132 BPM 小节网格上程序化编排（BGM-01=27 小节 8 分音符琶音 A/D/G/A 根音循环＋2/4 拍木鱼＋A2 低音持续；BGM-02=26 小节 16 分音符震音＋1/3 拍太鼓式噪声击＋每 2 小节 A2）→ **note tail 模环绕回**使接缝在构造上连续。seed=920301（mulberry32 覆盖 jsfxr 内部 Math.random，记录于 MANIFEST）
 - **循环验证 PASS（交付条件满足）**: 2 段拼接接缝扫描 — BGM-01 接缝 RMS 阶差 5.91dB（全曲攻击分布 p95=10.26dB 以下）、接缝样本差分 0.0376（全局 p99.9=0.032 量级）；BGM-02 阶差 0.56dB / 差分 0.0144（p95=3.52 / p99.9=0.0245）。**交叉淡化编辑未施行的理由**: 接缝已由构造连续（模环绕回），再交叉淡化会产生凹陷 — 与规格意图（无缝循环）一致，验证照常执行且在交付 OGG 解码后复检通过
 - **响度合规**: loudnorm 两遍（linear、measured_I -16.85/-16.62）后实测 BGM-01 -15.4 LUFS / BGM-02 -16.1 LUFS（±1 内）、TP -1.9/-4.0 dBFS（≤-1.5）。**静音裁切未施行的理由**: BGM 首尾即循环点，裁切会破坏音乐性循环（且实测无首尾静音）
-- **交付格式**: OGG Vorbis q5 160kbps ＋ M4A/AAC 160kbps 双格式（phaser 要求两者齐备）
+- **交付格式**: OGG Vorbis ABR 132kbps ＋ M4A/AAC 160kbps 双格式（phaser 要求两者齐备）
+- **交付格式修正（AR-ASSET revise、2026-09-03T15:50:19Z）**: 首次交付的 OGG（q5 VBR「160kbps」）实测平均码率仅 62.7/68.3kbps — q5 VBR 对窄带正弦拨弦内容自动降码率，低于交付规格 128–160kbps 下限。修正: 自保留的 pre-encode loudnorm WAV（seed 920301 同源）确定性重编码，**无 API 调用、成本 $0**。注意 `-b:a 132k` 单独指定仍不足（libvorbis BM 对简单内容无下限约束，实测 46.9kbps、仅头部名义值 132k）— 须 `-b:a 132k -minrate 132k -maxrate 132k` 硬约束，实测平均 133.1kbps（规格内）。重编码后复检: 响度 BGM-01 -15.4 / BGM-02 -16.1 LUFS、TP -1.9/-3.9 dBFS、接缝扫描（seam-anchored 2048 样本帧网格）BGM-01 阶差 14.93dB < p95 17.47dB、BGM-02 3.05dB < p95 3.66dB、接缝样本差分均低于全局 p99.9 — 全部 PASS。MANIFEST BGM-01/02 行的 sha256/alt_formats/loop_verification/notes 已同步更新
 - **时长偏差**: 规格 72s/48s 为生成时长意图；交付为 92 BPM×27 小节=70.43s、132 BPM×26 小节=47.27s（循环长度必须落在整数小节。占位资产反正须替换，付费生成时以 `composition_plan` 精确指定 72000/48000ms）
 - **未解决事项（Checkpoint 必须展示）**: BGM-01/02 为 must-replace 占位（音色为 chip 音源近似，非古筝/笛子实录质感）。解锁条件: ElevenLabs 付费计划（Music API 需 Starter 以上）后以 composition_plan＋seed 920301 重生成，SFX 批次的生成日志已包含所需的完整请求 schema
 
