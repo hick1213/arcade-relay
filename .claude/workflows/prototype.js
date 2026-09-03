@@ -9,10 +9,10 @@ export const meta = {
   description: 'Phase 2: 将 gdd 分解为 story，并行进行核心循环垂直切片的实现与资产生成，经 QA 后返回 Checkpoint B 材料',
   phases: [
     { title: 'Setup', detail: 'tech-director 生成 game/ 脚手架、docs/architecture.md、docs/conventions.md、state/stories.yaml' },
-    { title: 'Build', detail: '将 phase:prototype story 按 assignee lane（gameplay/ui）并行实现（lane 内顺序执行、lane 中不做引擎验证），每个 story 通过 CR-CODE 评审循环（MAX 2）。lane 合流后串行执行批量验证' },
-    { title: 'AssetGen', detail: 'art-director 生成核心循环必需的图像（engine=unity/unreal 时还包括 3D 模型 MDL/ANM），audio-designer 生成核心 SFX，并通过 AR-ASSET 循环（MAX 3 + fallback 1）' },
+    { title: 'Build', detail: '将 phase:prototype story 按 assignee lane（gameplay/ui）并行实现（lane 内顺序执行、lane 中不做引擎验证），每个 story 通过 CR-CODE 评审循环（MAX 1、单一 reviewer）。lane 合流后串行执行批量验证' },
+    { title: 'AssetGen', detail: 'art-director 生成核心循环必需的图像（engine=unity/unreal 时还包括 3D 模型 MDL/ANM），audio-designer 生成核心 SFX，并通过 AR-ASSET 循环（MAX 2 + fallback 1）' },
     { title: 'Integrate', detail: '负责的 engineer 将生成资产经由资产键权威来源（phaser: ASSET_KEYS / unity: GameConfig.AssetKeys / unreal: GameConfig.h 常量）集成到 game/ 并做 typecheck/build 验证（串行区间、含引擎导入）' },
-    { title: 'QA', detail: 'qa-lead 执行 QA-PLAY（实际启动、实际操作、证据），重大 bug 进入修复循环（MAX 2）' },
+    { title: 'QA', detail: 'qa-lead 执行 QA-PLAY（实际启动、实际操作、证据），重大 bug 进入修复循环（MAX 1）' },
     { title: 'Final', detail: 'creative-director 做 CD-CHECKPOINT 判定，整理并返回 Checkpoint B 材料' },
   ],
 };
@@ -176,12 +176,6 @@ function reviewModeNote(mode) {
     return '【review-mode: full】循环为自动。verdict 由 workflow 作为历史累积，完成后在 Checkpoint 汇总展示给人类（执行中不向人类展示）。';
   }
   return '【review-mode: ' + mode + '】循环为自动。无需向人类展示（未解决问题在 Checkpoint 汇总展示）。';
-}
-
-// 返回更严重的 verdict（用于合并评审对）
-function worseVerdict(a, b) {
-  const rank = { APPROVE: 0, CONCERNS: 1, REJECT: 2 };
-  return (rank[b] || 0) > (rank[a] || 0) ? b : a;
 }
 
 // ---------------------------------------------------------------------------
@@ -391,7 +385,7 @@ let setup = await agentR(setupPrompt, {
   label: 'setup-scaffold-stories',
   phase: 'Setup',
   agentType: 'tech-director',
-  effort: 'high',
+  effort: 'medium',
   schema: SETUP_SCHEMA,
 });
 
@@ -406,7 +400,7 @@ let setup = await agentR(setupPrompt, {
         '必需: Title story 与 Menu story（均为 assignee: ui-engineer / phase: prototype）、元进度持久化 story 与 环境的最低限度视觉表现 story（assignee: gameplay-engineer / phase: prototype。acceptance 中以可验证的形式全部包含必需环境要素「' + ENV_REQUIRED_TEXT + '」（contract §11 的 engine=' + engine + ' 要求））。禁止重新编号既有 S-xx（以顺延编号追加）。',
         '修正后 git add ' + STATE.stories + ' && git commit（消息: "phase2: fix required stories"）。',
       ].join('\n'),
-      { label: 'setup-fix-required-stories', phase: 'Setup', agentType: 'tech-director', effort: 'high', schema: SETUP_SCHEMA }
+      { label: 'setup-fix-required-stories', phase: 'Setup', agentType: 'tech-director', effort: 'medium', schema: SETUP_SCHEMA }
     );
     const problems2 = setup ? validateSetup(setup) : ['退回后 Setup agent 仍未返回结果'];
     if (problems2.length > 0) {
@@ -544,7 +538,7 @@ async function batchVerify(phaseName, contextNote) {
     '4) 若做了修复，在 ' + STATE.reviewsDir + '/batch-verify.md 中追加写入「phase / 原因 story / 修复内容 / ISO8601 日期时间」（日期时间使用 `date -u +%Y-%m-%dT%H:%M:%SZ` 的执行输出 — 禁止凭推测填写），并按提交纪律的指定路径形式 git commit（消息: "batch-verify fix (' + phaseName + ')"）。' + GIT_ADD_RULE + '\n' +
     IDEMPOTENT_RULE + '\n' +
     '结构化返回: ok（最终合格则为 true。未能达到则如实返回 false）/ fixedNotes / unresolved。',
-    { label: 'batch-verify-' + phaseName.toLowerCase(), phase: phaseName, agentType: 'gameplay-engineer', schema: BATCH_VERIFY_SCHEMA, effort: 'high' }
+    { label: 'batch-verify-' + phaseName.toLowerCase(), phase: phaseName, agentType: 'gameplay-engineer', schema: BATCH_VERIFY_SCHEMA, effort: 'medium' }
   );
   if (bv === null) {
     unresolvedFindings.push('[BLOCKER] ' + phaseName + ': 批量验证 agent 未返回结果（构建健全性未确认 — 由后续 QA 检测）');
@@ -583,7 +577,7 @@ async function buildStoryLane(laneStories) {
     const loopResult = await reviewLoop({
       gateId: 'CR-CODE',
       artifactName: sid,
-      maxIter: 2, // review-loops.md: CR-CODE MAX_ITER 2
+      maxIter: 1, // review-loops.md: CR-CODE MAX_ITER 1（单一 reviewer 以节省 token）
       reviewMode: reviewMode,
 
       produce: async function () {
@@ -606,7 +600,7 @@ async function buildStoryLane(laneStories) {
             '',
             '结构化返回: commitHash（本次提交的 hash。必填）/ changedFiles（变更文件列表）/ summary（实现要点）。',
           ].join('\n'),
-          { label: 'implement-' + sid, phase: 'Build', agentType: story.assignee, effort: 'high', schema: COMMIT_RESULT_SCHEMA }
+          { label: 'implement-' + sid, phase: 'Build', agentType: story.assignee, effort: 'medium', schema: COMMIT_RESULT_SCHEMA }
         );
         if (r && r.commitHash) {
           lastCommitHash = r.commitHash;
@@ -616,7 +610,7 @@ async function buildStoryLane(laneStories) {
       },
 
       review: async function (iteration) {
-        // CR-CODE 是 code-reviewer + silent-failure-hunter 的评审对（gates.md CR-CODE 节）
+        // CR-CODE 单一 reviewer（code-reviewer。为节省 token 不再并行 silent-failure-hunter — gates.md CR-CODE 节）
         const reviewCommon = [
           reviewModeNote(reviewMode),
           'GATE: CR-CODE（阅读并遵循 ' + DOCS.gates + ' 的 CR-CODE 节）。',
@@ -628,59 +622,30 @@ async function buildStoryLane(laneStories) {
           '响应的第1行为「CR-CODE: APPROVE|CONCERNS|REJECT」（contract.md §5），结构化返回的 verdict / findings 中也放入相同的判定与问题。',
           'findings 为问题数组（包含文件、行、修复方针的具体语句）。',
         ];
-        const pair = await parallel([
-          function () {
-            return agentR(
-              reviewCommon.concat([
-                '',
-                '要点: 除常规代码评审外，还要确认是否违反 ' + EP.codeRulesFile + '（若不存在则为 ' + DOCS.techStack + ' 的代码规范）— 尤其是混入魔法数字与不依赖 delta-time 的实现。',
-                '也要确认 acceptance 是否能被这个 diff 的实现满足。',
-                '将评审结果追加写入 ' + reviewLogPath + '（review-loops.md 的追加写入格式: iteration ' + iteration + '、verdict、问题摘要、日期时间。日期时间使用 `date -u +%Y-%m-%dT%H:%M:%SZ` 的执行输出 — 禁止凭推测填写）。',
-              ]).join('\n'),
-              {
-                label: 'cr-code-' + sid + '-iter' + iteration,
-                phase: 'Build',
-                agentType: 'pr-review-toolkit:code-reviewer',
-                schema: VERDICT_SCHEMA,
-              }
-            );
-          },
-          function () {
-            return agentR(
-              reviewCommon.concat([
-                '',
-                '要点: 聚焦 silent failure 进行检查（被静默吞掉的异常、空 catch、隐藏失败的 fallback、无视错误、失败时伪装成功的返回值）。',
-                '无需追加写入 ' + STATE.reviewsDir + '/（追加写入由 code-reviewer 一方负责。你只需结构化返回）。',
-              ]).join('\n'),
-              {
-                label: 'cr-silent-' + sid + '-iter' + iteration,
-                phase: 'Build',
-                agentType: 'pr-review-toolkit:silent-failure-hunter',
-                schema: VERDICT_SCHEMA,
-              }
-            );
-          },
-        ]);
-        const valid = (pair || []).filter(function (r) { return r && r.verdict; });
-        if (valid.length === 0) {
+        const result = await agentR(
+          reviewCommon.concat([
+            '',
+            '要点: 除常规代码评审外，还要确认是否违反 ' + EP.codeRulesFile + '（若不存在则为 ' + DOCS.techStack + ' 的代码规范）— 尤其是混入魔法数字与不依赖 delta-time 的实现。也要重点排查 silent failure（被静默吞掉的异常、空 catch、隐藏失败的 fallback、无视错误、失败时伪装成功的返回值）。',
+            '也要确认 acceptance 是否能被这个 diff 的实现满足。',
+            '将评审结果追加写入 ' + reviewLogPath + '（review-loops.md 的追加写入格式: iteration ' + iteration + '、verdict、问题摘要、日期时间。日期时间使用 `date -u +%Y-%m-%dT%H:%M:%SZ` 的执行输出 — 禁止凭推测填写）。',
+          ]).join('\n'),
+          {
+            label: 'cr-code-' + sid + '-iter' + iteration,
+            phase: 'Build',
+            agentType: 'pr-review-toolkit:code-reviewer',
+            schema: VERDICT_SCHEMA,
+          }
+        );
+        if (!result || !result.verdict) {
           return null;
         }
-        if (valid.length < 2) {
-          knownIssues.push('[CR-CODE][' + sid + '] iteration ' + iteration + ': 评审对中的一方未返回结果（以单侧判定继续）');
-        }
-        let verdict = 'APPROVE';
-        let findings = [];
-        for (const r of valid) {
-          verdict = worseVerdict(verdict, r.verdict);
-          findings = findings.concat(r.findings || []);
-        }
-        return { verdict: verdict, findings: findings };
+        return { verdict: result.verdict, findings: result.findings || [] };
       },
 
       revise: async function (findings, iteration) {
         const r = await agentR(
           [
-            '你是 ArcadeRelay 的实现 engineer。修复 CR-CODE 评审问题（code-reviewer + silent-failure-hunter 的合计）。',
+            '你是 ArcadeRelay 的实现 engineer。修复 CR-CODE 评审问题（code-reviewer 指出的 findings）。',
             storyHeader,
             '',
             '问题列表:',
@@ -695,7 +660,7 @@ async function buildStoryLane(laneStories) {
             '   提交消息: "' + sid + ': fix CR-CODE iter ' + iteration + '"。提交 hash 按上述提交纪律的方法（`git log --format="%H %s" -20` 中与自己消息一致的最新行）获取。',
             '结构化返回: commitHash（本次提交的 hash。必填）/ summary（处理摘要）。',
           ].join('\n'),
-          { label: 'fix-' + sid + '-iter' + iteration, phase: 'Build', agentType: story.assignee, effort: 'high', schema: COMMIT_RESULT_SCHEMA }
+          { label: 'fix-' + sid + '-iter' + iteration, phase: 'Build', agentType: story.assignee, effort: 'medium', schema: COMMIT_RESULT_SCHEMA }
         );
         if (r && r.commitHash) {
           lastCommitHash = r.commitHash;
@@ -745,7 +710,7 @@ async function buildStories() {
 }
 
 // ---- AssetGen 侧: 图像（art-director）与 SFX（audio-designer）----
-// AR-ASSET 循环: 每个资产 MAX 3 + 切换 fallback 提供商后再 1 次（review-loops.md）
+// AR-ASSET 循环: 每个资产 MAX 2 + 切换 fallback 提供商后再 1 次（review-loops.md）
 const GEN_SCHEMA = {
   type: 'object',
   required: ['generated', 'budgetExceeded', 'remainingPlanned', 'degradedRoutes'], // 防止因省略 degradedRoutes 而丢失 fallback 记录（没有则明确返回空数组）
@@ -827,7 +792,7 @@ async function assetBatchLoop(cfg) {
     label: 'generate-' + cfg.batchName,
     phase: 'AssetGen',
     agentType: cfg.producerType,
-    effort: 'high',
+    effort: 'medium',
     schema: GEN_SCHEMA,
   });
   if (generated === null) {
@@ -846,7 +811,7 @@ async function assetBatchLoop(cfg) {
   }
 
   let failed = null; // null = 未评审
-  for (let i = 1; i <= 3; i++) {
+  for (let i = 1; i <= 2; i++) {
     const review = await reviewBatch(i, null);
     if (!review) {
       unresolvedFindings.push('[AR-ASSET][' + cfg.batchName + '] iteration ' + i + ' 的 review 失败');
@@ -862,12 +827,12 @@ async function assetBatchLoop(cfg) {
       return false;
     }
     failed = review.failedAssets;
-    if (i < 3) {
+    if (i < 2) {
       const regen = await agentR(cfg.regeneratePrompt(failed) + '\n结构化返回: generated / budgetExceeded / remainingPlanned / notes / degradedRoutes。', {
         label: 'regen-' + cfg.batchName + '-iter' + i,
         phase: 'AssetGen',
         agentType: cfg.producerType,
-        effort: 'high',
+        effort: 'medium',
         schema: GEN_SCHEMA,
       });
       if (regen === null) {
@@ -882,14 +847,14 @@ async function assetBatchLoop(cfg) {
     }
   }
 
-  // 3次不合格 → 切换到 fallback 提供商后再 1 次（review-loops.md）
+  // 2次不合格 → 切换到 fallback 提供商后再 1 次（review-loops.md）
   if (failed && failed.length > 0) {
-    log('[AR-ASSET] ' + cfg.batchName + ': 3次不合格 → 切换 fallback 提供商（' + failed.length + ' 个）');
+    log('[AR-ASSET] ' + cfg.batchName + ': 2次不合格 → 切换 fallback 提供商（' + failed.length + ' 个）');
     const fb = await agentR(cfg.fallbackPrompt(failed) + '\n结构化返回: generated / budgetExceeded / remainingPlanned / notes / degradedRoutes。', {
       label: 'fallback-' + cfg.batchName,
       phase: 'AssetGen',
       agentType: cfg.producerType,
-      effort: 'high',
+      effort: 'medium',
       schema: GEN_SCHEMA,
     });
     if (fb !== null) collectGenDisclosures(cfg.batchName + ':fallback', fb);
@@ -899,7 +864,7 @@ async function assetBatchLoop(cfg) {
       return false;
     }
     if (fb !== null) {
-      const finalReview = await reviewBatch(4, '（切换 fallback 提供商后的最终判定。这是最后一次迭代）');
+      const finalReview = await reviewBatch(3, '（切换 fallback 提供商后的最终判定。这是最后一次迭代）');
       if (finalReview && finalReview.verdict === 'APPROVE') {
         return true;
       }
@@ -954,7 +919,7 @@ async function generateImages() {
     },
     fallbackPrompt: function (failed) {
       return [
-        '你是 ArcadeRelay 的 art-director。对 3次不合格的图像，切换到 ' + DOCS.assetsConfig + ' 路由表的 Fallback 提供商仅重新生成 1 次。',
+        '你是 ArcadeRelay 的 art-director。对 2次不合格的图像，切换到 ' + DOCS.assetsConfig + ' 路由表的 Fallback 提供商仅重新生成 1 次。',
         '对象:',
         failed.map(function (f) { return '- ' + f.file + ': ' + f.reason; }).join('\n'),
         assetCommonRules,
@@ -986,7 +951,7 @@ async function generateAudio() {
     },
     fallbackPrompt: function (failed) {
       return [
-        '你是 ArcadeRelay 的 audio-designer。对 3次不合格的 SFX，切换到 ' + DOCS.assetsConfig + ' 的本地降级路由（jsfxr。公有领域、确定性、可发布）仅生成 1 次。',
+        '你是 ArcadeRelay 的 audio-designer。对 2次不合格的 SFX，切换到 ' + DOCS.assetsConfig + ' 的本地降级路由（jsfxr。公有领域、确定性、可发布）仅生成 1 次。',
         '对象:',
         failed.map(function (f) { return '- ' + f.file + ': ' + f.reason; }).join('\n'),
         assetCommonRules,
@@ -1021,7 +986,7 @@ async function generateModels() {
     },
     fallbackPrompt: function (failed) {
       return [
-        '你是 ArcadeRelay 的 art-director。对 3次不合格的 3D 资产，切换到 ' + STATE.assetRouting + ' 的 fallbacks（直连 API 或本地降级）仅重新生成 1 次（参见 ' + DOCS.assetsConfig + ' 的 3D 路由表。降级生成为 must_replace: true）。',
+        '你是 ArcadeRelay 的 art-director。对 2次不合格的 3D 资产，切换到 ' + STATE.assetRouting + ' 的 fallbacks（直连 API 或本地降级）仅重新生成 1 次（参见 ' + DOCS.assetsConfig + ' 的 3D 路由表。降级生成为 must_replace: true）。',
         '对象:',
         failed.map(function (f) { return '- ' + f.file + ': ' + f.reason; }).join('\n'),
         assetCommonRules,
@@ -1091,7 +1056,7 @@ const integrate = await agentR(
     IDEMPOTENT_RULE,
     '结构化返回: ok / degradations / summary（包含已集成的资产键列表与缺失列表）。',
   ].join('\n'),
-  { label: 'integrate-assets', phase: 'Integrate', agentType: 'gameplay-engineer', effort: 'high', schema: INTEGRATE_SCHEMA }
+  { label: 'integrate-assets', phase: 'Integrate', agentType: 'gameplay-engineer', effort: 'medium', schema: INTEGRATE_SCHEMA }
 );
 if (integrate === null) {
   unresolvedFindings.push('[Integrate] 资产集成 agent 失败。可能仍是占位符');
@@ -1161,7 +1126,7 @@ const EVIDENCE_CHECK_SCHEMA = {
 };
 
 let qaResult = null;
-const QA_MAX = 2; // review-loops.md: QA-PLAY MAX_ITER 2
+const QA_MAX = 1; // review-loops.md: QA-PLAY MAX_ITER 1（不做二次复核以节省 token）
 for (let round = 1; round <= QA_MAX; round++) {
   qaResult = await agentR(
     [
@@ -1186,7 +1151,7 @@ for (let round = 1; round <= QA_MAX; round++) {
       '响应的第1行为「QA-PLAY: APPROVE|CONCERNS|REJECT」（contract.md §5），结构化返回中也放入相同的判定。',
       '结构化返回: verdict / summary / criticalBugs（title、detail、storyId、修复负责的 assignee。仅重大 bug。轻微问题写在 qa/report.md）/ failedAcceptance（未通过的 acceptance 列表。每行一条 story ID 与未满足的内容。全部通过则为空数组）/ evidencePaths（已保存证据的相对路径）/ screenshotsVisuallyConfirmed（是否已用 Read 目视全部截图。未实施则如实返回 false）。',
     ].filter(Boolean).join('\n'),
-    { label: 'qa-play-round' + round, phase: 'QA', agentType: 'qa-lead', effort: 'high', schema: qaSchema }
+    { label: 'qa-play-round' + round, phase: 'QA', agentType: 'qa-lead', effort: 'medium', schema: qaSchema }
   );
 
   if (!qaResult) {
@@ -1236,7 +1201,8 @@ for (let round = 1; round <= QA_MAX; round++) {
     break; // 合格仅限 verdict === APPROVE（禁止以 criticalBugs 为 0 个走捷径）
   }
 
-  if (round < QA_MAX) {
+  {
+    // MAX_ITER 1: 仅 1 次 QA-PLAY，非 APPROVE 时仍尝试修复一次（不做第2次复核以节省 token）。
     // 由 assignee 修复重大 bug（同一代码库因此顺序执行。避免冲突）
     for (let bi = 0; bi < qaResult.criticalBugs.length; bi++) {
       const bug = qaResult.criticalBugs[bi];
@@ -1256,7 +1222,7 @@ for (let round = 1; round <= QA_MAX; round++) {
         // 上一 round 的修复结果而静默跳过再次修复（resume 安全 — adversarial M-8a）。
         // 也包含 bug index: 同一 round、同一 assignee 有多个 bug 时 label 会冲突，
         // reviewer 返回2条同文 bug 时第2条会 replay 第1条的缓存（adversarial M-8b）
-        { label: 'fix-qa-r' + round + '-' + bug.assignee + '-' + bi, phase: 'QA', agentType: bug.assignee, effort: 'high' }
+        { label: 'fix-qa-r' + round + '-' + bug.assignee + '-' + bi, phase: 'QA', agentType: bug.assignee, effort: 'medium' }
       );
       if (fixed === null) {
         unresolvedFindings.push('[QA-PLAY] 重大 bug「' + bug.title + '」的修复 agent 失败');
@@ -1275,15 +1241,11 @@ for (let round = 1; round <= QA_MAX; round++) {
           IDEMPOTENT_RULE,
           '简洁返回修复内容。',
         ].join('\n'),
-        { label: 'fix-qa-acceptance-r' + round, phase: 'QA', agentType: 'gameplay-engineer', effort: 'high' }
+        { label: 'fix-qa-acceptance-r' + round, phase: 'QA', agentType: 'gameplay-engineer', effort: 'medium' }
       );
       if (faFixed === null) {
         unresolvedFindings.push('[QA-PLAY] acceptance 未通过的修复 agent 失败');
       }
-    }
-  } else {
-    for (const bug of qaResult.criticalBugs) {
-      unresolvedFindings.push('[QA-PLAY] 未解决的重大 bug: ' + bug.title + ' — ' + bug.detail);
     }
   }
 }

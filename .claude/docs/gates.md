@@ -60,7 +60,7 @@
 
 ## CR-CODE（利用现有代码审查 → game/ 的代码变更。对象路径见 contract.md §11）
 
-不使用新 agent。对 story 单位的 diff 启动 `/code-review` skill，或 `pr-review-toolkit:code-reviewer` + `pr-review-toolkit:silent-failure-hunter`。
+不使用新 agent。对 story 单位的 diff 启动 `/code-review` skill，或单独使用 `pr-review-toolkit:code-reviewer`（为节省 token，workflow 中不再并行第二 reviewer；silent-failure 检查点已并入同一次评审的提示词，见下方要点）。
 判定的换读: findings 0 件 = APPROVE / 可修正的问题 = CONCERNS / 设计缺陷 = REJECT。
 另外确认是否违反按引擎区分的代码规范 rule（contract.md §11 的表: phaser=`rules/gameplay-code.md`+`rules/ui-code.md` / unity=`rules/unity-code.md` / unreal=`rules/unreal-code.md`。共通: 禁止魔法数字、delta-time、引擎无关核心、持久化 I/O 集中于 Persistence 层）。
 **并行 lane 中的前提**（Build/Polish 的 assignee lane 并行 — 各 tech-stack 文档「验证批处理化」节）: 对其他 lane 的 story 预定提供的 API 的引用，只要符合 docs/architecture.md 的设计，就不以「实体未实现」为唯一理由判为 blocker/REJECT（编译一致性由 lane 合流后的批处理验证保证。与设计不一致、误用可照常指出）。

@@ -26,9 +26,9 @@ if 到达 MAX_ITER 且非 APPROVE:
 | design/concept.md | game-designer | design-reviewer | DR-CONCEPT | 3 | APPROVE |
 | design/gdd.md | game-designer | design-reviewer | DR-GDD | 3 | APPROVE |
 | design/art-bible.md + .json | art-director | art-reviewer | AR-BIBLE | 3 | APPROVE |
-| 生成资产批次 | art-director / audio-designer | art-reviewer | AR-ASSET | 3/资产 | APPROVE（3 次不合格→切换到 fallback 提供方后再试 1 次） |
-| story 实现 (game/ 代码 diff。对象路径见 contract §11) | gameplay-engineer / ui-engineer | 现有 code-review | CR-CODE | 2 | findings 已解决 or 明确记载正当理由 |
-| 运行中的 game/ | (全部 engineer) | qa-lead | QA-PLAY | 2 | 重大 bug 为 0、acceptance 全部通过 |
+| 生成资产批次 | art-director / audio-designer | art-reviewer | AR-ASSET | 2/资产 | APPROVE（2 次不合格→切换到 fallback 提供方后再试 1 次） |
+| story 实现 (game/ 代码 diff。对象路径见 contract §11) | gameplay-engineer / ui-engineer | 现有 code-review（单一 reviewer，为节省 token 不再并行第二 reviewer） | CR-CODE | 1 | findings 已解决 or 明确记载正当理由 |
+| 运行中的 game/ | (全部 engineer) | qa-lead | QA-PLAY | 1 | 重大 bug 为 0、acceptance 全部通过 |
 | Checkpoint 展示物 | (整个阶段) | creative-director | CD-CHECKPOINT | 1 | APPROVE（若 REJECT 则按指示修正后仅再判定 1 次） |
 
 ## state/reviews/<artifact>.md 的追加写入格式

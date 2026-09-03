@@ -11,10 +11,10 @@ export const meta = {
   description: 'ArcadeRelay Phase 3: 反映 checkpoint-b-feedback 的重新规划、正式实现与全部资产生成并行、polish、完整QA、经 CD-CHECKPOINT 后返回 Checkpoint C 材料',
   phases: [
     { title: 'Replan', detail: 'tech-director 反映 checkpoint-b-feedback 更新 stories.yaml（资产类 feedback 反映到 design/assets.md），game-designer 视需要修订 gdd 相关章节（不可变更支柱）' },
-    { title: 'Build', detail: '将 phase:build 的代码 story 按 assignee lane（gameplay/ui）并行实现（lane 内顺序执行、每个 story 以限定路径的 add 提交、报告 hash、lane 期间不做引擎验证），并对每个 story 应用 CR-CODE 评审循环（MAX 2，对象以 git show <hash> 固定）。lane 合流后串行执行批量验证（引擎验证一次性执行+失败按 story 单位切分）' },
-    { title: 'AssetGen', detail: '在路由表与预算检查下生成剩余全部资产（图像/SFX/BGM。engine=unity/unreal 时还包括 3D 模型 MDL/ANM），并执行 AR-ASSET 循环（MAX 3+fallback 1）、批次一致性检查、引擎导入（串行区间）' },
+    { title: 'Build', detail: '将 phase:build 的代码 story 按 assignee lane（gameplay/ui）并行实现（lane 内顺序执行、每个 story 以限定路径的 add 提交、报告 hash、lane 期间不做引擎验证），并对每个 story 应用 CR-CODE 评审循环（MAX 1、单一 reviewer，对象以 git show <hash> 固定）。lane 合流后串行执行批量验证（引擎验证一次性执行+失败按 story 单位切分）' },
+    { title: 'AssetGen', detail: '在路由表与预算检查下生成剩余全部资产（图像/SFX/BGM。engine=unity/unreal 时还包括 3D 模型 MDL/ANM），并执行 AR-ASSET 循环（MAX 2+fallback 1）、批次一致性检查、引擎导入（串行区间）' },
     { title: 'Polish', detail: 'game-designer 基于 config.ts 进行平衡确认并起草符合支柱的 juice/手感 polish story，engineer 按 assignee lane 并行实现（合流后批量验证）' },
-    { title: 'FullQA', detail: 'qa-lead 执行全部 stories.yaml acceptance 的回归与 QA-PLAY（review 上限2次: QA→修正→QA）、资产审计（MANIFEST 成本合计、预算比较、许可标记提取→state/reviews/assets-audit.md）' },
+    { title: 'FullQA', detail: 'qa-lead 执行全部 stories.yaml acceptance 的回归与 QA-PLAY（review 上限1次: QA→非APPROVE则上报）、资产审计（MANIFEST 成本合计、预算比较、许可标记提取→state/reviews/assets-audit.md）' },
     { title: 'Final', detail: '经 creative-director 的 CD-CHECKPOINT 判定（REJECT 时修正后仅再判定1次）后返回 Checkpoint C 材料' }
   ]
 };
@@ -334,7 +334,7 @@ async function batchVerify(phaseName, contextNote) {
     '4) 若做了修正，在 state/reviews/batch-verify.md 追加写入「phase / 原因 story / 修正内容 / ISO8601 日时」（日时使用 `date -u +%Y-%m-%dT%H:%M:%SZ` 的执行输出 — 禁止凭推测填写），并按提交规范的指定路径形式 git commit（消息: "batch-verify fix (' + phaseName + ')"）。将 state/active.md 的当前位置更新为「' + phaseName + ' 批量验证完成」（串行区间 — 不受 lane 规范约束）。' + CODE_COMMIT_RULE + '\n' +
     IDEMPOTENT_RULE + '\n' +
     '结构化返回: ok（最终合格为 true。未能达到则诚实返回 false）/ fixedNotes / unresolved。',
-    { label: 'batch-verify-' + phaseName.toLowerCase(), phase: phaseName, agentType: 'gameplay-engineer', schema: BATCH_VERIFY_SCHEMA, effort: 'high' }
+    { label: 'batch-verify-' + phaseName.toLowerCase(), phase: phaseName, agentType: 'gameplay-engineer', schema: BATCH_VERIFY_SCHEMA, effort: 'medium' }
   );
   if (bv === null) {
     unresolvedFindings.push('[BLOCKER] ' + phaseName + ': 批量验证 agent 未返回结果（构建健全性未确认即继续 — 由后续 QA 检出）');
@@ -359,7 +359,7 @@ async function batchVerify(phaseName, contextNote) {
   return true;
 }
 
-// ---------- 通用: story 实现 + CR-CODE 循环（review-loops.md: MAX_ITER 2） ----------
+// ---------- 通用: story 实现 + CR-CODE 循环（review-loops.md: MAX_ITER 1、单一 reviewer） ----------
 
 async function implementStoryWithReview(story, phaseName) {
   const sid = String(story.id || 's-unknown').toLowerCase();
@@ -378,7 +378,7 @@ async function implementStoryWithReview(story, phaseName) {
     IDEMPOTENT_RULE + '\n' +
     LANE_RULE + '\n' +
     'acceptance: ' + story.acceptance,
-    { label: 'impl-' + sid, phase: phaseName, agentType: assignee, schema: IMPL_SCHEMA, effort: 'high' }
+    { label: 'impl-' + sid, phase: phaseName, agentType: assignee, schema: IMPL_SCHEMA, effort: 'medium' }
   );
   if (impl === null) {
     unresolvedFindings.push(story.id + ': 实现 agent 未返回结果（可能未实现）');
@@ -387,7 +387,7 @@ async function implementStoryWithReview(story, phaseName) {
   let commitHash = impl.commitHash ? String(impl.commitHash) : null;
 
   let approved = false;
-  for (let iter = 1; iter <= 2; iter++) {
+  for (let iter = 1; iter <= 1; iter++) {
     const reviewPrompt =
       'CR-CODE 评审（story ' + story.id + '、iteration ' + iter + '）。\n' +
       (commitHash
@@ -396,24 +396,17 @@ async function implementStoryWithReview(story, phaseName) {
       '要点遵循 ' + DOCS + '/gates.md 的 CR-CODE 节。另外确认 ' + EP.techStackDoc + ' 的' + EP.reviewRulesLine + '。\n' +
       '同时确认 acceptance「' + story.acceptance + '」在代码层面是否得到满足。\n' +
       '前提（并行 lane 设计）: 对其他 lane 的 story 将提供的 API 的引用，只要符合 docs/architecture.md 的设计，就不要仅以「实体尚未实现」为理由判为 blocker（编译一致性由 lane 合流后的批量验证保证。与设计不一致、误用可照常指出）。**本次评审为只读 — 禁止启动引擎、执行构建/测试命令**（并行 lane 期间的单实例锁/dist 竞争）。\n' +
+      '尤其要重点排查被无视的错误、被静默吞掉的失败路径、catch 后忽略的位置。\n' +
       'findings 需附 severity（blocker=设计缺陷 / major / minor）返回。0件则为空数组。';
-    const reviews = await parallel([
-      () => agentR(reviewPrompt, { label: 'cr-' + sid + '-' + iter, phase: phaseName, agentType: 'pr-review-toolkit:code-reviewer', schema: CODE_REVIEW_SCHEMA }),
-      () => agentR(reviewPrompt + '\n尤其要重点排查被无视的错误、被静默吞掉的失败路径、catch 后忽略的位置。',
-        { label: 'sfh-' + sid + '-' + iter, phase: phaseName, agentType: 'pr-review-toolkit:silent-failure-hunter', schema: CODE_REVIEW_SCHEMA })
-    ]);
-    const validReviews = reviews.filter(Boolean);
-    if (validReviews.length === 0) {
-      // 两位评审者均失败 = 评审不成立。不把 findings 0件误认为 APPROVE（与 prototype.js 相同的守卫）
-      unresolvedFindings.push(story.id + ': CR-CODE iteration ' + iter + ' 的评审对双方均失败（评审未实施 — 不自动 APPROVE）');
-      verdictHistory.push({ gate: 'CR-CODE', artifact: sid, iteration: iter, verdict: 'CONCERNS', findings: ['评审对双方均失败（评审未实施）'] });
-      log('CR-CODE ' + story.id + ' iteration ' + iter + ': 评审对双方均失败 — 进入下一 iteration');
+    const review = await agentR(reviewPrompt, { label: 'cr-' + sid + '-' + iter, phase: phaseName, agentType: 'pr-review-toolkit:code-reviewer', schema: CODE_REVIEW_SCHEMA });
+    if (!review) {
+      // 评审失败 = 评审不成立。不把 findings 0件误认为 APPROVE（与 prototype.js 相同的守卫）
+      unresolvedFindings.push(story.id + ': CR-CODE iteration ' + iter + ' 的评审 agent 失败（评审未实施 — 不自动 APPROVE）');
+      verdictHistory.push({ gate: 'CR-CODE', artifact: sid, iteration: iter, verdict: 'CONCERNS', findings: ['评审 agent 失败（评审未实施）'] });
+      log('CR-CODE ' + story.id + ' iteration ' + iter + ': 评审 agent 失败');
       continue;
     }
-    if (validReviews.length < 2) {
-      unresolvedFindings.push(story.id + ': CR-CODE iteration ' + iter + ' 中评审对的一方未返回结果（以单侧判定继续）');
-    }
-    const findings = validReviews.reduce(function (acc, r) { return acc.concat(r.findings || []); }, []);
+    const findings = review.findings || [];
     const hasBlocker = findings.some(function (f) { return f.severity === 'blocker'; });
     const verdict = findings.length === 0 ? 'APPROVE' : (hasBlocker ? 'REJECT' : 'CONCERNS');
     verdictHistory.push({
@@ -443,7 +436,7 @@ async function implementStoryWithReview(story, phaseName) {
       break;
     }
 
-    const isLast = iter === 2;
+    const isLast = iter === 1;
     const fix = await agentR(
       'story ' + story.id + ' 的 CR-CODE iteration ' + iter + ' 判定: ' + verdict + '。findings(JSON):\n' + JSON.stringify(findings) + '\n' +
       '请处理:\n' +
@@ -456,7 +449,7 @@ async function implementStoryWithReview(story, phaseName) {
       (isLast
         ? '5) 因到达 MAX_ITER，将 state/stories.yaml 的 ' + story.id + ' 更新为 status: done，若有未处理的 finding 则留在注记中（上报会在 Checkpoint 展示给人类）'
         : '5) state/stories.yaml 的 status 保持 review（下一 iteration 重新评审）'),
-      { label: 'fix-' + sid + '-' + iter, phase: phaseName, agentType: assignee, schema: IMPL_SCHEMA, effort: 'high' }
+      { label: 'fix-' + sid + '-' + iter, phase: phaseName, agentType: assignee, schema: IMPL_SCHEMA, effort: 'medium' }
     );
     if (fix && fix.commitHash) commitHash = String(fix.commitHash);
     if (fix === null) {
@@ -469,13 +462,13 @@ async function implementStoryWithReview(story, phaseName) {
       // 摘要开头单独警告（gates.md CD-CHECKPOINT 要点3。不与 minor 混在一起埋没）
       unresolvedFindings.push(
         (hasBlocker ? '[BLOCKER] ' : '') +
-        story.id + ': CR-CODE 到达 MAX_ITER(2) 仍非 APPROVE。残留 findings: ' +
+        story.id + ': CR-CODE 到达 MAX_ITER(1) 仍非 APPROVE。残留 findings: ' +
         findings.map(function (f) { return '[' + f.severity + '] ' + f.summary; }).join(' / ')
       );
     }
   }
   if (!approved) {
-    // 状态文件＝事实（CLAUDE.md 绝对规范5）: 即使在评审对双方均失败等导致 fix agent 的 status 更新
+    // 状态文件＝事实（CLAUDE.md 绝对规范5）: 即使在评审 agent 失败等导致 fix agent 的 status 更新
     // （fix 提示词 step5）未运行的路径上，也不让 story 停留在 review/in-progress
     // （adversarial W-2）。附上上报注记予以确定（与 prototype.js 的 bookkeep 同型）
     await agentR(
@@ -489,7 +482,7 @@ async function implementStoryWithReview(story, phaseName) {
   return approved;
 }
 
-// ---------- 通用: 资产批次生成 + AR-ASSET 循环（MAX 3 + fallback 1） ----------
+// ---------- 通用: 资产批次生成 + AR-ASSET 循环（MAX 2 + fallback 1） ----------
 
 async function assetBatchLoop(kind, producerAgent, producerBrief, replanStories) {
   const reviewFile = 'state/reviews/assets-' + kind + '.md';
@@ -506,19 +499,19 @@ async function assetBatchLoop(kind, producerAgent, producerBrief, replanStories)
   let failedAssets = null; // null = 首次（全部未生成部分为对象）
   let lastVerdict = 'REJECT';
 
-  for (let iter = 1; iter <= 4; iter++) {
-    const isFallback = iter === 4;
+  for (let iter = 1; iter <= 3; iter++) {
+    const isFallback = iter === 3;
     const target = failedAssets === null
       ? '对象: design/assets.md 中 ' + MANIFEST + ' 未记载的全部 ' + kind + ' 资产。' + (replanNote ? '\n' + replanNote : '')
       : '对象: 仅上次不合格的资产。failedAssets(JSON):\n' + JSON.stringify(failedAssets) + '\n按各 retryInstruction 重新生成。';
     const route = isFallback
-      ? '【fallback 轮】因 AR-ASSET 3次不合格，切换到 state/asset-routing.json 的 fallback 提供商重新生成（参见 ' + DOCS + '/assets-config.md 的路由表）。'
+      ? '【fallback 轮】因 AR-ASSET 2次不合格，切换到 state/asset-routing.json 的 fallback 提供商重新生成（参见 ' + DOCS + '/assets-config.md 的路由表）。'
       : '';
 
     const gen = await agentR(
       producerBrief + '\n' + target + '\n' + route + '\n' + budgetRule + '\n' + ASSET_COMMIT_RULE + '\n' +
       '全段实施生成后流水线（' + DOCS + '/assets-config.md「生成后流水线」节）后再报告。',
-      { label: 'gen-' + kind + '-' + iter, phase: 'AssetGen', agentType: producerAgent, schema: ASSET_GEN_SCHEMA, effort: 'high' }
+      { label: 'gen-' + kind + '-' + iter, phase: 'AssetGen', agentType: producerAgent, schema: ASSET_GEN_SCHEMA, effort: 'medium' }
     );
     if (gen === null) {
       unresolvedFindings.push('AssetGen(' + kind + '): 生成 agent 在 iteration ' + iter + ' 未返回结果');
@@ -620,7 +613,7 @@ const replanResults = await parallel([
     '3) 与既有 phase: build 的未完成 story 合并，按依赖顺序（先需要的在前）整理并更新 state/stories.yaml\n' +
     '4) 更新 state/active.md（当前位置: Phase3 Replan 完成。日时使用 `date -u +%Y-%m-%dT%H:%M:%SZ` 的执行输出 — 禁止凭推测填写）\n' +
     '返回: phase: build 且 status 不为 done 的全部 story（按应实现的顺序）。',
-    { label: 'replan-stories', phase: 'Replan', agentType: 'tech-director', schema: STORY_LIST_SCHEMA, effort: 'high' }
+    { label: 'replan-stories', phase: 'Replan', agentType: 'tech-director', schema: STORY_LIST_SCHEMA, effort: 'medium' }
   ),
   () => agentR(
     'Phase 3 GDD 修订判断（game-designer）。\n' +
@@ -795,7 +788,7 @@ await parallel([
         '重新生成被指出 style drift 的资产（art-director）。failedAssets(JSON):\n' + JSON.stringify(drift.failedAssets) + '\n' +
         '严格贴近 design/art-bible.json 的 style_block/palette，按 retryInstruction 重新生成。state/asset-routing.json 的路由、预算检查（MANIFEST 合计 vs state/budget.txt）、MANIFEST 追加照常。\n' +
         ASSET_COMMIT_RULE,
-        { label: 'regen-drift', phase: 'AssetGen', agentType: 'art-director', schema: ASSET_GEN_SCHEMA, effort: 'high' }
+        { label: 'regen-drift', phase: 'AssetGen', agentType: 'art-director', schema: ASSET_GEN_SCHEMA, effort: 'medium' }
       );
       if (!regen || regen.budgetExceeded) {
         unresolvedFindings.push('AssetGen: drift 重新生成未完成（超预算或失败）');
@@ -838,7 +831,7 @@ if (EP.assets3d) {
     '提交规范（导入专用）: 仅明示触碰过的路径进行 git add（' + (engine === 'unity' ? '例: git add game/Assets game/_generated state' : '例: git add game/Content game/_generated game/Source game/Config state') + '。禁止 git add -A — 不要漏掉 MANIFEST 的 validator 追加与导入资产）。' + GIT_RETRY_NOTE + '\n' +
     IDEMPOTENT_RULE + '\n' +
     '结构化返回: ok / degradations / summary。',
-    { label: 'integrate-3d-assets', phase: 'AssetGen', agentType: 'gameplay-engineer', effort: 'high', schema: INTEGRATE_SCHEMA }
+    { label: 'integrate-3d-assets', phase: 'AssetGen', agentType: 'gameplay-engineer', effort: 'medium', schema: INTEGRATE_SCHEMA }
   );
   if (integrate3d === null) {
     unresolvedFindings.push('AssetGen(3D): 引擎导入 agent 未返回结果（可能未导入）');
@@ -863,7 +856,7 @@ const polishPlan = await agentR(
   '2) 起草 juice/手感 polish story: 屏幕震动、打击停顿、声音反馈、tween/缓动等。**仅限对支柱 P-xx 有贡献者**（以 story 的 pillar 明示贡献）。每个 story 需有可通过实际操作验证的 acceptance\n' +
   '3) 以续号 ID 添加到 state/stories.yaml（phase: build、status: todo、assignee 为 gameplay-engineer / ui-engineer）。平衡调整 story 需**在 acceptance 中明示要修改的常量名**，同一常量不要分配给多个 story、多个 assignee（避免并行 lane 的共享文件竞争 — 实现侧 LANE_RULE 的改值例外以此明示为条件）\n' +
   '返回: 添加的 polish story 列表（按应实现的顺序。平衡调整也 story 化并包含在内）。',
-  { label: 'polish-plan', phase: 'Polish', agentType: 'game-designer', schema: STORY_LIST_SCHEMA, effort: 'high' }
+  { label: 'polish-plan', phase: 'Polish', agentType: 'game-designer', schema: STORY_LIST_SCHEMA, effort: 'medium' }
 );
 
 const polishAll = (polishPlan && Array.isArray(polishPlan.stories) ? polishPlan.stories : []);
@@ -941,12 +934,12 @@ await parallel([
       }
     }
   }),
-  // QA-PLAY（review-loops.md: MAX_ITER 2 = QA1→修正→QA2→非 APPROVE 则上报）
+  // QA-PLAY（review-loops.md: MAX_ITER 1 = QA→非 APPROVE 则上报，不再二次复核）
   laneSafe('FullQA QA-PLAY 轨道', async () => {
-    for (let round = 1; round <= 2; round++) {
+    for (let round = 1; round <= 1; round++) {
       const qa = await agentR(
         QA_VERIFY_WARN +
-        '完整QA（qa-lead、round ' + round + '/2）。遵循 ' + DOCS + '/gates.md 的 QA-PLAY 节（engine=' + engine + ' 的执行手段），' + EP.qaTarget + '。\n' +
+        '完整QA（qa-lead、round ' + round + '/1）。遵循 ' + DOCS + '/gates.md 的 QA-PLAY 节（engine=' + engine + ' 的执行手段），' + EP.qaTarget + '。\n' +
         (integrate3d && (integrate3d.degradations || []).length > 0
           ? '【有来自 Integrate 的降级报告 — 相关位置需重点验证（尤其 rig 降级时必须目视确认动画播放）】: ' + integrate3d.degradations.join(' / ') + '\n'
           : '') +
@@ -957,7 +950,7 @@ await parallel([
         '响应的第1行为「QA-PLAY: APPROVE|CONCERNS|REJECT」，结构化返回的 verdict 也填入相同判定。\n' +
         'bug 需附 severity（blocker/major/minor）与负责人（gameplay-engineer/ui-engineer）返回。failedAcceptance 中放入全部不合格的 story ID，非 APPROVE 时在 summary 中写明判定理由。evidencePaths 放入已保存的证据路径，screenshotsVisuallyConfirmed 放入是否实施了目视（未实施则诚实填 false）。\n' +
         '判定: 仅当重大 bug 为 0 且 acceptance 全部通过时才 APPROVE。',
-        { label: 'qa-play-' + round, phase: 'FullQA', agentType: 'qa-lead', schema: QA_SCHEMA, effort: 'high' }
+        { label: 'qa-play-' + round, phase: 'FullQA', agentType: 'qa-lead', schema: QA_SCHEMA, effort: 'medium' }
       );
       if (qa === null) {
         unresolvedFindings.push('FullQA: qa-lead 在 round ' + round + ' 未返回结果');
@@ -1013,8 +1006,8 @@ await parallel([
       });
       log('QA-PLAY round ' + round + ': ' + qa.verdict + '（bug ' + qaBugs.length + '件 / acceptance 不合格 ' + qaFailedAcceptance.length + '件）');
       if (qa.verdict === 'APPROVE') break; // 合格仅限 verdict === APPROVE（禁止按 bug 数量的合格捷径）
-      if (round === 2) break; // 到达 review 2次上限 → 上报
 
+      // MAX_ITER 1: 仅 1 次 QA-PLAY，非 APPROVE 时仍尝试修正一次（不做第2次复核以节省 token）。
       // 修正按代码规范顺序执行（避免同一文件竞争）
       const order = ['gameplay-engineer', 'ui-engineer'];
       for (const eng of order) {
@@ -1022,14 +1015,14 @@ await parallel([
         const myAcceptance = qaFailedAcceptance;
         if (mine.length === 0 && myAcceptance.length === 0) continue;
         const qaFix = await agentR(
-          '修正 QA-PLAY round ' + round + ' 检出的问题（QA-PLAY 为 review 2次上限。修正后在 round ' + (round + 1) + ' 重新判定）。\n' +
+          '修正 QA-PLAY round ' + round + ' 检出的问题（QA-PLAY 为 review 1次上限，修正后不再重新判定 — 结果将直接上报给人类）。\n' +
           'bugs(JSON):\n' + JSON.stringify(mine) + '\n' +
           '不合格 acceptance(story ID): ' + JSON.stringify(myAcceptance) + '（仅处理自己负责的部分。不触碰负责范围外）\n' +
           '参考: qa/report.md（复现步骤、证据）、state/stories.yaml（相关 acceptance）、' + EP.techStackDoc + '（规范: 调优仅在 ' + EP.configPath + ' 中进行）。\n' +
           '修正后使 ' + EP.verifyCmd + ' 为 exit 0，并将修正内容追加到 qa/report.md 的相应 bug。若修正原因是引擎/测试运行器引起的一般规律（环境陷阱），立即追加写入 tech-stack 文档的「已知陷阱」节（没有则新建 — gates.md QA-PLAY）。\n' +
           '执行 git commit -m "QA-PLAY round ' + round + ' fix (' + eng + ')"。' + CODE_COMMIT_RULE + '\n' +
           IDEMPOTENT_RULE,
-          { label: 'qa-fix-' + round + '-' + eng, phase: 'FullQA', agentType: eng, effort: 'high' }
+          { label: 'qa-fix-' + round + '-' + eng, phase: 'FullQA', agentType: eng, effort: 'medium' }
         );
         if (qaFix === null) {
           // 与 prototype.js 的 QA fix 失败记录同型（审计问题5: 不无记录地把修正失败流向重新 QA）
@@ -1042,8 +1035,8 @@ await parallel([
         // qaVerdict === null 是因 qa-lead 失败导致的中断（已 break）— 若写成「到达2次」
         // 会让人把未实施的 round 误读为已实施，因此区分措辞
         (qaVerdict === null
-          ? 'FullQA: QA-PLAY 在未取得判定的情况下中断（qa-lead 失败 — 上限2次未用完）。'
-          : 'FullQA: QA-PLAY 到达上限（review 2次）仍非 APPROVE（' + qaVerdict + '）。') +
+          ? 'FullQA: QA-PLAY 在未取得判定的情况下中断（qa-lead 失败 — 上限1次未用完）。'
+          : 'FullQA: QA-PLAY 到达上限（review 1次）仍非 APPROVE（' + qaVerdict + '）。') +
         (qaSummary ? ' 理由: ' + qaSummary + '。' : '') +
         (qaFailedAcceptance.length ? ' 不合格 acceptance: ' + qaFailedAcceptance.join(', ') + '。' : '') +
         ' 残留 bug: ' + (qaBugs.length ? qaBugs.map(function (b) { return '[' + b.severity + '] ' + b.summary; }).join(' / ') : '参见 qa/report.md')

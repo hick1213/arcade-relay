@@ -127,21 +127,19 @@ test('agentR 重试: batch-verify 首次 null 通过 -retry 恢复且无 BLOCKER
   assert.ok(!promptsBy(calls, /^qa-play-1$/)[0].includes('批量验证'), '已恢复却向 QA 注入了警告');
 });
 
-test('agentR 重试: CR 评审对2次 null 则照旧上报（不自动 APPROVE）', async () => {
+test('agentR 重试: CR 评审2次 null 则照旧上报（不自动 APPROVE）', async () => {
   const routes = [
     R(/^cr-s-01-1/, null),   // 前缀匹配 = 带 '-retry' 的 label 也为 null（2次 null 的情况）
-    R(/^sfh-s-01-1/, null),
   ].concat(baseRoutes({ ok: true, fixedNotes: [], unresolved: [] }));
   const { result, calls } = await runWorkflow(WF, { args: ARGS, routes });
-  assert.equal(callsBy(calls, /^cr-s-01-1-retry$/).length, 1, '未发出 code-reviewer 侧的 -retry');
-  assert.equal(callsBy(calls, /^sfh-s-01-1-retry$/).length, 1, '未发出 silent-failure-hunter 侧的 -retry');
+  assert.equal(callsBy(calls, /^cr-s-01-1-retry$/).length, 1, '未发出 code-reviewer 的 -retry');
   assert.ok(
-    result.unresolvedFindings.some((f) => f.includes('S-01: CR-CODE iteration 1 的评审对双方均失败')),
+    result.unresolvedFindings.some((f) => f.includes('S-01: CR-CODE iteration 1 的评审 agent 失败')),
     '重试后仍为 null 时未到达照旧的上报'
   );
   assert.ok(result.verdictHistory.some((v) => v.gate === 'CR-CODE' && v.artifact === 's-01' && v.iteration === 1 && v.verdict === 'CONCERNS'));
-  // iteration 2 以正常评审（默认响应 findings 0 = APPROVE）恢复
-  assert.ok(result.verdictHistory.some((v) => v.gate === 'CR-CODE' && v.artifact === 's-01' && v.iteration === 2 && v.verdict === 'APPROVE'));
+  // MAX_ITER 1: 没有 iteration 2，评审未实施直接进入 bookkeep 上报路径
+  assert.equal(callsBy(calls, /^bookkeep-s-01$/).length, 1, '评审未实施却未走上报路径');
 });
 
 // ---- retro-e3 跟进: fallback 必需措辞 / date -u 统一 / 导入目标 ----
@@ -210,14 +208,13 @@ test('close null: APPROVE 后的 status:done 更新失败被记录', async () =>
   assert.ok(result.unresolvedFindings.some((f) => f.includes('S-01: APPROVE 后的 status:done 更新 agent 失败')));
 });
 
-test('CR fix null: fix 失败按每个 iteration 记录', async () => {
+test('CR fix null: fix 失败被记录（MAX_ITER 1，仅 iteration 1）', async () => {
   const routes = [
-    R(/^cr-s-01-|^sfh-s-01-/, { findings: [{ summary: 'x', severity: 'major' }] }),
+    R(/^cr-s-01-/, { findings: [{ summary: 'x', severity: 'major' }] }),
     R(/^fix-s-01-/, null),
   ].concat(baseRoutes(BATCH_OK));
   const { calls, result } = await runWorkflow(WF, { args: ARGS, routes });
   assert.ok(result.unresolvedFindings.some((f) => f.includes('S-01: CR-CODE iteration 1 的 fix agent 失败')));
-  assert.ok(result.unresolvedFindings.some((f) => f.includes('S-01: CR-CODE iteration 2 的 fix agent 失败')));
   // M-8b: 重试频发的 fix 路径最需要幂等守卫（resume 重复应用的主战场）
   assert.ok(promptsBy(calls, /^fix-s-01-1$/)[0].includes('幂等守卫'), 'CR fix 提示词未前置幂等守卫');
 });
@@ -384,7 +381,7 @@ test('Replan: 分配给 engineer 的标签 story 被记录、非 lane assignee �
 
 test('幂等守卫: bookkeep（到达 MAX_ITER）与 qa-fix 的提示词也被前置', async () => {
   const routes = [
-    R(/^cr-s-01-|^sfh-s-01-/, { findings: [{ summary: 'x', severity: 'major' }] }), // 2 iteration 非 APPROVE → bookkeep 路径
+    R(/^cr-s-01-/, { findings: [{ summary: 'x', severity: 'major' }] }), // iteration 1 非 APPROVE（MAX_ITER 1）→ bookkeep 路径
     R(/^qa-play-1/, { verdict: 'CONCERNS', bugs: [{ summary: 'b', severity: 'major', assignee: 'gameplay-engineer' }], failedAcceptance: [], evidencePaths: ['qa/evidence/e.png'], screenshotsVisuallyConfirmed: true, summary: 'ng' }),
   ].concat(baseRoutes(BATCH_OK));
   const { calls } = await runWorkflow(WF, { args: ARGS, routes });
