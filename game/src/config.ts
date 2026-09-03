@@ -122,8 +122,9 @@ export const ASSET_KEYS = {
   },
 } as const;
 
-// IMG-30 のグリッド切分规格（1536x1024 → 3x2 帧。assets.md「IMG-30 的切分」）
-export const IMG_SHEET_FRAME = { WIDTH: 512, HEIGHT: 512 } as const;
+// IMG-30 のグリッド切分规格（1536x1024 → COLS x ROWS = 3x2 帧。assets.md「IMG-30 的切分」。
+// COLS/ROWS は BootScene の sheet fallback（CR-CODE iteration 1 finding 4）でも同一参照）
+export const IMG_SHEET_FRAME = { WIDTH: 512, HEIGHT: 512, COLS: 3, ROWS: 2 } as const;
 
 // ==== 立绘/物件の表示サイズ（S-33 — design/assets.md「尺寸」栏の游戏内表示値。px）====
 export const SPRITE_DISPLAY = {
@@ -140,8 +141,8 @@ export const SPRITE_DISPLAY = {
   TABLE_SIZE: 160,
   /** 志向图标（assets.md: 64–96px 带。按钮上の空き帯に収るサイズ） */
   AMBITION_ICON_SIZE: 72,
-  /** 事件卡框（assets.md: ~400x600） */
-  EVENT_CARD_WIDTH: 400,
+  /** 事件卡框（assets.md: ~400x600。源图 1024x1536 = 2:3 で addScaledSprite の等比縮小が
+   * 幅 400 を自動的に満たすため幅指定は持たない — CR-CODE iteration 1 finding 7 で削除） */
   EVENT_CARD_HEIGHT: 600,
   /** 标题 emblem（assets.md: ~640x427。中央を空けた装飾 — タイトル文を中央に重ねる） */
   TITLE_EMBLEM_WIDTH: 640,
@@ -249,6 +250,8 @@ export const ASSET_FALLBACK = {
   FILL: UI.PANEL_FILL,
   STROKE: UI.PANEL_STROKE,
   STROKE_WIDTH: UI.PANEL_STROKE_WIDTH,
+  /** sheet fallback の帧区画の市松明度差（帧番号の視認 — BootScene.generateFallbackSheetTexture） */
+  CELL_ALPHAS: [1, 0.78],
 } as const;
 
 // ==== 评分（S-15 ResultScene 总评分。出处: story S-15 acceptance 的公式）====
@@ -299,6 +302,49 @@ export const RESULT = {
   /** Systems 层接线（S-05/S-08/S-20）前的占位值 — UI 不生成周目数值，仅透传 HUD feed */
   STAFF_POWER_PLACEHOLDER: 0,
   ENDING_BONUS_PLACEHOLDER: 0,
+
+  // ==== S-25: Result 结局演出完整版（结局插画/结局文/败局演出/新纪录标记。追加のみ —
+  // 既存キー（S-15 レイアウト）は不変。配色は UI.PANEL_* / HUD_* の調色板定数を再利用）====
+  /** 结局文/败局文（标题下 1 行 — 换行幅度内の短文。文案は systems/i18n の言語表） */
+  BODY_OFFSET_Y: -122,
+  BODY_FONT_SIZE: '15px',
+  BODY_WRAP_WIDTH: 520,
+  BODY_LINE_GAP: 20,
+
+  /** 结局插画（IMG-26～28。画面全覆盖 cover 拡縮 — 比率はテクスチャ実寸から導出、直書きなし） */
+  ENDING_IMAGE: {
+    wealth: ASSET_KEYS.images.endingWealth,
+    xia: ASSET_KEYS.images.endingXia,
+    fame: ASSET_KEYS.images.endingRenown,
+  } as const,
+  /** 插画上の变暗遮罩（结局文・评分の可読性確保 — BLOCKER_COLOR を暗転に使用） */
+  ENDING_OVERLAY_ALPHA: 0.55,
+
+  /** 新纪录标记（总评分值の右侧。脉动闪烁 — delta-driven tween） */
+  NEW_RECORD_X_OFFSET: 132,
+  NEW_RECORD_FONT_SIZE: '17px',
+  NEW_RECORD_PULSE_MS: 700,
+  NEW_RECORD_ALPHA_MIN: 0.55,
+
+  /** 破产演出「账本合上」（面板中央に重ねて閉じ→フェードアウト — パネル内容を顕す） */
+  LEDGER_WIDTH: 230,
+  LEDGER_HEIGHT: 150,
+  LEDGER_PAGE_FILL: UI.PANEL_BRIGHT_ACCENT,
+  LEDGER_PAGE_ALPHA: 0.9,
+  LEDGER_COVER_FILL: UI.PANEL_FILL,
+  LEDGER_COVER_STROKE: UI.PANEL_ACCENT,
+  LEDGER_COVER_STROKE_WIDTH: UI.PANEL_ACCENT_WIDTH,
+  /** 開帳角度（deg。右表紙が上へ開いた初期姿 — 0 で全閉） */
+  LEDGER_OPEN_ANGLE: 105,
+  LEDGER_CLOSE_MS: 650,
+  LEDGER_HOLD_MS: 450,
+  LEDGER_FADE_MS: 400,
+  LEDGER_SPINE_INSET: 4,
+
+  /** 终战败演出（全画面への朱 flash — 短時間・入力は妨げない） */
+  DEFEAT_FLASH_COLOR: UI.HUD_FLASH_DOWN_COLOR,
+  DEFEAT_FLASH_ALPHA: 0.32,
+  DEFEAT_FLASH_MS: 650,
 } as const;
 
 /** Result 载荷缺省时的回落值（Systems 层真值接线前的占位 — 与 HUD_INITIAL_STATE 同型的接线占位） */
@@ -694,7 +740,9 @@ export const GAMEPLAY = {
   // ==== 资产表示の配置（S-33。IMG スプライト化に伴う位置・サイズ定数）====
   /** 客人立绘（桌に着席 — 桌中心からのオフセット。テーブルより奥に見える配置） */
   GUEST_OFFSET_Y: -80,
-  /** 立绘の後ろに敷く半透明プレート（選択枠线の土台。視認性確保の最低限の下敷き） */
+  /** 立绘の上に重ねる半透明ステージティント（CR-CODE iteration 1 finding 6: 注記を実描画順に一致。
+   * GameplayView で rect は sprite の後に add され、STAGE_TINTS の 28% が立绘上の蒙層として乗る —
+   * S-07 成长差分（色调＋缩放）の色调はこの蒙層で表現。垫底（後ろに敷く）ではない） */
   SPRITE_PLATE_ALPHA: 0.28,
   /** 点单/上菜/收钱气泡の桌中心からのオフセット（従来の直書き 52 を定数化） */
   BUBBLE_OFFSET_Y: -52,
