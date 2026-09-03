@@ -131,8 +131,9 @@ stories:
     pillar: P-01
     assignee: gameplay-engineer
     phase: build
-    status: review
+    status: done
     acceptance: "IMG-01～30 经 config.ts 的 ASSET_KEYS 接入: 晨/日/夜分别显示 IMG-01/02/03（相位切换有可见变化）、6 桌用 IMG-21、伙计/客人/大敌用 IMG-04～14、菜品气泡与出餐口用 IMG-15～20、志向/事件卡/UI 用 IMG-22～25/29/30; 画面中不存在纯色/渐变占位矩形（Inspector/截图确认）; 立绘显示尺寸按 assets.md（192–256px 等）且不裁切关键轮廓; 全部引用经 ASSET_KEYS，无硬编码路径"
+    notes: "CR-CODE iteration 1 CONCERNS → MAX_ITER 到達で done（state/reviews/s-33.md）。修正済 5 件: [AssetMissing] console.error（加载失败の可観測化）/ sheet fallback を 3x2 帧付きで生成（IMG_SHEET_FRAME に COLS/ROWS 追加）/ visualAssets 防御路径に console.warn / SPRITE_PLATE_ALPHA 注记を蒙层実態に一致（S-07 色调差分は蒙層で維持）/ EVENT_CARD_WIDTH 死常量を削除。未処理 2 件（Checkpoint 展示対象）: (1) IMG-30 ui-common-sheet の UI コンポーネント置换未達 — Hud/MenuScene/各 Panel が uiPlaceholder のまま（acceptance 部分未達）。ui-engineer 職域のため新 story（IMG-30 帧置换）への拆分を推奨 (2) 立绘表示サイズが assets.md 192–256px 帯を下回る（STAFF_AVATAR_HEIGHT=96/WAITER_MARKER_HEIGHT=112）— 根因は MORNING.AVATARS 96px×5 列グリッド制約で、头像框拡大/レイアウト変更/acceptance 改訂の設計裁定が必要（WAITER を 192 にすると柜台 y=648 で画面下端 720px を越える）"
   # feedback 2【高】UI 非常模糊 — 排查 Scale.FIT 缩放/字体渲染/对比度
   - id: S-32
     title: "UI 模糊排查与可读性修复"
@@ -211,7 +212,7 @@ stories:
     pillar: P-03
     assignee: ui-engineer
     phase: build
-    status: todo
+    status: in-progress
     acceptance: "3 结局各自显示结局插画（IMG-26~28）+结局文（i18n）+总评分细目（三线数值与权重贡献）; 破产败局与终战败各有专属文案/演出（账本合上、败局文）; 新纪录时显示最高分更新标记"
   - id: S-26
     title: "Menu 游戏外面板完整版（图鉴/成就/统计）"
