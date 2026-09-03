@@ -49,6 +49,7 @@
 - **IMG-30 的切分**: 单张 sheet 由代码按固定网格程序化切分（gdd「共通 UI sheet」方针）；提示词以「不可见规则网格＋留白」约束布局，生成后逐格验证非透明区域落在网格内
 - **alpha 验证**: IMG-04～25、IMG-29、IMG-30 为透明精灵，生成后逐张机器验证 alpha 通道；IMG-01～03、IMG-26～28 为 opaque 背景/插画，不做 alpha 验证
 - **路由备注**: `shippable: true`（state/asset-routing.json 实测）。图像 fallback 链经中转失败时仅剩 Ideogram 直连（无密钥，不可用）→ `local:placeholder-must-replace` — 生成失败会直接成为未解决事项，生成 lane 需对 429/5xx 做退避重试后再报失败
+- **Phase 3 最优先事项（checkpoint-b-feedback 2026-09-03T15:16:57Z）**: prototype 阶段图像 0/30（中转 gpt-image-2 持续 503，人类反馈「没有任何美术、不像在玩游戏」）。Phase 3 图像 lane **最优先重跑** IMG-01～30 全量（S-30），中转已实测恢复; 全部落盘后逐批经 AR-ASSET 对照 key image 候选 1（design/art-bible.json）判定。IMG 全部尚为 `planned`、MANIFEST 无记录 — 无 must-replace 对象（重新生成触发条件不适用，直接按 planned 生成即可）
 
 ## 音频
 
@@ -89,8 +90,8 @@ BGM 共通 style block（机械前置）:
 
 | id | 用途 | 文件名 | 尺寸 (s) | P-xx | 提示词草案（前置共通 block） | 路由 | 状态 |
 |---|---|---|---|---|---|---|---|
-| BGM-01 | 日间经营主曲（兼 Title/Menu/晨间/夜间 — 全游戏基础氛围。日间 180s ≥ 曲长，循环播放） | bgm-inn-day | 72 | P-01/P-04 | Gentle cheerful guzheng arpeggios with a lilting bamboo dizi melody over it, light woodblock and soft drum keeping a relaxed 92 BPM working tempo, warm contented feel, steady groove designed to loop cleanly | primary (elevenlabs:music-v2) | planned |
-| BGM-02 | 第 20 日夜终战（约 40s 演出＋重试时的待机。紧张版，与 BGM-01 同调异速） | bgm-final-battle | 48 | P-03/P-02 | Tense jianghu showdown: fast guzheng tremolo runs, sharp short dizi stabs, big taiko-style drums and low gong accents over the same pentatonic mode, driving dramatic 132 BPM, acoustic and cinematic, loops cleanly | primary (elevenlabs:music-v2) | planned |
+| BGM-01 | 日间经营主曲（兼 Title/Menu/晨间/夜间 — 全游戏基础氛围。日间 180s ≥ 曲长，循环播放） | bgm-inn-day | 72 | P-01/P-04 | Gentle cheerful guzheng arpeggios with a lilting bamboo dizi melody over it, light woodblock and soft drum keeping a relaxed 92 BPM working tempo, warm contented feel, steady groove designed to loop cleanly | primary (elevenlabs:music-v2) | must-replace（fallback 占位 jsfxr。见「生成实绩」） |
+| BGM-02 | 第 20 日夜终战（约 40s 演出＋重试时的待机。紧张版，与 BGM-01 同调异速） | bgm-final-battle | 48 | P-03/P-02 | Tense jianghu showdown: fast guzheng tremolo runs, sharp short dizi stabs, big taiko-style drums and low gong accents over the same pentatonic mode, driving dramatic 132 BPM, acoustic and cinematic, loops cleanly | primary (elevenlabs:music-v2) | must-replace（fallback 占位 jsfxr。见「生成实绩」） |
 
 ### 音频生成注意事项（不进表格的横切方针）
 
@@ -108,6 +109,17 @@ BGM 共通 style block（机械前置）:
 - **SFX-01 提示词修正**: 原提示词（knuckle knock）的 4 变体全部为纯脉冲（crest 19–27dB），在 TP -1.5 dBTP 约束下物理上不可能达到 -16 LUFS（上限 ≈-20.3）。再生成 4 变体同样结果后，改为木鱼（muyu）质感提示词，第 3 组中选出 crest 15.0dB 的合规变体。听感仍是「软木质 UI 点击」，与 brief 的「温软木质、禁尖锐电子音」一致 — 记录为对提示词草案的有意偏离（表内提示词保留原草案，实际生成 prompt 见 MANIFEST）
 - **复用映射的变调基准**: 修练完成= SFX-01 升调、破产败局= SFX-06 低速、成就=SFX-05 短变体、事件卡确定=SFX-07 尾段、菜单确认=SFX-01（变调由 Phaser `detune`/rate 实现，不新增文件）— 方针不变
 - **BGM（BGM-01/02）未生成** — 按 workflow 指示留到 Phase 3（循环验证为其交付条件）
+
+### 生成实绩（Phase 3、BGM-01/02 fallback 占位、2026-09-03T15:37:35Z）
+
+- **Primary（elevenlabs:music-v2）API 全段失败 — 402 paid_plan_required**: `POST /v1/music/detailed`（composition_plan、seed 920301）与 `POST /v1/music`（simple）两者均返回 402，退避重试后仍 402 — Eleven Music **不含在 free 计划**（subscription 200 实测 tier=free。SFX 的 sound-generation 可用但 Music 不可用，preflight 的 `shippable: true` 判定对 Music 实际不成立）。附带发现: API 层面 `force_instrumental` 与 `composition_plan` 互斥（422 `can only be used with prompt`）— 升级付费计划后生成时需以 `negative_global_styles: ["vocals"]` 承担人声排除
+- **fallback 全段尝试后本地降级**（retro-e3 问题7 规范遵守）: (1) elevenlabs:music-v2 → 402 (2) 本地 Stable Audio Open Small → 本机未安装（与 routing notes 一致）(3) → **local:jsfxr-ambient**（jsfxr 1.4.1、UNLICENSE 公有领域、确定性）。MANIFEST 两行 `must_replace: true`、`license_note: jsfxr-public-domain`，作为未解决事项上报 Checkpoint
+- **占位 BGM 的实现方式（确定性、可复现）**: jsfxr 正弦拨弦音色 → 按目标音高重采样至 A 羽调五声音阶（A C D E G）→ 92/132 BPM 小节网格上程序化编排（BGM-01=27 小节 8 分音符琶音 A/D/G/A 根音循环＋2/4 拍木鱼＋A2 低音持续；BGM-02=26 小节 16 分音符震音＋1/3 拍太鼓式噪声击＋每 2 小节 A2）→ **note tail 模环绕回**使接缝在构造上连续。seed=920301（mulberry32 覆盖 jsfxr 内部 Math.random，记录于 MANIFEST）
+- **循环验证 PASS（交付条件满足）**: 2 段拼接接缝扫描 — BGM-01 接缝 RMS 阶差 5.91dB（全曲攻击分布 p95=10.26dB 以下）、接缝样本差分 0.0376（全局 p99.9=0.032 量级）；BGM-02 阶差 0.56dB / 差分 0.0144（p95=3.52 / p99.9=0.0245）。**交叉淡化编辑未施行的理由**: 接缝已由构造连续（模环绕回），再交叉淡化会产生凹陷 — 与规格意图（无缝循环）一致，验证照常执行且在交付 OGG 解码后复检通过
+- **响度合规**: loudnorm 两遍（linear、measured_I -16.85/-16.62）后实测 BGM-01 -15.4 LUFS / BGM-02 -16.1 LUFS（±1 内）、TP -1.9/-4.0 dBFS（≤-1.5）。**静音裁切未施行的理由**: BGM 首尾即循环点，裁切会破坏音乐性循环（且实测无首尾静音）
+- **交付格式**: OGG Vorbis q5 160kbps ＋ M4A/AAC 160kbps 双格式（phaser 要求两者齐备）
+- **时长偏差**: 规格 72s/48s 为生成时长意图；交付为 92 BPM×27 小节=70.43s、132 BPM×26 小节=47.27s（循环长度必须落在整数小节。占位资产反正须替换，付费生成时以 `composition_plan` 精确指定 72000/48000ms）
+- **未解决事项（Checkpoint 必须展示）**: BGM-01/02 为 must-replace 占位（音色为 chip 音源近似，非古筝/笛子实录质感）。解锁条件: ElevenLabs 付费计划（Music API 需 Starter 以上）后以 composition_plan＋seed 920301 重生成，SFX 批次的生成日志已包含所需的完整请求 schema
 
 ## 汇总与预算
 
