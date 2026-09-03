@@ -56,6 +56,7 @@ export class GameScene extends Phaser.Scene {
     this.hud = new Hud(this, textProvider, this.router, () => this.pausePanel.open());
     this.view = new GameplayView(this, textProvider, this.router);
 
+    this.router.on(TAP_EVENTS.AMBITION_CONFIRM, (hit) => this.applyTap(hit));
     this.router.on(TAP_EVENTS.ASSIGN_SLOT, (hit) => this.applyTap(hit));
     this.router.on(TAP_EVENTS.STAFF, (hit) => this.applyTap(hit));
     this.router.on(TAP_EVENTS.OPEN_DOOR, (hit) => this.applyTap(hit));
