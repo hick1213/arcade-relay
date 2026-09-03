@@ -7,7 +7,7 @@ stories:
     pillar: P-04
     assignee: gameplay-engineer
     phase: prototype
-    status: in-progress
+    status: review
     acceptance: "systems/input/ 单模块处理 pointerdown: 在测试场景中放置 2 个 ≥BUTTON_MIN_SIZE_PX 的判定区并同时重叠时，按优先级仲裁只触发高优先级一方的语义化事件（如 onTableTap）；全部交互为单次点击即触发，无 pointerup/双击/长按/拖拽依赖；systems/input/ 不 import Phaser"
   - id: S-02
     title: "客栈环境最低视觉表现与画面布局"
