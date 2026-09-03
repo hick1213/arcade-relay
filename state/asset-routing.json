@@ -1,0 +1,101 @@
+{
+  "generated_at": "2026-09-03T02:58:18Z",
+  "checks": {
+    "fal": {
+      "key": false,
+      "auth": null,
+      "plan_tier": "unknown"
+    },
+    "elevenlabs": {
+      "key": true,
+      "auth": "ok",
+      "tier": "free",
+      "plan_tier": "free",
+      "commercial_ok": false,
+      "note": "subscription 200 实测。free 按项目决策允许发布（assets-config.md 硬性禁止事项节）"
+    },
+    "retro_diffusion": {
+      "key": false,
+      "credits": null,
+      "plan_tier": "unknown"
+    },
+    "ideogram": {
+      "key": false,
+      "plan_tier": "unknown"
+    },
+    "openai": {
+      "key": true,
+      "auth": "ok",
+      "plan_tier": "relay",
+      "base_url": "https://slb-v1.api.fan/v1",
+      "models_checked": [
+        "gpt-image-2"
+      ],
+      "note": "经第三方中转 slb-v1.api.fan（packcode）。/models 200 且含 gpt-image-2。计费/配额由中转方决定"
+    },
+    "meshy": {
+      "key": false,
+      "plan_tier": "unknown"
+    },
+    "tripo": {
+      "key": false,
+      "plan_tier": "unknown"
+    }
+  },
+  "routes": {
+    "image_sprite": "openai:gpt-image-2",
+    "image_background": "openai:gpt-image-2",
+    "pixel_art": "local:nearest-neighbor",
+    "bg_removal": "local:rembg-isnet-anime",
+    "sfx": "elevenlabs:sfx-v2",
+    "bgm": "elevenlabs:music-v2",
+    "model_character": "local:engine-primitives",
+    "model_prop": "local:engine-primitives",
+    "model_environment": "local:engine-primitives",
+    "anim": "local:code-motion"
+  },
+  "shippable": {
+    "image_sprite": true,
+    "image_background": true,
+    "pixel_art": false,
+    "bg_removal": true,
+    "sfx": true,
+    "bgm": true,
+    "model_character": false,
+    "model_prop": false,
+    "model_environment": false,
+    "anim": false
+  },
+  "fallbacks": {
+    "image_sprite": [
+      "local:placeholder-must-replace"
+    ],
+    "image_background": [
+      "local:placeholder-must-replace"
+    ],
+    "pixel_art": [],
+    "bg_removal": [
+      "local:imagemagick-chroma-key"
+    ],
+    "sfx": [
+      "local:jsfxr"
+    ],
+    "bgm": [
+      "local:jsfxr-ambient-must-replace"
+    ],
+    "model_character": [],
+    "model_prop": [],
+    "model_environment": [],
+    "anim": []
+  },
+  "degraded": false,
+  "notes": [
+    "图像 Primary = openai:gpt-image-2（FAL_KEY 未设置、OPENAI_API_KEY 有效）。基址 https://slb-v1.api.fan/v1（OpenAI 兼容中转 packcode，plan_tier=relay）。生成 lane 一律用 OPENAI_BASE_URL，禁止硬编码官方域名",
+    "gpt-image-2 已知限制（Checkpoint 披露）: 无 seed/style_codes，一致性靠 style_block 文本前置；transparent 背景为 preview 功能；经中转时 background/moderation 等参数可能被丢弃，响应可能为 url 而非 b64_json — 生成脚本两者都处理，alpha 机器验证兜底",
+    "无 FAL_KEY 的连带影响: bg_removal 降为 local:rembg-isnet-anime（本机当前未安装 rembg，使用前需 pip install rembg；否则用 ImageMagick 色键作最后手段）；FLUX LoRA 训练不可用；Ideogram 直连 fallback 不可用（无 IDEOGRAM_API_KEY）→ 图像 fallback 仅剩占位符 must_replace",
+    "ElevenLabs 实测 tier=free。Free 计划: 官方条款为非商用，项目决策（2026-09-03）允许发布 — shippable: true，MANIFEST 记 license_note: elevenlabs-free-tier，Checkpoint 许可标记中披露",
+    "无 RETRO_DIFFUSION_API_KEY: 像素美术项目采用本地降级（nearest-neighbor 缩小+调色板量化）。shippable: false 仅在项目为像素画风格时生效",
+    "3D 路由: MESHY_API_KEY、FAL_KEY、TRIPO_API_KEY 均未设置且本机无 Blender → 全部降为 local:engine-primitives / local:code-motion，shippable: false、生成物 must_replace: true。仅 engine=unity/unreal 时生效；3D 项目中 MESHY_API_KEY 未设置为准必需缺失（contract §10）",
+    "BGM 的本地 fallback: Stable Audio Open Small 本机未安装 → 退到 jsfxr 环境音 + must-replace 标记（assets-config.md 路由表）"
+  ]
+}

@@ -1,0 +1,208 @@
+# stories.yaml — 江湖客满（Phase 2 分解。schema: contract.md §7）
+# 支柱: P-01 一日节奏的经营呼吸 / P-02 活宝伙计的成长可视化 / P-03 志向贯穿的后果兑现 / P-04 单手纯点击的顺手
+# 排列 = 实现顺序。prototype = 核心循环垂直切片（开始→挑战→奖励→再挑战）+ Title→Menu→Game→Result→Menu 所需最小集合。
+stories:
+  - id: S-01
+    title: "点击输入抽象化模块"
+    pillar: P-04
+    assignee: gameplay-engineer
+    phase: prototype
+    status: todo
+    acceptance: "systems/input/ 单模块处理 pointerdown: 在测试场景中放置 2 个 ≥BUTTON_MIN_SIZE_PX 的判定区并同时重叠时，按优先级仲裁只触发高优先级一方的语义化事件（如 onTableTap）；全部交互为单次点击即触发，无 pointerup/双击/长按/拖拽依赖；systems/input/ 不 import Phaser"
+  - id: S-02
+    title: "客栈环境最低视觉表现与画面布局"
+    pillar: P-01
+    assignee: gameplay-engineer
+    phase: prototype
+    status: todo
+    acceptance: "GameScene 中背景可视化（IMG-01~03 就绪前允许纯色/渐变占位）且画面布局确定: 6 张桌位、出餐口、柜台在 1280x720 构图中位置固定并可点击；晨/日/夜三相各自有明显可辨的色调差异（程序化 tint 或背景切换）；Scale.FIT 下任意窗口尺寸均不裁切主要交互区"
+  - id: S-03
+    title: "一日相位控制器（晨/日/夜状态机）"
+    pillar: P-01
+    assignee: gameplay-engineer
+    phase: prototype
+    status: todo
+    acceptance: "dayCycle 纯状态机: 晨间点击「开门营业」→日间；夜间点击「天明」→次日晨间且日数+1；日间以 DAY_SERVICE_DURATION_S=180s 为唯一硬计时（用 delta 累计，快进测试中 180 等效秒后自动进入夜间）；第 20 日夜触发终战事件；晨间/夜间无强制时限、超过 MORNING_GUIDE_TARGET_S 仅按钮脉冲"
+  - id: S-04
+    title: "志向系统与新周目开局"
+    pillar: P-03
+    assignee: gameplay-engineer
+    phase: prototype
+    status: todo
+    acceptance: "新周目进入志向选择（财/侠/名 3 个 ≥48px 图标按钮）; 选定后银子/声望为 GDD 初始值（150/15、60/30、90/40）; 志向确认时 run 快照写入 SaveData; ambition 模块不依赖 Phaser"
+  - id: S-05
+    title: "晨间岗位分配与修练成长"
+    pillar: P-01
+    assignee: gameplay-engineer
+    phase: prototype
+    status: todo
+    acceptance: "两次点击指派（先点岗位图标→再点伙计头像，再次点击已指派伙计=取消）; 容量约束生效: 掌柜 ≤1、采购 0–2、修练 ≤TRAINING_SLOTS=2、跑堂 0–5，超容量的指派被拒绝且有提示; 修练指派使指定属性 +TRAINING_GAIN=1（上限 STAFF_STAT_MAX=10）且成长阶段按 0–6/7–13/14+ 刷新; 排班未完成也可点「开门营业」（未指派=待命）"
+  - id: S-06
+    title: "日间接客核心循环（客人流/订单/后厨/上菜收钱）"
+    pillar: P-01
+    assignee: gameplay-engineer
+    phase: prototype
+    status: todo
+    acceptance: "散客按 CUSTOMER_INTERVAL_D1_3_S=12s 到达→入座亮起点单气泡→点击空桌派空闲跑堂点单（ORDER_TAKE_S）→后厨按 DISH_PREP(n) 制菜→出餐口亮起→点击派跑堂上菜（SERVE_S）→吃完亮起银两气泡→点击收钱; 收入=round(菜价×(1+剩余耐心比例×TIP_FACTOR)); 耐心归零则客人离店、声望 −2; 伙计移动用 delta 驱动且同一伙计同时只做 1 单; 立绘可用占位色块"
+  - id: S-07
+    title: "成长可见差分（速度线）"
+    pillar: P-02
+    assignee: gameplay-engineer
+    phase: prototype
+    status: todo
+    acceptance: "伙计速度属性提高后: 点单/上菜/收钱动作耗时按 ×(1−STAFF_SPEED_FACTOR×速度) 缩短（测试中速度 5 的伙计动作耗时明显短于速度 1，约减半）; 同一立绘上出现程序化差分（色调/缩放/表情贴片任一）且台词按成长阶段切换; 未新增任何图像资产文件"
+  - id: S-08
+    title: "经济系统与破产判定"
+    pillar: P-03
+    assignee: gameplay-engineer
+    phase: prototype
+    status: todo
+    acceptance: "银子/声望的加算与夜间工钱扣除（DAILY_WAGE_PER_STAFF×5=30 两）生效且帐本 UI 数值与之同步; silver<0 的瞬间立即迁移到 ResultScene 显示败局（不可重试）; 破产判定在夜结算后与收钱/事件 Δ 后均成立"
+  - id: S-09
+    title: "夜间结算与事件卡（垂直切片用 3 张）"
+    pillar: P-03
+    assignee: gameplay-engineer
+    phase: prototype
+    status: todo
+    acceptance: "夜间显示当日结算摘要（收入/声望净变/成功失败数）; 点击「翻卡」从 3 张事件卡池抽 1 张（不重复弃牌）; 各选项执行银子/声望 Δ 并显示结果反馈; 「天明」按钮在读完反馈前不自动推进; 事件卡数据表与逻辑分离（build 阶段扩到 15 张不改结构）"
+  - id: S-10
+    title: "HUD 与帐本暂停面板"
+    pillar: P-04
+    assignee: ui-engineer
+    phase: prototype
+    status: todo
+    acceptance: "画面常驻显示银子/声望/日数（经 i18n 文案）; 右上「帐本」按钮 ≥48px、点击打开暂停面板（继续/回到菜单），面板开启时日间计时暂停且其他点击被屏蔽; HUD 数值变化有即时反馈（增减闪动等任一形式）"
+  - id: S-11
+    title: "i18n 基础（中文全量 + 缺 key 兜底）"
+    pillar: P-04
+    assignee: gameplay-engineer
+    phase: prototype
+    status: todo
+    acceptance: "systems/i18n/ 查表模块: 全部玩家可见文本经 key 取得（代码中无硬编码中文文案）; 缺 key 回落中文并 console.warn 恰好 1 次; 语言设置变更后无需刷新即切换显示语言（prototype 至少 zh/en 两表骨架，5 语言全量在 build S-24）"
+  - id: S-12
+    title: "Title 场景"
+    pillar: P-03
+    assignee: ui-engineer
+    phase: prototype
+    status: todo
+    acceptance: "TitleScene 显示标题（emblem 占位可用）+「点击开始」提示; 任意点击迁移到 MenuScene 且首次输入时 resume AudioContext（autoplay 应对）; 存档损坏恢复会话中显示 1 次 recovered 通知; 从 Menu「返回标题」回到 TitleScene 后再次点击可再次进入 Menu"
+  - id: S-13
+    title: "Menu 场景（必需要素齐全）"
+    pillar: P-04
+    assignee: ui-engineer
+    phase: prototype
+    status: todo
+    acceptance: "MenuScene 实际存在 4 要素并可用点击操作: (1)开始游戏=「新周目」按钮跳转 GameScene 志向选择、有 run 快照时另显示「继续周目」; (2)游戏外显示=可展开的面板显示最高分/统计（周目数等）; (3)设置=BGM/SFX 音量滑块（0–1、实时作用于 sound.volume）、操作说明面板; (4)退出入口=「返回标题」按钮回 TitleScene"
+  - id: S-14
+    title: "元进度持久化（最高分/统计 + 损坏协议）"
+    pillar: P-03
+    assignee: gameplay-engineer
+    phase: prototype
+    status: todo
+    acceptance: "systems/meta/（metaTypes/metaSchema/metaProgression 纯 reducer）+ persistence/SaveAdapter: 周目终结时 applyRunResult→立即 persist 1 次（连续重开不重复保存）; 测试 A=保存→新实例从 localStorage 重新加载→最高分/统计/endings_seen 一致恢复; 测试 B=注入损坏存档（含 1 件 valid JSON 但 schema 不正的用例）→原始数据备份到 .bak.<epoch> 键、console.error 前缀 [SaveCorruption] 恰好 1 次、以默认值重建且 recovered 传播到 Title/Menu; 测试用内存 Storage mock，不触碰真实存档"
+  - id: S-15
+    title: "ResultScene 与场景循环闭合"
+    pillar: P-03
+    assignee: ui-engineer
+    phase: prototype
+    status: todo
+    acceptance: "ResultScene 显示败局或周目结果与总评分（score=floor(silver×0.5+rep×10+power×20+endingBonus)）; 「再来一周目」→GameScene 志向选择且重开时计时器/客人/岗位表/弃牌堆全部重置（状态泄漏检查）; 「回到菜单」→MenuScene; 以实际操作走完 Title→Menu→Game→Result→Menu 一轮无报错"
+  # ---- build phase ----
+  - id: S-16
+    title: "难度曲线全阶段与全客人类型"
+    pillar: P-01
+    assignee: gameplay-engineer
+    phase: build
+    status: todo
+    acceptance: "D1–3/D4–9/D10–15/D16–20 各阶段到达间隔与耐心使用 config 阶段常量（12/10/8/7s、50/45/40/35s）; 镖师第 4 日起（点 2 菜、耐心 ×1.3）、老饕第 7 日起（高级菜、耐心 ×0.8、可选菜种 <4 时不生成）; 教学期 TEACHING_DISH_CAP=3 生效、无采购时 −10s 耐心; 单日日间仍可 3 分钟内读完（快进测试验证计时不超时）"
+  - id: S-17
+    title: "事件卡全 15 张与志向偏移"
+    pillar: P-03
+    assignee: gameplay-engineer
+    phase: build
+    status: todo
+    acceptance: "15 张卡（gdd 一览表）全部就位、每卡 2–3 选项、效果幅度在模板内（银 Δ −25～+15、声望 ±10、侠点 0–5）; AMBITION_BIAS=0.3 使同一选项在适配志向下收益 +30%（自动测试断言偏移后数值）; 侠系选项累计侠点; 夜间每夜 1 张、弃牌堆用尽重洗"
+  - id: S-18
+    title: "三属性日间效果与疲劳"
+    pillar: P-02
+    assignee: gameplay-engineer
+    phase: build
+    status: todo
+    acceptance: "手艺=当日店内手艺最高者掌勺、制菜 ×(1−min(CRAFT_KITCHEN_CAP, CRAFT_KITCHEN_FACTOR×手艺)); 体力=疲劳倍率 1+(FATIGUE_PENALTY−1)×(1−STAMINA_RESIST×体力); 事件卡施加的疲劳次日生效且单测覆盖三属性公式边界（封顶/免疫）"
+  - id: S-19
+    title: "终战系统与重试当日"
+    pillar: P-02
+    assignee: gameplay-engineer
+    phase: build
+    status: todo
+    acceptance: "第 20 日夜「迎战」→3 回合自动战力对撞（playerPower/3×(1±BATTLE_VARIANCE) vs ENEMY_POWER/3×(1±0.15)、先取 2 胜）; 「雇镖师援助」（−BATTLE_AID_COST=100 两/+8）可用且银子不足时禁用; 战败后 ResultScene「重试当日」恢复第 20 日夜开战前快照（银子/声望/侠点/伙计状态一致）; 战胜进入结局判定"
+  - id: S-20
+    title: "结局判定系统"
+    pillar: P-03
+    assignee: gameplay-engineer
+    phase: build
+    status: todo
+    acceptance: "达成度=min(silver/300,1.2)、xia/32（不封顶）、min(rep/80,1.2），argmax 取结局; 复数线同为封顶值时以开局志向线优先; 无一线 ≥1.0 时仍取最高并标注「险成」; 总评分用未封顶原值; 用单测覆盖封顶决胜与险成分支"
+  - id: S-21
+    title: "成就判定（ACH-01～06）"
+    pillar: P-03
+    assignee: gameplay-engineer
+    phase: build
+    status: todo
+    acceptance: "applyRunResult 内判定 ACH-01～06（3 结局各 1、图鉴完成、单周目声望 ≥80、单属性 ≥STAFF_STAT_MAX）并写入 SaveData.achievements; 已达成不重复触发; 达成时有可感知反馈（SFX/面板标记任一）"
+  - id: S-22
+    title: "解锁（UNL-01/02）与初始伙计选择"
+    pillar: P-02
+    assignee: gameplay-engineer
+    phase: build
+    status: todo
+    acceptance: "endings_seen ≥1/≥2 时 SaveData.unlocks 置位 UNL-01/02; 新周目志向选择后出现初始伙计选择界面（解锁伙计可替换任意 1 名默认伙计，初始值与 gdd 表一致）; 未解锁时锁定显示; 解锁判定经单测"
+  - id: S-23
+    title: "中断续玩 run 快照（日粒度）"
+    pillar: P-01
+    assignee: gameplay-engineer
+    phase: build
+    status: todo
+    acceptance: "每夜结算后保存 run 快照（日数/银子/声望/侠点/伙计表/弃牌堆）; Menu「继续周目」恢复到当日晨间（日间中断回到当日晨快照）; 快照恢复后继续游玩数值与快照一致（快进测试覆盖）; 「新周目」覆盖旧 run 前弹确认面板"
+  - id: S-24
+    title: "i18n 5 语言全量"
+    pillar: P-04
+    assignee: gameplay-engineer
+    phase: build
+    status: todo
+    acceptance: "zh/en/ja/ko/th 5 表全部 key 齐备（脚本比对 key 集合一致，缺失数=0）; 语言切换即时生效并持久化（重载后保持）; 总 key 数 ≤200/语言"
+  - id: S-25
+    title: "Result 结局演出完整版"
+    pillar: P-03
+    assignee: ui-engineer
+    phase: build
+    status: todo
+    acceptance: "3 结局各自显示结局插画（IMG-26~28）+结局文（i18n）+总评分细目（三线数值与权重贡献）; 破产败局与终战败各有专属文案/演出（账本合上、败局文）; 新纪录时显示最高分更新标记"
+  - id: S-26
+    title: "Menu 游戏外面板完整版（图鉴/成就/统计）"
+    pillar: P-03
+    assignee: ui-engineer
+    phase: build
+    status: todo
+    acceptance: "结局图鉴面板（3 格 + ACH-04 进度）、成就一览（ACH-01～06 达成态）、统计面板（最高分/周目数/银子声望峰值/累计服务客数）均从 SaveData 渲染且与存档值一致; 未解锁/未达成项有可视锁定态"
+  - id: S-27
+    title: "音频接线与音量实效"
+    pillar: P-04
+    assignee: ui-engineer
+    phase: build
+    status: todo
+    acceptance: "BGM-01（Title/Menu/晨/日/夜）与 BGM-02（终战）循环播放、8 个 SFX 接到对应事件（复用变调用 detune/rate）; Menu 音量滑块变更实时作用于 sound.volume 且重启后恢复（写入 SaveData.settings）; 音频在首次用户输入后才开始播放（autoplay 应对）"
+  - id: S-28
+    title: "打磨: 差分强化与演出细节"
+    pillar: P-02
+    assignee: ui-engineer
+    phase: build
+    status: todo
+    acceptance: "各伙计的 3 档成长阶段有肉眼可辨的独立表现组合（tint/表情/速度/台词至少 3 项中 2 项变化）; 出菜金光/黑烟、残影等 gdd 差分表条目按阶段呈现; 全部效果为程序化、无新增资产文件"
+  - id: S-29
+    title: "教学期引导（第 1–3 日）"
+    pillar: P-01
+    assignee: gameplay-engineer
+    phase: build
+    status: todo
+    acceptance: "第 1–3 日菜品池 ≤3（min(PURCHASE_KINDS_x, TEACHING_DISH_CAP)）且仅散客; 首日带操作引导（指派→开门→点单→上菜→收钱各 1 次高亮提示，完成或点击后消失）; 引导不阻塞推进（可跳过）"

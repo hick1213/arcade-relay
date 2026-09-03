@@ -1,0 +1,19 @@
+{
+  "style_block": "Warm watercolor and colored-pencil hand-painted storybook illustration, Chinese wuxia inn interior: chibi 2-heads-tall characters with rounded silhouettes, bold dark ink-brown outlines (#281D10) around every interactive object, stroke width 8-12px measured on the 1024px generation canvas (equivalent to about 1px when the sprite is displayed at 96px in game, so outlines must stay clearly visible after downscaling), soft cel shading, visible paper-grain texture, cozy elevated 3/4 top-down view. Palette locked to warm wood browns (#3C2410 dark wood shadow, #653917 deep brown, #A76E3C main wood, #CC935A light floor) with vermilion red (#963A16) and muted gold (#C18E52) used ONLY as accents (lanterns, carpet, trim, coins) never as base, cream candlelight highlights (#F0C182), warm skin (#F3BD7D). Player-side inn staff wear low-saturation COOL-toned clothing, a different cool color per staff member (teal-green #2F433A for the innkeeper, indigo blue, dusty rose); guests wear warm browns, reds and ochres, never cool-toned clothing. Fixed warm light source: lanterns and candles placed upper in frame, warm highlights, shadows pressed toward warm brown #3C2410, never cold grey. Friendly rounded shapes, calm readable composition, no text, no UI, no watermark. Avoid: neon saturation, cold blue-grey shadows, night-dark palette, dense clutter.",
+  "palette": [
+    "#281D10",
+    "#3C2410",
+    "#653917",
+    "#A76E3C",
+    "#CC935A",
+    "#F0C182",
+    "#F3BD7D",
+    "#2F433A",
+    "#963A16",
+    "#C18E52"
+  ],
+  "style_codes": [],
+  "reference_images": ["design/refs/key-image-candidate-1.png"],
+  "character_reference": "design/refs/character-ref.png",
+  "resolution": { "sprite": 1024, "tile": 128 }
+}
