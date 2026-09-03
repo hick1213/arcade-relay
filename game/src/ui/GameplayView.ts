@@ -10,6 +10,7 @@
  */
 import Phaser from 'phaser';
 import {
+  AMBITION_UI,
   CUSTOMER,
   DAY_CYCLE,
   GAMEPLAY,
@@ -25,15 +26,31 @@ import {
   UI,
 } from '../config';
 import type { InputRouter } from '../systems/input/InputRouter';
+import { AMBITION_PACKS } from '../systems/ambition';
 import { EVENT_CARD_POOL } from '../systems/eventCardData';
+import { getLanguage } from '../systems/i18n';
 import { growthStage } from '../systems/training';
-import { TEXT_KEYS } from '../textKeys';
-import { TAP_EVENTS, type PostId, type RunState, type TapEventName, type TextProvider } from '../types';
+import { HUD_TEXT_KEYS, TEXT_KEYS } from '../textKeys';
+import {
+  TAP_EVENTS,
+  type AmbitionId,
+  type PostId,
+  type RunState,
+  type TapEventName,
+  type TextProvider,
+} from '../types';
 
 interface PostDefinition {
   readonly id: PostId;
   readonly labelKey: string;
 }
+
+/** 志向 id → 表示文案 key（S-04 選択ボタン。文案は systems/i18n 言語表） */
+const AMBITION_LABEL_KEYS: Readonly<Record<AmbitionId, string>> = {
+  wealth: TEXT_KEYS.AMBITION_WEALTH_LABEL,
+  xia: TEXT_KEYS.AMBITION_XIA_LABEL,
+  fame: TEXT_KEYS.AMBITION_FAME_LABEL,
+};
 
 const POST_DEFINITIONS: readonly PostDefinition[] = [
   { id: 'waiter', labelKey: TEXT_KEYS.POST_WAITER },
@@ -43,6 +60,13 @@ const POST_DEFINITIONS: readonly PostDefinition[] = [
 ];
 
 const STAGE_DOTS = ['○○○', '●○○', '●●○'];
+
+/** 成长阶段 → 台词 key（S-07: 台词按成长阶段切换。文案は systems/i18n 言語表） */
+const STAFF_LINE_KEYS = [
+  TEXT_KEYS.STAFF_LINE_STAGE_1,
+  TEXT_KEYS.STAFF_LINE_STAGE_2,
+  TEXT_KEYS.STAFF_LINE_STAGE_3,
+] as const;
 
 /** 配列インデックス参照の undefined 抑止（index は常に範囲内 — 布局定数は固定長） */
 function pointAt(list: readonly { readonly x: number; readonly y: number }[], index: number) {
@@ -85,6 +109,7 @@ export class GameplayView {
 
   private buildStructuralKey(run: RunState): string {
     return [
+      getLanguage(),
       run.phase,
       run.day,
       run.nightStage,
@@ -114,6 +139,9 @@ export class GameplayView {
     this.container = container;
 
     switch (run.phase) {
+      case 'ambition':
+        this.buildAmbition(run, container);
+        return;
       case 'morning':
         this.buildMorning(run, container);
         return;
@@ -124,6 +152,63 @@ export class GameplayView {
         this.buildNight(run, container);
         return;
     }
+  }
+
+  private buildAmbition(_run: RunState, container: Phaser.GameObjects.Container): void {
+    container.add(
+      this.scene.add
+        .rectangle(0, 0, GAME_WIDTH, GAME_HEIGHT, GAMEPLAY.BG_MORNING)
+        .setOrigin(0, 0),
+    );
+    container.add(
+      this.label(
+        GAME_WIDTH / 2,
+        AMBITION_UI.TITLE_Y,
+        this.textProvider(TEXT_KEYS.AMBITION_TITLE),
+        AMBITION_UI.TITLE_FONT_SIZE,
+      ),
+    );
+    container.add(
+      this.label(GAME_WIDTH / 2, AMBITION_UI.HINT_Y, this.textProvider(TEXT_KEYS.AMBITION_HINT), AMBITION_UI.HINT_FONT_SIZE),
+    );
+
+    // 財/侠/名 3 按钮（S-04: ≥48px — AMBITION_UI.BUTTON_WIDTH/HEIGHT。初期值も併記）
+    AMBITION_PACKS.forEach((pack, index) => {
+      const position = pointAt(AMBITION_UI.BUTTONS, index);
+      const rect = this.scene.add
+        .rectangle(
+          position.x,
+          position.y,
+          AMBITION_UI.BUTTON_WIDTH,
+          AMBITION_UI.BUTTON_HEIGHT,
+          UI.PANEL_FILL,
+          UI.PANEL_FILL_ALPHA,
+        )
+        .setStrokeStyle(UI.PANEL_STROKE_WIDTH, UI.PANEL_STROKE);
+      container.add(rect);
+      container.add(
+        this.label(
+          position.x,
+          position.y - 16,
+          this.textProvider(AMBITION_LABEL_KEYS[pack.id]),
+          AMBITION_UI.LABEL_FONT_SIZE,
+        ),
+      );
+      container.add(
+        this.label(
+          position.x,
+          position.y + 20,
+          `${this.textProvider(HUD_TEXT_KEYS.HUD_SILVER)} ${pack.silverStart} / ` +
+            `${this.textProvider(HUD_TEXT_KEYS.HUD_REPUTATION)} ${pack.reputationStart}`,
+          AMBITION_UI.VALUE_FONT_SIZE,
+        ),
+      );
+      this.registerZone(GAMEPLAY_ZONES.AMBITION(pack.id), position, AMBITION_UI.BUTTON_WIDTH, AMBITION_UI.BUTTON_HEIGHT, {
+        event: TAP_EVENTS.AMBITION_CONFIRM,
+        priority: INPUT_PRIORITY.TABLE_ORDER,
+        payload: { ambitionId: pack.id },
+      });
+    });
   }
 
   private buildMorning(run: RunState, container: Phaser.GameObjects.Container): void {
@@ -192,6 +277,17 @@ export class GameplayView {
           position.y + 24,
           `速${member.speed} 艺${member.craft} 体${member.stamina} ${STAGE_DOTS[growthStage(total)]}`,
           MORNING.AVATAR_STAT_FONT_SIZE,
+        ),
+      );
+      // 成长阶段別の差分（S-07）: 色调（阶段で明るくなる tint）＋阶段別台词 1 行
+      const stage = growthStage(total);
+      rect.setFillStyle(GAMEPLAY.STAGE_TINTS[stage]);
+      container.add(
+        this.label(
+          position.x,
+          position.y + MORNING.AVATAR_LINE_OFFSET_Y,
+          this.textProvider(STAFF_LINE_KEYS[stage]),
+          MORNING.AVATAR_LINE_FONT_SIZE,
         ),
       );
       this.registerZone(
@@ -323,15 +419,20 @@ export class GameplayView {
       }
     }
 
-    // 跑堂マーカー（每フレーム位置更新 — delta 驱动移动の可視化）
+    // 跑堂マーカー（每フレーム位置更新 — delta 驱动移动の可視化）。
+    // 成长阶段別の程序化差分（S-07）: 色调＋缩放（立绘の見た目が成長で変わる）
     run.staff
       .filter((member) => member.post === 'waiter')
       .forEach((member, index) => {
+        const stage = growthStage(member.speed + member.craft + member.stamina);
         const marker = this.scene.add.container(GAME_LAYOUT.COUNTER.x + index * 40, GAME_LAYOUT.COUNTER.y);
         marker.add(
-          this.scene.add.rectangle(0, 0, GAMEPLAY.MARKER_SIZE, GAMEPLAY.MARKER_SIZE, GAMEPLAY.STAFF_FILL).setStrokeStyle(UI.PANEL_ACCENT_WIDTH, UI.PANEL_ACCENT),
+          this.scene.add
+            .rectangle(0, 0, GAMEPLAY.MARKER_SIZE, GAMEPLAY.MARKER_SIZE, GAMEPLAY.STAGE_TINTS[stage])
+            .setStrokeStyle(UI.PANEL_ACCENT_WIDTH, UI.PANEL_ACCENT),
         );
         marker.add(this.label(0, 0, this.textProvider(member.nameKey), MORNING.AVATAR_STAT_FONT_SIZE));
+        marker.setScale(GAMEPLAY.STAGE_SCALES[stage]);
         container.add(marker);
         this.waiterMarkers.set(member.id, marker);
       });

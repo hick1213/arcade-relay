@@ -18,6 +18,7 @@ import {
   UI,
 } from '../config';
 import { loadSaveData, saveSaveData } from '../persistence/SaveAdapter';
+import { setLanguage } from '../systems/i18n';
 import { InputRouter } from '../systems/input/InputRouter';
 import type { SaveData, TapEventName, TextProvider } from '../types';
 import { TAP_EVENTS } from '../types';
@@ -58,6 +59,8 @@ export class MenuScene extends Phaser.Scene {
     // 存档读取（经 persistence 层 — 损坏协议在 SaveAdapter。recovered 时显示 1 次通知）
     const loaded = loadSaveData();
     this.save = loaded.data;
+    // 言語真値の反映（S-11 — scene.restart 後の再描画でも保存言語が保持される）
+    setLanguage(this.save.settings.lang);
 
     this.createTitle();
     if (loaded.recovered) {
@@ -68,6 +71,7 @@ export class MenuScene extends Phaser.Scene {
     this.statsPanel = new MenuStatsPanel(this, this.textProvider, this.router, this.save);
     this.settingsPanel = new MenuSettingsPanel(this, this.textProvider, this.router, {
       onVolumeChange: (channel, value) => this.handleVolumeChange(channel, value),
+      onLanguageToggle: () => this.handleLanguageToggle(),
     });
     // 滑块初始值 = SaveData.settings 真值（UI 不持有状态）
     this.settingsPanel.renderVolumes(
@@ -125,7 +129,9 @@ export class MenuScene extends Phaser.Scene {
     );
     this.addButton(MENU.ZONE_BACK_TITLE, TAP_EVENTS.MENU_BACK_TITLE, MENU_TEXT_KEYS.MENU_BACK_TITLE);
 
-    this.router.on(TAP_EVENTS.MENU_CONTINUE, () => this.activateButton(TAP_EVENTS.MENU_CONTINUE, () => this.scene.start('Game')));
+    this.router.on(TAP_EVENTS.MENU_CONTINUE, () =>
+      this.activateButton(TAP_EVENTS.MENU_CONTINUE, () => this.scene.start('Game', { resume: true })),
+    );
     this.router.on(TAP_EVENTS.MENU_NEW_RUN, () => this.activateButton(TAP_EVENTS.MENU_NEW_RUN, () => this.scene.start('Game')));
     this.router.on(TAP_EVENTS.MENU_OPEN_STATS, () => this.activateButton(TAP_EVENTS.MENU_OPEN_STATS, () => this.statsPanel.open()));
     this.router.on(TAP_EVENTS.MENU_OPEN_SETTINGS, () =>
@@ -174,6 +180,19 @@ export class MenuScene extends Phaser.Scene {
       return;
     }
     this.sound.play(ASSET_KEYS.audio.sfxUiTap, { volume: this.save.settings.sfx_volume });
+  }
+
+  /**
+   * 语言切换（S-11: 即时生效 — 无需刷新）。
+   * i18n モジュールの現行言語を切替 → SaveData.settings.lang へ真値反映＋持久化 →
+   * 本场景再構築（create から言語表の新文案で再描画 — ページリロード不要）。
+   */
+  private handleLanguageToggle(): void {
+    const next = this.save.settings.lang === 'zh' ? 'en' : 'zh';
+    setLanguage(next);
+    this.save = { ...this.save, settings: { ...this.save.settings, lang: next } };
+    saveSaveData(this.save);
+    this.scene.restart();
   }
 
   /** 滑块变更: 真值更新（SaveData.settings）→ 立即持久化 → 实时反映到音频输出 */

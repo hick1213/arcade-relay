@@ -2,7 +2,7 @@
  * 事件卡数据表（S-09。垂直切片用 3 张 — gdd「事件卡」表の #1 镖师借宿 / #5 同行拆台 / #8 商队歇脚）。
  * 数据表与逻辑分离（eventCard.ts が本表を参照）。build S-17 で 15 张に拡張 — 構造は不変。
  * 效果幅度は gdd テンプレート内: 银 Δ −25～+15 / 声望 Δ −10～+10 / 侠点 0–5 / 疲劳は build S-17。
- * 文案は i18n key（実テキストは ui/gameplayStrings.ts の中文表）。
+ * 文案は i18n key（実テキストは systems/i18n/zhTable.ts の中文表 — S-11）。
  */
 import { EVENT } from '../config';
 import { TEXT_KEYS } from '../textKeys';

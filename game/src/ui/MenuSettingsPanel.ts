@@ -22,6 +22,8 @@ export type VolumeChannel = 'bgm' | 'sfx';
 export interface MenuSettingsPanelCallbacks {
   /** 滑块变更（0–1）。接线层负责: SaveData.settings 更新 + persist + 实时音频反映 */
   readonly onVolumeChange: (channel: VolumeChannel, value: number) => void;
+  /** 语言切换（S-11）。接线层负责: i18n.setLanguage + settings.lang 持久化 + 再描画 */
+  readonly onLanguageToggle: () => void;
 }
 
 interface SliderEntry {
@@ -39,6 +41,8 @@ export class MenuSettingsPanel {
   private readonly sliders: readonly SliderEntry[];
   private readonly closeVisuals: readonly Phaser.GameObjects.GameObject[];
   private readonly closeBounds: { readonly x: number; readonly y: number; readonly width: number; readonly height: number };
+  private readonly languageVisuals: readonly Phaser.GameObjects.GameObject[];
+  private readonly languageBounds: { readonly x: number; readonly y: number; readonly width: number; readonly height: number };
   private opened = false;
 
   constructor(
@@ -91,6 +95,23 @@ export class MenuSettingsPanel {
       .setOrigin(0.5, 0);
     hintBody.setWordWrapWidth(MENU.PANEL_HINT_WRAP_WIDTH);
 
+    // 语言切换按钮（S-11: zh/en 即时切换。ラベルは現行言語を表示 — クリックで切替）
+    const languageButton = createUiButton(
+      scene,
+      centerX,
+      MENU.LANGUAGE_BUTTON_Y,
+      ASSET_KEYS.uiPlaceholder.menuButton,
+      textProvider(MENU_TEXT_KEYS.MENU_LANGUAGE_LABEL),
+      this.languageButtonStyle(),
+    );
+    this.languageVisuals = languageButton.visuals;
+    this.languageBounds = {
+      x: centerX - MENU.LANGUAGE_BUTTON_WIDTH / 2,
+      y: MENU.LANGUAGE_BUTTON_Y - MENU.LANGUAGE_BUTTON_HEIGHT / 2,
+      width: MENU.LANGUAGE_BUTTON_WIDTH,
+      height: MENU.LANGUAGE_BUTTON_HEIGHT,
+    };
+
     const closeButton = createUiButton(
       scene,
       centerX,
@@ -115,11 +136,13 @@ export class MenuSettingsPanel {
       ...sfxSlider.visuals,
       hintTitle,
       hintBody,
+      ...languageButton.visuals,
       ...closeButton.visuals,
     ]);
 
     router.on(TAP_EVENTS.MENU_BGM_VOLUME, this.handleVolumeTap);
     router.on(TAP_EVENTS.MENU_SFX_VOLUME, this.handleVolumeTap);
+    router.on(TAP_EVENTS.MENU_LANGUAGE_TOGGLE, this.handleLanguageTap);
     router.on(TAP_EVENTS.MENU_CLOSE_PANEL, this.handleCloseTap);
   }
 
@@ -152,6 +175,13 @@ export class MenuSettingsPanel {
       event: TAP_EVENTS.MENU_CLOSE_PANEL,
       layer: MENU.LAYER_ID,
     });
+    this.router.registerZone({
+      id: MENU.ZONE_LANGUAGE_TOGGLE,
+      bounds: this.languageBounds,
+      priority: MENU.PRIORITY_MODAL,
+      event: TAP_EVENTS.MENU_LANGUAGE_TOGGLE,
+      layer: MENU.LAYER_ID,
+    });
     this.router.setBlockingLayer(MENU.LAYER_ID);
   }
 
@@ -165,6 +195,7 @@ export class MenuSettingsPanel {
       this.router.unregisterZone(entry.zoneId);
     }
     this.router.unregisterZone(MENU.ZONE_SETTINGS_CLOSE);
+    this.router.unregisterZone(MENU.ZONE_LANGUAGE_TOGGLE);
     this.router.setBlockingLayer(null);
   }
 
@@ -181,6 +212,21 @@ export class MenuSettingsPanel {
     playPressFeedback(this.scene, this.closeVisuals);
     this.close();
   };
+
+  private readonly handleLanguageTap = (): void => {
+    playPressFeedback(this.scene, this.languageVisuals);
+    this.callbacks.onLanguageToggle();
+  };
+
+  private languageButtonStyle(): Phaser.Types.GameObjects.Text.TextStyle {
+    return {
+      fontFamily: UI.HUD_FONT_FAMILY,
+      fontSize: MENU.LANGUAGE_BUTTON_FONT_SIZE,
+      color: UI.HUD_TEXT_COLOR,
+      stroke: UI.HUD_STROKE_COLOR,
+      strokeThickness: UI.HUD_STROKE_WIDTH,
+    };
+  }
 
   private titleStyle(): Phaser.Types.GameObjects.Text.TextStyle {
     return {

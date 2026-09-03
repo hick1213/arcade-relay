@@ -4,9 +4,9 @@
  * （Scene 轻薄 — tech-stack 规范 3）。状态は不可变更新、纯逻辑のみ（Phaser 非依赖）。
  */
 import { AMBITION, MS_PER_SECOND, STAFF_ROSTER } from '../config';
-import type { PostId, RunState, TapHit } from '../types';
+import type { AmbitionId, PostId, RunState, RunSnapshot, TapHit } from '../types';
 import { TAP_EVENTS } from '../types';
-import { getAmbitionPack } from './ambition';
+import { getAmbitionPack, isAmbitionId, type AmbitionPack } from './ambition';
 import { selectPost, toggleAssignment } from './assignment';
 import { applyTrainingGains } from './training';
 import * as dayCycle from './dayCycle';
@@ -15,9 +15,8 @@ import * as customerFlow from './customerFlow';
 import { chooseOption, drawCard } from './eventCard';
 import { intervalSecondsForDay } from './customerFlow';
 
-/** 新周目の初期状態（S-04 志向选择接线前は config.AMBITION.DEFAULT_ID — 判断事項） */
-export function createInitialRun(): RunState {
-  const pack = getAmbitionPack(AMBITION.DEFAULT_ID);
+/** 志向确定后的晨间开局状態（S-04: 银子/声望 = GDD 志向别初始值） */
+function createRunForPack(pack: AmbitionPack): RunState {
   return {
     day: 1,
     phase: 'morning',
@@ -43,6 +42,56 @@ export function createInitialRun(): RunState {
   };
 }
 
+/**
+ * 新周目の初期状態 = 志向选择（S-04）。財/侠/名が確定するまでの仮リソースは
+ * DEFAULT_ID（config.AMBITION.DEFAULT_ID — Systems 層の破綻がないための安全夹）で埋める。
+ */
+export function createInitialRun(): RunState {
+  const base = createRunForPack(getAmbitionPack(AMBITION.DEFAULT_ID));
+  return { ...base, phase: 'ambition' };
+}
+
+/** 志向确认（S-04 acceptance）: 選択志向の GDD 初期值で晨间开局 */
+export function confirmAmbition(run: RunState, ambitionId: AmbitionId): RunState {
+  if (run.phase !== 'ambition') {
+    return run;
+  }
+  return createRunForPack(getAmbitionPack(ambitionId));
+}
+
+/**
+ * 志向确定時の run 快照（S-04 acceptance「志向确认时 run 快照写入 SaveData」）。
+ * 字段は metaTypes.RunSnapshot 契约（日数/银子/声望＋志向。build S-23 で拡張）。
+ */
+export function createRunSnapshot(run: RunState): RunSnapshot {
+  return {
+    day: run.day,
+    silver: run.silver,
+    reputation: run.reputation,
+    ambition: run.ambition,
+  };
+}
+
+/**
+ * run 快照からの復帰（Menu「继续周目」— S-04 快照書き込みの読み出し側）。
+ * 恢复先は当日晨间（未排班・客無し — gdd「中断续玩」。全状态は build S-23 で拡張）。
+ * 快照值が不正な場合は既定値へ夹む（破損扱いは persistence 层の损坏协议が担当）。
+ */
+export function createResumeRun(snapshot: RunSnapshot): RunState {
+  const day = typeof snapshot.day === 'number' && snapshot.day >= 1 ? Math.floor(snapshot.day) : 1;
+  const silver = typeof snapshot.silver === 'number' ? snapshot.silver : 0;
+  const reputation = typeof snapshot.reputation === 'number' ? snapshot.reputation : 0;
+  const ambition = isAmbitionId(snapshot.ambition) ? snapshot.ambition : AMBITION.DEFAULT_ID;
+  const resumed = createRunForPack(getAmbitionPack(ambition));
+  return {
+    ...resumed,
+    day,
+    silver,
+    reputation,
+    finalBattleNight: dayCycle.isFinalBattleNight(day),
+  };
+}
+
 /** 1 フレームの推进（delta 驱动 — conventions 规则 3）。夜入りの结算と破产判定を含む */
 export function advanceRun(run: RunState, deltaMs: number): RunState {
   let next = dayCycle.advanceDayPhase(run, deltaMs);
@@ -63,6 +112,8 @@ export function handleTapEvent(run: RunState, hit: TapHit): RunState {
 
 function dispatchTap(run: RunState, hit: TapHit): RunState {
   switch (hit.event) {
+    case TAP_EVENTS.AMBITION_CONFIRM:
+      return confirmAmbition(run, String(hit.payload.ambitionId) as AmbitionId);
     case TAP_EVENTS.ASSIGN_SLOT:
       return selectPost(run, String(hit.payload.postId) as PostId);
     case TAP_EVENTS.STAFF:

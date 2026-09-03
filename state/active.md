@@ -1,4 +1,7 @@
-# state/active.md — 会话交接（更新: 2026-09-03T13:31:51Z）
+# state/active.md — 会话交接（更新: 2026-09-03T14:18:08Z）
+
+## 前回までの経過（Phase 2 QA-PLAY fix、2026-09-03T13:31:51Z 時点）
+Phase 2 QA-PLAY fix（gameplay-engineer、S-03 系）完了:
 
 ## 当前位置
 Phase 2 QA-PLAY fix（gameplay-engineer、S-03 系）完了:
@@ -7,11 +10,17 @@ Phase 2 QA-PLAY fix（gameplay-engineer、S-03 系）完了:
 - 検証: `cd game && npm run typecheck && npm run build` exit 0＋systems 純逻辑の headless 循环シミュレーション（排班→180s 日间→13 客服务/收入 25/工钱 −30→夜间翻卡→选项→天明→翌日、破产判定発火）成功。ブラウザ实机は qa-lead の QA-PLAY で再判定
 - stories.yaml: S-02/S-03/S-05/S-06/S-08/S-09 → review
 
+## 追加修正（2026-09-03T14:18:08Z — QA 未通过 acceptance への fix、本セッション）
+- S-04 志向选择を実装: `types.ts`（Phase に 'ambition'、TAP_EVENTS.AMBITION_CONFIRM）`runEngine.ts`（createInitialRun=志向选择开局、confirmAmbition=GDD 初期值で晨间开局、createRunSnapshot、createResumeRun）`ui/GameplayView.ts`（財/侠/名 3 ボタン ≥96px＋初期值表示）。确认时に run 快照を SaveData.run へ persist（S-04 acceptance）。Menu「继续周目」は Game へ {resume:true} を渡し快照から当日晨间へ復帰
+- S-11 systems/i18n を実装: `systems/i18n/index.ts`（translate/setLanguage/onLanguageChange、缺 key 回落中文＋console.warn 恰好 1 次/同 key）＋`zhTable.ts`（中文全量）＋`enTable.ts`（en 骨架）。key 定数を src/textKeys.ts へ集約（ui/hudStrings は re-export に切换、ui/gameplayStrings.ts は削除）。Boot で SaveData.settings.lang を反映、Menu 設定パネルに zh/en 切替按钮（クリックで即時切替＋settings.lang 持久化＋场景再構築 — ページリロード不要）
+- S-07 差分を补完: 成长阶段別 tint（STAGE_TINTS）＋跑堂 marker 缩放（STAGE_SCALES）＋阶段別台词 3 本（STAFF_LINE_STAGE_1~3、晨间头像下に表示）— 程序化のみ、新资产なし
+- S-01/S-11/S-04 の验收测试を追加: `tests/inputRouter.test.ts`（重叠判定区の優先仲裁・最小判定区・模态屏蔽）`tests/i18n.test.ts`（缺 key 回落＋warn 1 次・言語切替）`tests/runAmbition.test.ts`（志向初期值・快照・復帰）。vitest 29 pass
+- 検証: `cd game && npm run typecheck && npm run build` exit 0。stories.yaml: S-04/S-11 → review（S-02/S-03/S-05/S-06/S-07/S-08/S-09/S-10/S-12/S-13/S-14/S-15 は前回 iteration 提交で実装済み・review のまま）
+
 ## 下一步操作
 CR-CODE（S-03 系 diff）→ qa-lead による QA-PLAY 再判定（10 种点击输入・HUD 数值变动・核心循环一周の再検証）→ Checkpoint B
 
 ## 未解决事项（带入下一工序）
-0. 【中】S-04 志向选择未接线 — GameScene 开局は `config.AMBITION.DEFAULT_ID='wealth'`（SILVER_START 150/REP 15）の暫定。志向选择 UI と run 快照初回保存（S-14 persistence）は別 story スコープ
 1. 【中】S-19 終戦演出は build スコープ — 第 20 日夜は「迎战」→ Result（runComplete 暫定経路、endingBonus 占位 0＝S-20 接线待ち）
 2. 【低】gdd 未定義の実装定数を config に追加（EAT_S=6、COLLECT_S=2、ACTION_FACTOR_MIN=0.2 ガード）— game-designer へ数值確認を推挙
 3. 【高】IMG-01～30 / BGM-01・02 未生成 — 全部程序化占位（引续）

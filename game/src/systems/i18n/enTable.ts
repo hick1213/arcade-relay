@@ -1,0 +1,124 @@
+/**
+ * enTable — 英文文案表（S-11 prototype: zh/en 2 表骨架。build S-24 で ja/ko/th を追加）。
+ * key 集合は zhTable と同一。本表に無い key は systems/i18n の回落で中文表にフォールバック
+ * （console.warn 恰好 1 次）。
+ */
+import {
+  HUD_TEXT_KEYS,
+  MENU_TEXT_KEYS,
+  RESULT_TEXT_KEYS,
+  TEXT_KEYS,
+  TITLE_TEXT_KEYS,
+} from '../../textKeys';
+
+export const EN_TABLE: Readonly<Record<string, string>> = {
+  // HUD / pause panel (S-10)
+  [HUD_TEXT_KEYS.HUD_SILVER]: 'Silver',
+  [HUD_TEXT_KEYS.HUD_REPUTATION]: 'Renown',
+  [HUD_TEXT_KEYS.HUD_DAY]: 'Day',
+  [HUD_TEXT_KEYS.HUD_LEDGER]: 'Ledger',
+  [HUD_TEXT_KEYS.PAUSE_TITLE]: 'Paused',
+  [HUD_TEXT_KEYS.PAUSE_RESUME]: 'Resume',
+  [HUD_TEXT_KEYS.PAUSE_END_RUN]: 'End Run',
+  [HUD_TEXT_KEYS.PAUSE_QUIT]: 'Back to Menu',
+  // Result (S-15)
+  [RESULT_TEXT_KEYS.RESULT_TITLE_DEFEAT]: 'Defeat',
+  [RESULT_TEXT_KEYS.RESULT_TITLE_COMPLETE]: 'Run Complete',
+  [RESULT_TEXT_KEYS.RESULT_SCORE_LABEL]: 'Final Score',
+  [RESULT_TEXT_KEYS.RESULT_SCORE_SILVER]: 'Silver Contribution',
+  [RESULT_TEXT_KEYS.RESULT_SCORE_REPUTATION]: 'Renown Contribution',
+  [RESULT_TEXT_KEYS.RESULT_SCORE_POWER]: 'Staff Power Contribution',
+  [RESULT_TEXT_KEYS.RESULT_SCORE_BONUS]: 'Ending Bonus',
+  [RESULT_TEXT_KEYS.RESULT_RETRY]: 'New Run',
+  [RESULT_TEXT_KEYS.RESULT_TO_MENU]: 'Back to Menu',
+  // Title (S-12)
+  [TITLE_TEXT_KEYS.TITLE_GAME_TITLE]: 'Jianghu Ke Man',
+  [TITLE_TEXT_KEYS.TITLE_START_PROMPT]: 'Tap to Start',
+  [TITLE_TEXT_KEYS.TITLE_RECOVERED_NOTICE]: 'Save data was corrupted; restarting with defaults',
+  // Menu (S-13)
+  [MENU_TEXT_KEYS.MENU_TITLE]: 'Menu',
+  [MENU_TEXT_KEYS.MENU_CONTINUE]: 'Continue Run',
+  [MENU_TEXT_KEYS.MENU_NEW_RUN]: 'New Run',
+  [MENU_TEXT_KEYS.MENU_OPEN_STATS]: 'Gallery & Stats',
+  [MENU_TEXT_KEYS.MENU_OPEN_SETTINGS]: 'Settings',
+  [MENU_TEXT_KEYS.MENU_BACK_TITLE]: 'Back to Title',
+  [MENU_TEXT_KEYS.MENU_RECOVERED_NOTICE]: 'Save data was corrupted; restarting with defaults',
+  [MENU_TEXT_KEYS.MENU_STATS_TITLE]: 'Gallery & Stats',
+  [MENU_TEXT_KEYS.MENU_STATS_BEST]: 'Best Score',
+  [MENU_TEXT_KEYS.MENU_STATS_RUNS]: 'Runs Finished',
+  [MENU_TEXT_KEYS.MENU_STATS_SILVER_PEAK]: 'Silver Peak',
+  [MENU_TEXT_KEYS.MENU_STATS_REP_PEAK]: 'Renown Peak',
+  [MENU_TEXT_KEYS.MENU_STATS_SERVED]: 'Total Guests Served',
+  [MENU_TEXT_KEYS.MENU_STATS_ENDINGS]: 'Ending Gallery',
+  [MENU_TEXT_KEYS.MENU_CLOSE]: 'Close',
+  [MENU_TEXT_KEYS.MENU_SETTINGS_TITLE]: 'Settings',
+  [MENU_TEXT_KEYS.MENU_BGM_LABEL]: 'BGM Volume',
+  [MENU_TEXT_KEYS.MENU_SFX_LABEL]: 'SFX Volume',
+  [MENU_TEXT_KEYS.MENU_LANGUAGE_LABEL]: 'Language: English',
+  [MENU_TEXT_KEYS.MENU_HINT_TITLE]: 'How to Play',
+  [MENU_TEXT_KEYS.MENU_HINT_BODY]:
+    'Everything is a single tap. Morning: tap a post icon, then tap a staff portrait to assign; tap "Open Doors". ' +
+    'Day: tap tables with order bubbles, the serve window, then silver bubbles. Night: draw an event card, pick one, then "Daybreak". ' +
+    'Tap the "Ledger" button at the top right to pause or return to the menu at any time.',
+  // Morning (S-05)
+  [TEXT_KEYS.MORNING_TITLE]: 'Morning Assignments',
+  [TEXT_KEYS.MORNING_HINT_SELECT_POST]: 'Tap a post icon to choose a post',
+  [TEXT_KEYS.MORNING_HINT_SELECT_STAFF]: 'Then tap a staff portrait to assign (tap again to cancel)',
+  [TEXT_KEYS.NOTICE_ASSIGN_REJECTED]: 'That post is full — assignment rejected',
+  [TEXT_KEYS.BUTTON_OPEN_DOOR]: 'Open Doors',
+  [TEXT_KEYS.POST_WAITER]: 'Waiter',
+  [TEXT_KEYS.POST_MANAGER]: 'Manager',
+  [TEXT_KEYS.POST_PURCHASER]: 'Purchaser',
+  [TEXT_KEYS.POST_TRAINING]: 'Training',
+  [TEXT_KEYS.POST_STANDBY]: 'Standby',
+  // Day (S-06)
+  [TEXT_KEYS.LABEL_COUNTER]: 'Counter',
+  [TEXT_KEYS.LABEL_SERVE_WINDOW]: 'Serve Window',
+  [TEXT_KEYS.BUBBLE_ORDER]: 'Order',
+  [TEXT_KEYS.BUBBLE_PAYMENT]: 'Pay',
+  // Night (S-09)
+  [TEXT_KEYS.NIGHT_TITLE]: 'Evening Ledger',
+  [TEXT_KEYS.SUMMARY_INCOME]: 'Income',
+  [TEXT_KEYS.SUMMARY_REP_NET]: 'Renown Change',
+  [TEXT_KEYS.SUMMARY_SERVED]: 'Guests Served',
+  [TEXT_KEYS.SUMMARY_FAILED]: 'Guests Lost',
+  [TEXT_KEYS.SUMMARY_WAGE]: 'Wages',
+  [TEXT_KEYS.BUTTON_DRAW_CARD]: 'Draw Card',
+  [TEXT_KEYS.CARD_TITLE_LABEL]: 'Event Card',
+  [TEXT_KEYS.CARD_RESULT_LABEL]: 'Result',
+  [TEXT_KEYS.BUTTON_DAYBREAK]: 'Daybreak',
+  [TEXT_KEYS.BUTTON_FIGHT]: 'Fight',
+  [TEXT_KEYS.FINAL_BATTLE_NOTICE]: 'Night 20 — a great rival approaches!',
+  // Staff names (gdd roster)
+  [TEXT_KEYS.STAFF_AFU]: 'A-Fu',
+  [TEXT_KEYS.STAFF_TIENIU]: 'Tie-Niu',
+  [TEXT_KEYS.STAFF_WENQU]: 'Wen-Qu',
+  [TEXT_KEYS.STAFF_XIAODIE]: 'Xiao-Die',
+  [TEXT_KEYS.STAFF_DASONG]: 'Da-Song',
+  // Event cards (vertical slice 3 — #1/#5/#8; S-17 expands to 15)
+  [TEXT_KEYS.CARD_1_TITLE]: 'Escort Lodging',
+  [TEXT_KEYS.CARD_1_OPT1]: 'Gift silver for the road (Silver −15 / Renown +6)',
+  [TEXT_KEYS.CARD_1_OPT1_RESULT]: 'The escort leaves grateful; word of the inn spreads',
+  [TEXT_KEYS.CARD_1_OPT2]: 'Offer them lodging (Silver +12 / Xia +3)',
+  [TEXT_KEYS.CARD_1_OPT2_RESULT]: 'The escort pays for the room and teaches a few guards',
+  [TEXT_KEYS.CARD_5_TITLE]: 'Rival Sabotage',
+  [TEXT_KEYS.CARD_5_OPT1]: 'Expose the trick (Renown +8)',
+  [TEXT_KEYS.CARD_5_OPT1_RESULT]: 'You expose the scheme; guests praise your honesty',
+  [TEXT_KEYS.CARD_5_OPT2]: 'Pay to make peace (Silver −20 / Renown +2)',
+  [TEXT_KEYS.CARD_5_OPT2_RESULT]: 'Silver buys peace — at least all is calm',
+  [TEXT_KEYS.CARD_8_TITLE]: 'Caravan Rest',
+  [TEXT_KEYS.CARD_8_OPT1]: 'Sell grain at a premium (Silver +15)',
+  [TEXT_KEYS.CARD_8_OPT1_RESULT]: 'The caravan pays handsomely; silver fills the till',
+  [TEXT_KEYS.CARD_8_OPT2]: 'Sell at a fair price (Silver +4 / Renown +5)',
+  [TEXT_KEYS.CARD_8_OPT2_RESULT]: 'The caravan praises your fairness far and wide',
+  // Stage-based dialogue (S-07)
+  [TEXT_KEYS.STAFF_LINE_STAGE_1]: 'I will do my best!',
+  [TEXT_KEYS.STAFF_LINE_STAGE_2]: 'Leave it to me — this is easy',
+  [TEXT_KEYS.STAFF_LINE_STAGE_3]: 'Finest waiter in the jianghu, bar none',
+  // Ambition (S-04: wealth / xia / fame)
+  [TEXT_KEYS.AMBITION_TITLE]: 'Choose Your Ambition',
+  [TEXT_KEYS.AMBITION_HINT]: 'Your ambition shapes your starting resources and event fortunes',
+  [TEXT_KEYS.AMBITION_WEALTH_LABEL]: 'Wealth — Build by Trade',
+  [TEXT_KEYS.AMBITION_XIA_LABEL]: 'Xia — Bond by Honor',
+  [TEXT_KEYS.AMBITION_FAME_LABEL]: 'Fame — Renown in Jianghu',
+};

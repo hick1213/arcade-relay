@@ -1,0 +1,125 @@
+/**
+ * zhTable — 中文文案表（权威表。S-11 prototype 全量。build S-24 で 5 语言化）。
+ * key 一览 = src/textKeys.ts（systems が ui/ を import しないため key は共通層に集約）。
+ * 文案出处: 旧 ui/hudStrings.ts（HUD/Result/Title/Menu）と ui/gameplayStrings.ts（玩法）の
+ * 中文文案を S-11 落地に合わせて本表へ統合 — ui 側の旧表は削除済み。
+ */
+import {
+  HUD_TEXT_KEYS,
+  MENU_TEXT_KEYS,
+  RESULT_TEXT_KEYS,
+  TEXT_KEYS,
+  TITLE_TEXT_KEYS,
+} from '../../textKeys';
+
+export const ZH_TABLE: Readonly<Record<string, string>> = {
+  // HUD / 暂停面板（S-10）
+  [HUD_TEXT_KEYS.HUD_SILVER]: '银子',
+  [HUD_TEXT_KEYS.HUD_REPUTATION]: '声望',
+  [HUD_TEXT_KEYS.HUD_DAY]: '日数',
+  [HUD_TEXT_KEYS.HUD_LEDGER]: '帐本',
+  [HUD_TEXT_KEYS.PAUSE_TITLE]: '暂停',
+  [HUD_TEXT_KEYS.PAUSE_RESUME]: '继续',
+  [HUD_TEXT_KEYS.PAUSE_END_RUN]: '结束周目',
+  [HUD_TEXT_KEYS.PAUSE_QUIT]: '回到菜单',
+  // Result（S-15）
+  [RESULT_TEXT_KEYS.RESULT_TITLE_DEFEAT]: '败局',
+  [RESULT_TEXT_KEYS.RESULT_TITLE_COMPLETE]: '周目结果',
+  [RESULT_TEXT_KEYS.RESULT_SCORE_LABEL]: '总评分',
+  [RESULT_TEXT_KEYS.RESULT_SCORE_SILVER]: '银子贡献',
+  [RESULT_TEXT_KEYS.RESULT_SCORE_REPUTATION]: '声望贡献',
+  [RESULT_TEXT_KEYS.RESULT_SCORE_POWER]: '伙计实力贡献',
+  [RESULT_TEXT_KEYS.RESULT_SCORE_BONUS]: '结局加成',
+  [RESULT_TEXT_KEYS.RESULT_RETRY]: '再来一周目',
+  [RESULT_TEXT_KEYS.RESULT_TO_MENU]: '回到菜单',
+  // Title（S-12）
+  [TITLE_TEXT_KEYS.TITLE_GAME_TITLE]: '江湖客满',
+  [TITLE_TEXT_KEYS.TITLE_START_PROMPT]: '点击开始',
+  [TITLE_TEXT_KEYS.TITLE_RECOVERED_NOTICE]: '存档已损坏，本次以初始数据重新开始',
+  // Menu（S-13）
+  [MENU_TEXT_KEYS.MENU_TITLE]: '菜单',
+  [MENU_TEXT_KEYS.MENU_CONTINUE]: '继续周目',
+  [MENU_TEXT_KEYS.MENU_NEW_RUN]: '新周目',
+  [MENU_TEXT_KEYS.MENU_OPEN_STATS]: '图鉴・统计',
+  [MENU_TEXT_KEYS.MENU_OPEN_SETTINGS]: '设置',
+  [MENU_TEXT_KEYS.MENU_BACK_TITLE]: '返回标题',
+  [MENU_TEXT_KEYS.MENU_RECOVERED_NOTICE]: '存档已损坏，本次以初始数据重新开始',
+  [MENU_TEXT_KEYS.MENU_STATS_TITLE]: '图鉴・统计',
+  [MENU_TEXT_KEYS.MENU_STATS_BEST]: '最高总评分',
+  [MENU_TEXT_KEYS.MENU_STATS_RUNS]: '周目数',
+  [MENU_TEXT_KEYS.MENU_STATS_SILVER_PEAK]: '银子峰值',
+  [MENU_TEXT_KEYS.MENU_STATS_REP_PEAK]: '声望峰值',
+  [MENU_TEXT_KEYS.MENU_STATS_SERVED]: '累计服务客数',
+  [MENU_TEXT_KEYS.MENU_STATS_ENDINGS]: '结局图鉴',
+  [MENU_TEXT_KEYS.MENU_CLOSE]: '关闭',
+  [MENU_TEXT_KEYS.MENU_SETTINGS_TITLE]: '设置',
+  [MENU_TEXT_KEYS.MENU_BGM_LABEL]: 'BGM 音量',
+  [MENU_TEXT_KEYS.MENU_SFX_LABEL]: 'SFX 音量',
+  [MENU_TEXT_KEYS.MENU_LANGUAGE_LABEL]: '语言: 中文',
+  [MENU_TEXT_KEYS.MENU_HINT_TITLE]: '操作说明',
+  [MENU_TEXT_KEYS.MENU_HINT_BODY]:
+    '全部操作为单击。晨间: 点岗位图标→点伙计头像完成指派，再点「开门营业」。' +
+    '日间: 依次点亮点单桌→出餐口→银两气泡接客。夜间: 翻事件卡选一项后点「天明」。' +
+    '游玩中点右上「帐本」可随时暂停或回到菜单。',
+  // 晨间（S-05 排班）
+  [TEXT_KEYS.MORNING_TITLE]: '晨间排班',
+  [TEXT_KEYS.MORNING_HINT_SELECT_POST]: '点击岗位图标，选择要分配的岗位',
+  [TEXT_KEYS.MORNING_HINT_SELECT_STAFF]: '再点击伙计头像完成指派（再点一次已指派伙计＝取消）',
+  [TEXT_KEYS.NOTICE_ASSIGN_REJECTED]: '该岗位已满员，指派被拒绝',
+  [TEXT_KEYS.BUTTON_OPEN_DOOR]: '开门营业',
+  [TEXT_KEYS.POST_WAITER]: '跑堂',
+  [TEXT_KEYS.POST_MANAGER]: '掌柜',
+  [TEXT_KEYS.POST_PURCHASER]: '采购',
+  [TEXT_KEYS.POST_TRAINING]: '修练',
+  [TEXT_KEYS.POST_STANDBY]: '待命',
+  // 日间（S-06 接客）
+  [TEXT_KEYS.LABEL_COUNTER]: '柜台',
+  [TEXT_KEYS.LABEL_SERVE_WINDOW]: '出餐口',
+  [TEXT_KEYS.BUBBLE_ORDER]: '点单',
+  [TEXT_KEYS.BUBBLE_PAYMENT]: '收银',
+  // 夜间（S-09 结算与事件卡）
+  [TEXT_KEYS.NIGHT_TITLE]: '夜间结算',
+  [TEXT_KEYS.SUMMARY_INCOME]: '当日收入',
+  [TEXT_KEYS.SUMMARY_REP_NET]: '声望净变',
+  [TEXT_KEYS.SUMMARY_SERVED]: '服务成功',
+  [TEXT_KEYS.SUMMARY_FAILED]: '服务失败',
+  [TEXT_KEYS.SUMMARY_WAGE]: '工钱',
+  [TEXT_KEYS.BUTTON_DRAW_CARD]: '翻卡',
+  [TEXT_KEYS.CARD_TITLE_LABEL]: '事件卡',
+  [TEXT_KEYS.CARD_RESULT_LABEL]: '结果',
+  [TEXT_KEYS.BUTTON_DAYBREAK]: '天明',
+  [TEXT_KEYS.BUTTON_FIGHT]: '迎战',
+  [TEXT_KEYS.FINAL_BATTLE_NOTICE]: '第 20 夜 — 江湖大敌来袭！',
+  // 伙计名（gdd「伙计初始值」5 名）
+  [TEXT_KEYS.STAFF_AFU]: '阿福',
+  [TEXT_KEYS.STAFF_TIENIU]: '铁牛',
+  [TEXT_KEYS.STAFF_WENQU]: '文曲',
+  [TEXT_KEYS.STAFF_XIAODIE]: '小蝶',
+  [TEXT_KEYS.STAFF_DASONG]: '大嵩',
+  // 事件卡（垂直切片 3 张 — gdd「事件卡」表の #1/#5/#8。build S-17 で 15 张に拡張）
+  [TEXT_KEYS.CARD_1_TITLE]: '镖师借宿',
+  [TEXT_KEYS.CARD_1_OPT1]: '赠银送行（银 −15 / 声望 +6）',
+  [TEXT_KEYS.CARD_1_OPT1_RESULT]: '镖师感激离去，客栈声名渐起',
+  [TEXT_KEYS.CARD_1_OPT2]: '收留借宿（银 +12 / 侠点 +3）',
+  [TEXT_KEYS.CARD_1_OPT2_RESULT]: '镖师留下房钱，还传授了几手防身功夫',
+  [TEXT_KEYS.CARD_5_TITLE]: '同行拆台',
+  [TEXT_KEYS.CARD_5_OPT1]: '当面拆穿（声望 +8）',
+  [TEXT_KEYS.CARD_5_OPT1_RESULT]: '当众揭穿诡计，客人都赞客栈光明磊落',
+  [TEXT_KEYS.CARD_5_OPT2]: '破财免灾（银 −20 / 声望 +2）',
+  [TEXT_KEYS.CARD_5_OPT2_RESULT]: '花银子消灾，好在太平无事',
+  [TEXT_KEYS.CARD_8_TITLE]: '商队歇脚',
+  [TEXT_KEYS.CARD_8_OPT1]: '高价售粮（银 +15）',
+  [TEXT_KEYS.CARD_8_OPT1_RESULT]: '商队慷慨付账，银子入柜',
+  [TEXT_KEYS.CARD_8_OPT2]: '平价相售（银 +4 / 声望 +5）',
+  [TEXT_KEYS.CARD_8_OPT2_RESULT]: '商队感念实惠，逢人便夸客栈厚道',
+  // 成长阶段別台词（S-07: 台词按成长阶段切换）
+  [TEXT_KEYS.STAFF_LINE_STAGE_1]: '我会努力的！',
+  [TEXT_KEYS.STAFF_LINE_STAGE_2]: '交给我吧，这点小事难不倒我',
+  [TEXT_KEYS.STAFF_LINE_STAGE_3]: '江湖第一跑堂，舍我其谁',
+  // 志向选择（S-04: 财/侠/名）
+  [TEXT_KEYS.AMBITION_TITLE]: '选择志向',
+  [TEXT_KEYS.AMBITION_HINT]: '志向决定开局资源与事件卡的际遇',
+  [TEXT_KEYS.AMBITION_WEALTH_LABEL]: '财 — 以商立业',
+  [TEXT_KEYS.AMBITION_XIA_LABEL]: '侠 — 以义结交',
+  [TEXT_KEYS.AMBITION_FAME_LABEL]: '名 — 以名动江湖',
+};

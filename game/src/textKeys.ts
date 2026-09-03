@@ -1,7 +1,7 @@
 /**
  * 玩法侧玩家可见文本的 key 一览（conventions 规则 4: 文案零硬编码）。
- * systems は key のみを参照（文案を知らない）。中文文案表は ui/gameplayStrings.ts、
- * 查表は TextProvider（S-11 systems/i18n 落地后由正式查表接管）。
+ * systems は key のみを参照（文案を知らない）。中文/英文文案表は systems/i18n/zhTable.ts・
+ * enTable.ts、查表は systems/i18n の TextProvider（S-11 落地済み）。
  * ui/ からも本モジュールの key を参照する（依存方向: ui → 共通 → systems を崩さないため
  * key 定数だけを这里に置く — systems が ui/ を import しない）。
  */
@@ -41,6 +41,10 @@ export const TEXT_KEYS = {
   STAFF_WENQU: 'staff.wenqu',
   STAFF_XIAODIE: 'staff.xiaodie',
   STAFF_DASONG: 'staff.dasong',
+  // 成长阶段別台词（S-07: 台词按成长阶段切换）
+  STAFF_LINE_STAGE_1: 'staff.line.stage1',
+  STAFF_LINE_STAGE_2: 'staff.line.stage2',
+  STAFF_LINE_STAGE_3: 'staff.line.stage3',
   // 事件卡（垂直切片 3 张 — gdd「事件卡」表の #1/#5/#8。build S-17 で 15 张に拡張）
   CARD_1_TITLE: 'card.1.title',
   CARD_1_OPT1: 'card.1.opt1',
@@ -57,4 +61,70 @@ export const TEXT_KEYS = {
   CARD_8_OPT1_RESULT: 'card.8.opt1.result',
   CARD_8_OPT2: 'card.8.opt2',
   CARD_8_OPT2_RESULT: 'card.8.opt2.result',
+  // 志向选择（S-04: 财/侠/名 3 按钮）
+  AMBITION_TITLE: 'ambition.title',
+  AMBITION_HINT: 'ambition.hint',
+  AMBITION_WEALTH_LABEL: 'ambition.wealth.label',
+  AMBITION_XIA_LABEL: 'ambition.xia.label',
+  AMBITION_FAME_LABEL: 'ambition.fame.label',
+} as const;
+
+// ==== HUD / Result / Title / Menu 側 key（S-11: 全 key を共通層に集約 — systems/i18n の
+// 言語表が参照する。ui/hudStrings は本モジュールからの re-export に切り替え）====
+
+/** 玩家可见文本 key（HUD 与暂停面板 — S-10） */
+export const HUD_TEXT_KEYS = {
+  HUD_SILVER: 'hud.silver',
+  HUD_REPUTATION: 'hud.reputation',
+  HUD_DAY: 'hud.day',
+  HUD_LEDGER: 'hud.ledger',
+  PAUSE_TITLE: 'pause.title',
+  PAUSE_RESUME: 'pause.resume',
+  PAUSE_END_RUN: 'pause.endRun',
+  PAUSE_QUIT: 'pause.quit',
+} as const;
+
+/** 玩家可见文本 key（Result 场景 — S-15） */
+export const RESULT_TEXT_KEYS = {
+  RESULT_TITLE_DEFEAT: 'result.title.defeat',
+  RESULT_TITLE_COMPLETE: 'result.title.complete',
+  RESULT_SCORE_LABEL: 'result.score',
+  RESULT_SCORE_SILVER: 'result.score.silver',
+  RESULT_SCORE_REPUTATION: 'result.score.reputation',
+  RESULT_SCORE_POWER: 'result.score.power',
+  RESULT_SCORE_BONUS: 'result.score.bonus',
+  RESULT_RETRY: 'result.retry',
+  RESULT_TO_MENU: 'result.toMenu',
+} as const;
+
+/** 玩家可见文本 key（Title 场景 — S-12） */
+export const TITLE_TEXT_KEYS = {
+  TITLE_GAME_TITLE: 'title.gameTitle',
+  TITLE_START_PROMPT: 'title.startPrompt',
+  TITLE_RECOVERED_NOTICE: 'title.recovered',
+} as const;
+
+/** 玩家可见文本 key（Menu 场景 — S-13 必需要素 4 项 + S-11 语言切换） */
+export const MENU_TEXT_KEYS = {
+  MENU_TITLE: 'menu.title',
+  MENU_CONTINUE: 'menu.continue',
+  MENU_NEW_RUN: 'menu.newRun',
+  MENU_OPEN_STATS: 'menu.openStats',
+  MENU_OPEN_SETTINGS: 'menu.openSettings',
+  MENU_BACK_TITLE: 'menu.backTitle',
+  MENU_RECOVERED_NOTICE: 'menu.recovered',
+  MENU_STATS_TITLE: 'menu.stats.title',
+  MENU_STATS_BEST: 'menu.stats.best',
+  MENU_STATS_RUNS: 'menu.stats.runs',
+  MENU_STATS_SILVER_PEAK: 'menu.stats.silverPeak',
+  MENU_STATS_REP_PEAK: 'menu.stats.repPeak',
+  MENU_STATS_SERVED: 'menu.stats.served',
+  MENU_STATS_ENDINGS: 'menu.stats.endings',
+  MENU_CLOSE: 'menu.close',
+  MENU_SETTINGS_TITLE: 'menu.settings.title',
+  MENU_BGM_LABEL: 'menu.settings.bgm',
+  MENU_SFX_LABEL: 'menu.settings.sfx',
+  MENU_LANGUAGE_LABEL: 'menu.settings.language',
+  MENU_HINT_TITLE: 'menu.settings.hint.title',
+  MENU_HINT_BODY: 'menu.settings.hint.body',
 } as const;

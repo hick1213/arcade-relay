@@ -293,6 +293,12 @@ export const MENU = {
   SETTINGS_BGM_Y: 268,
   SETTINGS_SFX_Y: 332,
 
+  // 语言切换按钮（S-11: zh/en 即时切换。设置面板内、滑块与操作说明の間）
+  LANGUAGE_BUTTON_Y: 362,
+  LANGUAGE_BUTTON_WIDTH: 260,
+  LANGUAGE_BUTTON_HEIGHT: 44,
+  LANGUAGE_BUTTON_FONT_SIZE: '18px',
+
   // 输入路由（模态层屏蔽基础按钮 — conventions 规则 7。模态 > 基础按钮 > 无）
   LAYER_ID: 'menu.modal',
   PRIORITY_BUTTON: 10,
@@ -309,6 +315,7 @@ export const MENU = {
   ZONE_SETTINGS_CLOSE: 'menu.settings.close',
   ZONE_BGM_SLIDER: 'menu.slider.bgm',
   ZONE_SFX_SLIDER: 'menu.slider.sfx',
+  ZONE_LANGUAGE_TOGGLE: 'menu.language.toggle',
 } as const;
 
 /** HUD 初期表示値（志向确定前的占位。S-04/S-08 接线后由 Systems 层真值置换） */
@@ -449,6 +456,28 @@ export const EVENT = {
   XIA_POINT_PER_CHOICE: 3,
 } as const;
 
+// ==== i18n（S-11 systems/i18n。缺 key 回落中文 — DEFAULT_LANGUAGE はその回落先も兼ねる）====
+export const I18N = {
+  DEFAULT_LANGUAGE: 'zh',
+} as const;
+
+// ==== 志向选择レイアウト（S-04。財/侠/名 3 按钮 ≥48px — acceptance の触控下限）====
+export const AMBITION_UI = {
+  BUTTONS: [
+    { x: 340, y: 380 },
+    { x: 640, y: 380 },
+    { x: 940, y: 380 },
+  ],
+  BUTTON_WIDTH: 240,
+  BUTTON_HEIGHT: 96,
+  LABEL_FONT_SIZE: '22px',
+  VALUE_FONT_SIZE: '16px',
+  TITLE_Y: 180,
+  TITLE_FONT_SIZE: '28px',
+  HINT_Y: 250,
+  HINT_FONT_SIZE: '18px',
+} as const;
+
 // ==== 画面布局（S-02: 6 桌/出餐口/柜台の固定构图。GAME_WIDTH×GAME_HEIGHT 基准 —
 // Scale.FIT 下任意窗口尺寸不裁切。全部の座標・寸法はここで一元管理）====
 export const GAME_LAYOUT = {
@@ -500,6 +529,9 @@ export const MORNING = {
   AVATAR_NAME_FONT_SIZE: '15px',
   AVATAR_POST_FONT_SIZE: '13px',
   AVATAR_STAT_FONT_SIZE: '12px',
+  /** 成长阶段別の台词（S-07。头像下 1 行 — 文案は systems/i18n 言語表） */
+  AVATAR_LINE_OFFSET_Y: 42,
+  AVATAR_LINE_FONT_SIZE: '11px',
 } as const;
 
 // ==== 夜间结算/事件卡レイアウト（S-09。结算摘要 → 翻卡 → 选项 → 结果反馈 → 天明）====
@@ -553,6 +585,9 @@ export const GAMEPLAY = {
   PROGRESS_BG: 0x281d10,
   PROGRESS_Y: 92,
   MARKER_SIZE: 30,
+  /** 成长阶段（0–6/7–13/14+）別の程序化差分 — 色调（S-07: 色调/缩放/表情贴片のうち色调＋缩放） */
+  STAGE_TINTS: [0x963a16, 0xb45a24, 0xd4813a],
+  STAGE_SCALES: [1, 1.15, 1.3],
   SELECTED_STROKE: 0xf0c182,
   SELECTED_STROKE_WIDTH: 4,
   LABEL_FONT_SIZE: '15px',
@@ -565,6 +600,7 @@ export const GAMEPLAY = {
 
 // ==== 玩法点击判定区（InputRouter 登録。优先级は INPUT_PRIORITY の既定档を使用）====
 export const GAMEPLAY_ZONES = {
+  AMBITION: (ambitionId: string): string => `game.ambition.${ambitionId}`,
   POST: (index: number): string => `game.morning.post.${index}`,
   STAFF_AVATAR: (staffId: string): string => `game.morning.staff.${staffId}`,
   OPEN_DOOR: 'game.morning.openDoor',

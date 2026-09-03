@@ -28,7 +28,7 @@ stories:
     pillar: P-03
     assignee: gameplay-engineer
     phase: prototype
-    status: todo
+    status: review
     acceptance: "新周目进入志向选择（财/侠/名 3 个 ≥48px 图标按钮）; 选定后银子/声望为 GDD 初始值（150/15、60/30、90/40）; 志向确认时 run 快照写入 SaveData; ambition 模块不依赖 Phaser"
   - id: S-05
     title: "晨间岗位分配与修练成长"
@@ -77,7 +77,7 @@ stories:
     pillar: P-04
     assignee: gameplay-engineer
     phase: prototype
-    status: todo
+    status: review
     acceptance: "systems/i18n/ 查表模块: 全部玩家可见文本经 key 取得（代码中无硬编码中文文案）; 缺 key 回落中文并 console.warn 恰好 1 次; 语言设置变更后无需刷新即切换显示语言（prototype 至少 zh/en 两表骨架，5 语言全量在 build S-24）"
   - id: S-12
     title: "Title 场景"

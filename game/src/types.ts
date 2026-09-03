@@ -10,6 +10,8 @@
  * 全部为单次 pointerdown 触发 — 无 pointerup / 双击 / 长按 / 拖拽依赖（conventions 规则 2）。
  */
 export const TAP_EVENTS = {
+  /** 志向选择（S-04: 財/侠/名 3 按钮。payload.ambitionId） */
+  AMBITION_CONFIRM: 'onAmbitionConfirmTap',
   /** 晨间「开门营业」 */
   OPEN_DOOR: 'onOpenDoorTap',
   /** 晨间岗位图标（两次点击制的第一步） */
@@ -62,6 +64,8 @@ export const TAP_EVENTS = {
   MENU_BGM_VOLUME: 'onMenuBgmVolumeTap',
   /** SFX 音量滑块 */
   MENU_SFX_VOLUME: 'onMenuSfxVolumeTap',
+  /** 语言切换（S-11: zh/en 即时切换 — 点击即切换并持久化） */
+  MENU_LANGUAGE_TOGGLE: 'onMenuLanguageToggleTap',
 } as const;
 
 export type TapEventName = (typeof TAP_EVENTS)[keyof typeof TAP_EVENTS];
@@ -150,8 +154,11 @@ export type {
 // ==== 周目内玩法状态（S-02/S-03/S-05/S-06/S-08/S-09 — systems 纯逻辑 ⇔ ui/GameplayView 显示）====
 // 真值は Systems 层（runEngine）。UI はこの状态を受けて描くだけ（双重管理禁止 — ui-code 规范）。
 
-/** 一日相位（gdd「一日相位控制器」: 晨→日→夜の场景内状态机） */
-export type Phase = 'morning' | 'day' | 'night';
+/**
+ * 一日相位（gdd「一日相位控制器」: 晨→日→夜の场景内状态机）。
+ * 'ambition' = 新周目开局の志向选择（S-04）。确认后晨间へ迁移し、以後は gdd の 3 相位循环。
+ */
+export type Phase = 'ambition' | 'morning' | 'day' | 'night';
 
 /** 岗位（gdd「岗位分配系统」: 跑堂/掌柜/采购/修练 ＋ 待命） */
 export type PostId = 'waiter' | 'manager' | 'purchaser' | 'training';

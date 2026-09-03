@@ -1,5 +1,7 @@
 import Phaser from 'phaser';
 import { ASSET_KEYS, AUDIO_FORMATS } from '../config';
+import { loadSaveData } from '../persistence/SaveAdapter';
+import { setLanguage } from '../systems/i18n';
 
 /**
  * BootScene — 资产加载与存档初始加载。
@@ -20,6 +22,9 @@ export class BootScene extends Phaser.Scene {
   }
 
   create(): void {
+    // 言語の初期化（S-11）: SaveData.settings.lang を i18n モジュールへ反映してから Title へ。
+    // 以後の全场景の文案查表はこの言語で行われる（ページリロード不要の即時切替の基準点）。
+    setLanguage(loadSaveData().data.settings.lang);
     this.scene.start('Title');
   }
 }

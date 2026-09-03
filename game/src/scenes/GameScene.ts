@@ -5,11 +5,11 @@ import { TAP_EVENTS, type HudState, type RunEndSummary, type RunState, type TapH
 import { buildRunEndSummary } from '../systems/economy';
 import { applyRunResult, createRunResult } from '../systems/meta/metaProgression';
 import { loadSaveData, saveSaveData } from '../persistence/SaveAdapter';
+import { createRunSnapshot, createResumeRun } from '../systems/runEngine';
+import { createTextProvider } from '../systems/i18n';
 import { Hud } from '../ui/Hud';
 import { PausePanel } from '../ui/PausePanel';
 import { GameplayView } from '../ui/GameplayView';
-import { createFallbackTextProvider } from '../ui/hudStrings';
-import { GAMEPLAY_ZH_TABLE } from '../ui/gameplayStrings';
 
 /**
  * GameScene — 周目内游戏画面（晨/日/夜三段在场景内状态机推进，无场景跳跃）。
@@ -32,8 +32,11 @@ export class GameScene extends Phaser.Scene {
   }
 
   create(): void {
-    // 场景重建＝状态全リセット（重开时计时器/客人/岗位表/弃牌堆の泄漏なし — S-15 acceptance）
-    this.run = createInitialRun();
+    // 场景重建＝状态全リセット（重开时计时器/客人/岗位表/弃牌堆の泄漏なし — S-15 acceptance）。
+    // Menu「继续周目」経由（resume: true）は run 快照から当日晨间へ復帰（S-04 快照の読み出し側）
+    const sceneData = this.scene.settings.data as { readonly resume?: boolean } | undefined;
+    const snapshot = sceneData?.resume === true ? loadSaveData().data.run : null;
+    this.run = snapshot !== null ? createResumeRun(snapshot) : createInitialRun();
     this.runResultPersisted = false;
 
     // 点击输入唯一入口（S-01 InputRouter — tech-stack 规范 4 / conventions 规则 7）
@@ -42,10 +45,8 @@ export class GameScene extends Phaser.Scene {
       this.router.handlePointerDown(pointer.x, pointer.y);
     });
 
-    // TODO(S-11): systems/i18n 落地后替换为正式查表 provider（现段階は hudStrings 中文回落＋
-    // gameplayStrings 中文表の優先引き — 缺 key は key 本体を返す）
-    const fallback = createFallbackTextProvider();
-    const textProvider: TextProvider = (key) => GAMEPLAY_ZH_TABLE[key] ?? fallback(key);
+    // 文案は systems/i18n の正式查表 provider（S-11。缺 key 回落中文＋warn 1 次）
+    const textProvider: TextProvider = createTextProvider();
 
     this.pausePanel = new PausePanel(this, textProvider, this.router, {
       // 「结束周目」= 破产/终战判定の自動迁移（runEngine.ended）と並ぶ手動経路
@@ -70,6 +71,10 @@ export class GameScene extends Phaser.Scene {
   }
 
   update(_time: number, delta: number): void {
+    // 志向选择相位は player 操作のみで進む（delta 计时の対象外 — gdd「一日相位控制器」）
+    if (this.run.phase === 'ambition') {
+      return;
+    }
     // 暂停面板开启中: 全部相位推进停止（gdd: 面板开启时计时暂停、其他点击被屏蔽）
     if (this.pausePanel.isOpen) {
       return;
@@ -79,8 +84,19 @@ export class GameScene extends Phaser.Scene {
   }
 
   private applyTap(hit: TapHit): void {
+    const previousPhase = this.run.phase;
     this.run = handleTapEvent(this.run, hit);
+    // 志向确认の瞬間に run 快照を SaveData へ書き出し（S-04 acceptance）
+    if (previousPhase === 'ambition' && this.run.phase !== 'ambition') {
+      this.persistRunSnapshot();
+    }
     this.syncView();
+  }
+
+  /** 志向确定 → run 快照を SaveData.run へ（Menu「继续周目」の表示条件 — S-04） */
+  private persistRunSnapshot(): void {
+    const loaded = loadSaveData();
+    saveSaveData({ ...loaded.data, run: createRunSnapshot(this.run) });
   }
 
   /** 破产/周目终结の自動迁移 → Result（runEngine.ended が真値 — S-08/S-15） */
