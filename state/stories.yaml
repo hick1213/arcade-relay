@@ -14,14 +14,14 @@ stories:
     pillar: P-01
     assignee: gameplay-engineer
     phase: prototype
-    status: todo
+    status: review
     acceptance: "GameScene 中背景可视化（IMG-01~03 就绪前允许纯色/渐变占位）且画面布局确定: 6 张桌位、出餐口、柜台在 1280x720 构图中位置固定并可点击；晨/日/夜三相各自有明显可辨的色调差异（程序化 tint 或背景切换）；Scale.FIT 下任意窗口尺寸均不裁切主要交互区"
   - id: S-03
     title: "一日相位控制器（晨/日/夜状态机）"
     pillar: P-01
     assignee: gameplay-engineer
     phase: prototype
-    status: todo
+    status: review
     acceptance: "dayCycle 纯状态机: 晨间点击「开门营业」→日间；夜间点击「天明」→次日晨间且日数+1；日间以 DAY_SERVICE_DURATION_S=180s 为唯一硬计时（用 delta 累计，快进测试中 180 等效秒后自动进入夜间）；第 20 日夜触发终战事件；晨间/夜间无强制时限、超过 MORNING_GUIDE_TARGET_S 仅按钮脉冲"
   - id: S-04
     title: "志向系统与新周目开局"
@@ -35,14 +35,14 @@ stories:
     pillar: P-01
     assignee: gameplay-engineer
     phase: prototype
-    status: todo
+    status: review
     acceptance: "两次点击指派（先点岗位图标→再点伙计头像，再次点击已指派伙计=取消）; 容量约束生效: 掌柜 ≤1、采购 0–2、修练 ≤TRAINING_SLOTS=2、跑堂 0–5，超容量的指派被拒绝且有提示; 修练指派使指定属性 +TRAINING_GAIN=1（上限 STAFF_STAT_MAX=10）且成长阶段按 0–6/7–13/14+ 刷新; 排班未完成也可点「开门营业」（未指派=待命）"
   - id: S-06
     title: "日间接客核心循环（客人流/订单/后厨/上菜收钱）"
     pillar: P-01
     assignee: gameplay-engineer
     phase: prototype
-    status: todo
+    status: review
     acceptance: "散客按 CUSTOMER_INTERVAL_D1_3_S=12s 到达→入座亮起点单气泡→点击空桌派空闲跑堂点单（ORDER_TAKE_S）→后厨按 DISH_PREP(n) 制菜→出餐口亮起→点击派跑堂上菜（SERVE_S）→吃完亮起银两气泡→点击收钱; 收入=round(菜价×(1+剩余耐心比例×TIP_FACTOR)); 耐心归零则客人离店、声望 −2; 伙计移动用 delta 驱动且同一伙计同时只做 1 单; 立绘可用占位色块"
   - id: S-07
     title: "成长可见差分（速度线）"
@@ -56,14 +56,14 @@ stories:
     pillar: P-03
     assignee: gameplay-engineer
     phase: prototype
-    status: todo
+    status: review
     acceptance: "银子/声望的加算与夜间工钱扣除（DAILY_WAGE_PER_STAFF×5=30 两）生效且帐本 UI 数值与之同步; silver<0 的瞬间立即迁移到 ResultScene 显示败局（不可重试）; 破产判定在夜结算后与收钱/事件 Δ 后均成立"
   - id: S-09
     title: "夜间结算与事件卡（垂直切片用 3 张）"
     pillar: P-03
     assignee: gameplay-engineer
     phase: prototype
-    status: todo
+    status: review
     acceptance: "夜间显示当日结算摘要（收入/声望净变/成功失败数）; 点击「翻卡」从 3 张事件卡池抽 1 张（不重复弃牌）; 各选项执行银子/声望 Δ 并显示结果反馈; 「天明」按钮在读完反馈前不自动推进; 事件卡数据表与逻辑分离（build 阶段扩到 15 张不改结构）"
   - id: S-10
     title: "HUD 与帐本暂停面板"

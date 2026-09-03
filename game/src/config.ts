@@ -3,7 +3,7 @@
  * GDD「数值表」的常量在实现各系统的 story 中按 GDD 记载初始值逐次追加于此。
  * 本文件当前为脚手架阶段的最小集合。
  */
-import type { HudState, RunEndSummary } from './types';
+import type { HudState, PostId, RunEndSummary, StaffSeed } from './types';
 
 // ==== 画面 ====
 export const GAME_WIDTH = 1280;
@@ -273,3 +273,265 @@ export const MENU = {
 
 /** HUD 初期表示値（志向确定前的占位。S-04/S-08 接线后由 Systems 层真值置换） */
 export const HUD_INITIAL_STATE: HudState = { silver: 0, reputation: 0, day: 1 };
+
+// ==== 共通ユーティリティ ====
+/** delta(ms) と gdd の秒定義の换算係数（gdd 数值表は全て秒 — 実装は delta 累计） */
+export const MS_PER_SECOND = 1000;
+
+// ==== 一日相位（S-03 dayCycle。出处: gdd「数值表」）====
+export const DAY_CYCLE = {
+  /** 日间实时段时长（全游戏唯一硬计时） */
+  DAY_SERVICE_DURATION_S: 180,
+  /** 晨间引导目标（非强制计时。超时仅「开门营业」按钮脉冲） */
+  MORNING_GUIDE_TARGET_S: 120,
+  /** 终战触发日（该日夜: gdd「胜负条件」） */
+  FINAL_BATTLE_DAY: 20,
+} as const;
+
+// ==== 志向（S-04 志向选择接线前は DEFAULT_ID で开局。出处: gdd「数值表」SILVER_START/REP_START/
+// AMBITION_BIAS。志向选择 UI と 3 志向の开局分岐は story S-04 で接线 — 判断事項）====
+export const AMBITION = {
+  DEFAULT_ID: 'wealth',
+  /** 志向对事件正の効果の偏移率 */
+  BIAS: 0.3,
+  /** 初始银子/声望（財/侠/名） */
+  START: {
+    wealth: { silver: 150, reputation: 15 },
+    xia: { silver: 60, reputation: 30 },
+    fame: { silver: 90, reputation: 40 },
+  },
+} as const;
+
+// ==== 伙计（gdd「数值表」末尾の「伙计初始值」5 名表をそのまま転写）====
+// trainStat（修练で伸びる指定属性）は gdd が属性指定方法を規定しないため、各伙计の
+// 得意属性（性格与可见差分欄の对应: 阿福=速/铁牛=艺/文曲=艺/小蝶=体/大嵩=体）を採用 — 判断事項。
+export const STAFF_ROSTER: readonly StaffSeed[] = [
+  { id: 'afu', nameKey: 'staff.afu', speed: 3, craft: 1, stamina: 2, trainStat: 'speed' },
+  { id: 'tieniu', nameKey: 'staff.tieniu', speed: 1, craft: 3, stamina: 2, trainStat: 'craft' },
+  { id: 'wenqu', nameKey: 'staff.wenqu', speed: 2, craft: 2, stamina: 1, trainStat: 'craft' },
+  { id: 'xiaodie', nameKey: 'staff.xiaodie', speed: 2, craft: 1, stamina: 3, trainStat: 'stamina' },
+  { id: 'dasong', nameKey: 'staff.dasong', speed: 1, craft: 1, stamina: 4, trainStat: 'stamina' },
+];
+
+export const STAFF = {
+  /** 跑堂移动速度基准（px/s。横穿大厅约 3 秒） */
+  MOVE_SPEED_PX_PER_S: 220,
+  /** 每 1 点速度的动作耗时缩短率（速度 5 点≈肉眼可感の短缩 — P-02） */
+  SPEED_FACTOR: 0.15,
+  /** 动作耗时缩短率の下限（速度上限.StatMax=10 で 1−0.15×10<0 となる负值ガード — 実装側の安全夹） */
+  ACTION_FACTOR_MIN: 0.2,
+  /** 每次修练属性增量 */
+  TRAINING_GAIN: 1,
+  /** 单属性上限 */
+  STAT_MAX: 10,
+  /** 每日修练位 */
+  TRAINING_SLOTS: 2,
+  /** 疲劳状态的次日动作耗时倍率（体力 0 时） */
+  FATIGUE_PENALTY: 1.2,
+  /** 每 1 点体力的疲劳增幅减免率 */
+  STAMINA_RESIST: 0.05,
+} as const;
+
+/** 岗位容量（gdd「岗位分配系统」: 掌柜 ≤1、采购 0–2、修练 ≤TRAINING_SLOTS、跑堂 0–全员） */
+export const POST_CAPACITY: Readonly<Record<PostId, number>> = {
+  waiter: STAFF_ROSTER.length,
+  manager: 1,
+  purchaser: 2,
+  training: STAFF.TRAINING_SLOTS,
+};
+
+// ==== 日间接客（S-06 customerFlow。出处: gdd「数值表」「难度曲线」「敌人与障碍物」）====
+export const CUSTOMER = {
+  /** 桌位数（S-02 画面布局: 6 桌固定） */
+  SEATS: 6,
+  INTERVAL_D1_3_S: 12,
+  INTERVAL_D4_9_S: 10,
+  INTERVAL_D10_15_S: 8,
+  INTERVAL_D16_20_S: 7,
+  PATIENCE_D1_3_S: 50,
+  PATIENCE_D4_9_S: 45,
+  PATIENCE_D10_15_S: 40,
+  PATIENCE_D16_20_S: 35,
+  /** 无采购时的耐心惩罚（障碍性机制） */
+  NO_PURCHASE_PATIENCE_PENALTY_S: 10,
+  /** 小费率上限（上菜越快小费越高） */
+  TIP_FACTOR: 0.2,
+  /** 服务成功的声望（散客 +1。老饕 +2 は build S-16） */
+  SERVE_SUCCESS_REPUTATION: 1,
+  /** 耐心归零离店的声望惩罚（散客 −2。镖师 −3/老饕 −4 は build S-16） */
+  LEAVE_REPUTATION_PENALTY: 2,
+  /** 吃完→银两气泡までの時間。gdd 数值表に未定義 — 実装側初始值（調整は本定数のみ） */
+  EAT_S: 6,
+} as const;
+
+// ==== 点单/上菜/收钱动作（S-06/S-07。出处: gdd「数值表」ORDER_TAKE_S/SERVE_S/STAFF_SPEED_FACTOR）====
+export const SERVICE = {
+  /** 点单动作耗时 */
+  ORDER_TAKE_S: 3,
+  /** 上菜动作耗时 */
+  SERVE_S: 2,
+  /** 收钱动作耗时。gdd 数值表に未定義（収钱は动作耗时×(1−SPEED_FACTOR×速度) の対象に含まれる）—
+   *  実装側初始值（SERVE_S 同等。調整は本定数のみ） */
+  COLLECT_S: 2,
+} as const;
+
+// ==== 后厨（S-06 kitchen。出处: gdd「数值表」DISH_*/PURCHASE_KINDS_*/TEACHING_DISH_CAP/
+// CRAFT_KITCHEN_*）====
+export const KITCHEN = {
+  /** 菜号 1–6（菜价 = MIN + (n−1)×(MAX−MIN)/5 = 菜号そのもの） */
+  DISH_COUNT: 6,
+  DISH_PRICE_MIN: 1,
+  DISH_PRICE_MAX: 6,
+  /** 1 号菜制菜耗时。DISH_PREP(n) = BASE + (n−1)×STEP */
+  PREP_BASE_S: 6,
+  PREP_STEP_S: 1.6,
+  /** 每 1 点手艺的制菜耗时缩短率と上限（掌勺手艺 = 当日店内伙计中手艺最高者） */
+  CRAFT_FACTOR: 0.1,
+  CRAFT_CAP: 0.6,
+  /** 采购岗位 0/1/2 人时的当日可选菜种数（菜号 1 起） */
+  PURCHASE_KINDS: [2, 4, 6],
+  /** 第 1–3 日教学期的可选菜种上限（实际 = min(PURCHASE_KINDS_x, TEACHING_DISH_CAP)） */
+  TEACHING_DISH_CAP: 3,
+  TEACHING_LAST_DAY: 3,
+} as const;
+
+// ==== 经济（S-08 economy。出处: gdd「数值表」DAILY_WAGE_PER_STAFF）====
+export const ECONOMY = {
+  /** 每名在编伙计的每日工钱（夜间结算扣除。5 名 = 30 两/日） */
+  DAILY_WAGE_PER_STAFF: 6,
+  /** 在编伙计定员（工钱算式の固定项） */
+  ON_ROSTER_STAFF_COUNT: 5,
+} as const;
+
+// ==== 事件卡（S-09 eventCard。出处: gdd「数值表」XIA_POINT_PER_CHOICE）====
+export const EVENT = {
+  /** 侠系事件选项的侠点（卡数据表の侠 Δ は本定数を参照 — 値の一元化） */
+  XIA_POINT_PER_CHOICE: 3,
+} as const;
+
+// ==== 画面布局（S-02: 6 桌/出餐口/柜台の固定构图。GAME_WIDTH×GAME_HEIGHT 基准 —
+// Scale.FIT 下任意窗口尺寸不裁切。全部の座標・寸法はここで一元管理）====
+export const GAME_LAYOUT = {
+  /** 柜台（跑堂の待机位置） */
+  COUNTER: { x: 640, y: 648 },
+  /** 出餐口 */
+  SERVE_WINDOW: { x: 1136, y: 300 },
+  /** 6 桌（2 行 ×3 列） */
+  TABLES: [
+    { x: 250, y: 320 },
+    { x: 530, y: 320 },
+    { x: 810, y: 320 },
+    { x: 250, y: 500 },
+    { x: 530, y: 500 },
+    { x: 810, y: 500 },
+  ],
+  TABLE_WIDTH: 120,
+  TABLE_HEIGHT: 84,
+} as const;
+
+// ==== 晨间排班レイアウト（S-05。岗位图标 4 ＋ 伙计头像 5 ＋「开门营业」）====
+export const MORNING = {
+  POSTS: [
+    { x: 190, y: 300 },
+    { x: 450, y: 300 },
+    { x: 710, y: 300 },
+    { x: 970, y: 300 },
+  ],
+  POST_WIDTH: 200,
+  POST_HEIGHT: 76,
+  AVATARS: [
+    { x: 160, y: 520 },
+    { x: 400, y: 520 },
+    { x: 640, y: 520 },
+    { x: 880, y: 520 },
+    { x: 1120, y: 520 },
+  ],
+  AVATAR_WIDTH: 96,
+  AVATAR_HEIGHT: 96,
+  OPEN_DOOR_BUTTON: { x: 640, y: 660 },
+  BUTTON_WIDTH: 320,
+  BUTTON_HEIGHT: 64,
+  HINT_Y: 160,
+  HINT_FONT_SIZE: '18px',
+  TITLE_Y: 120,
+  TITLE_FONT_SIZE: '24px',
+  POST_FONT_SIZE: '17px',
+  CAPACITY_FONT_SIZE: '14px',
+  AVATAR_NAME_FONT_SIZE: '15px',
+  AVATAR_POST_FONT_SIZE: '13px',
+  AVATAR_STAT_FONT_SIZE: '12px',
+} as const;
+
+// ==== 夜间结算/事件卡レイアウト（S-09。结算摘要 → 翻卡 → 选项 → 结果反馈 → 天明）====
+export const NIGHT = {
+  PANEL_X: 640,
+  PANEL_Y: 360,
+  PANEL_WIDTH: 660,
+  PANEL_HEIGHT: 500,
+  TITLE_OFFSET_Y: -200,
+  TITLE_FONT_SIZE: '26px',
+  SUMMARY_LINE_START_OFFSET_Y: -130,
+  SUMMARY_LINE_GAP: 42,
+  SUMMARY_FONT_SIZE: '19px',
+  /** 摘要行と翻卡ボタンの间隔 */
+  DRAW_BUTTON_OFFSET_Y: 200,
+  OPTION_WIDTH: 520,
+  OPTION_HEIGHT: 60,
+  OPTION_START_OFFSET_Y: -110,
+  OPTION_GAP: 74,
+  OPTION_FONT_SIZE: '17px',
+  DAYBREAK_BUTTON_OFFSET_Y: 210,
+  RESULT_TEXT_OFFSET_Y: 60,
+  RESULT_FONT_SIZE: '17px',
+  RESULT_WRAP_WIDTH: 540,
+  CARD_TITLE_OFFSET_Y: -170,
+  FINAL_NOTICE_OFFSET_Y: 150,
+  NOTICE_FONT_SIZE: '18px',
+} as const;
+
+// ==== 玩法视图配色（art-bible 调色板の程序化运用 — 新規资产なし。conventions 规则 6）====
+export const GAMEPLAY = {
+  BG_MORNING: 0x6b4a2a,
+  BG_DAY: 0x8a6538,
+  BG_NIGHT: 0x2a2138,
+  TABLE_FILL: 0x8a5a2e,
+  TABLE_STROKE: 0x281d10,
+  CUSTOMER_FILL: 0xc18e52,
+  STAFF_FILL: 0x963a16,
+  SERVE_FILL: 0x653917,
+  BUBBLE_FILL: 0xf0e6c8,
+  BUBBLE_TEXT_COLOR: '#281d10',
+  BUBBLE_WIDTH: 72,
+  BUBBLE_HEIGHT: 32,
+  PATIENCE_BAR_WIDTH: 72,
+  PATIENCE_BAR_HEIGHT: 6,
+  PATIENCE_FILL: 0xc18e52,
+  PATIENCE_BG: 0x281d10,
+  PROGRESS_WIDTH: 480,
+  PROGRESS_HEIGHT: 10,
+  PROGRESS_FILL: 0xc18e52,
+  PROGRESS_BG: 0x281d10,
+  PROGRESS_Y: 92,
+  MARKER_SIZE: 30,
+  SELECTED_STROKE: 0xf0c182,
+  SELECTED_STROKE_WIDTH: 4,
+  LABEL_FONT_SIZE: '15px',
+  DISH_FONT_SIZE: '15px',
+  ZONE_PREFIX: 'game.',
+  /** 晨间引导超时の「开门营业」按钮脉冲（周期 ms — 実装演出定数） */
+  GUIDE_PULSE_MS: 600,
+  GUIDE_PULSE_SCALE: 1.06,
+} as const;
+
+// ==== 玩法点击判定区（InputRouter 登録。优先级は INPUT_PRIORITY の既定档を使用）====
+export const GAMEPLAY_ZONES = {
+  POST: (index: number): string => `game.morning.post.${index}`,
+  STAFF_AVATAR: (staffId: string): string => `game.morning.staff.${staffId}`,
+  OPEN_DOOR: 'game.morning.openDoor',
+  TABLE: (customerId: number): string => `game.day.table.${customerId}`,
+  SERVE_DISH: (customerId: number): string => `game.day.serve.${customerId}`,
+  PAYMENT: (customerId: number): string => `game.day.pay.${customerId}`,
+  DRAW_CARD: 'game.night.draw',
+  CARD_OPTION: (index: number): string => `game.night.option.${index}`,
+  DAYBREAK: 'game.night.daybreak',
+} as const;

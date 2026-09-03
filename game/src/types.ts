@@ -184,3 +184,159 @@ export interface SaveData {
   /** 仅存档损坏恢复会话中为 true（contract §6 — 传播到 Title/Menu 显示通知） */
   readonly recovered: boolean;
 }
+
+// ==== 周目内玩法状态（S-02/S-03/S-05/S-06/S-08/S-09 — systems 纯逻辑 ⇔ ui/GameplayView 显示）====
+// 真值は Systems 层（runEngine）。UI はこの状态を受けて描くだけ（双重管理禁止 — ui-code 规范）。
+
+/** 一日相位（gdd「一日相位控制器」: 晨→日→夜の场景内状态机） */
+export type Phase = 'morning' | 'day' | 'night';
+
+/** 岗位（gdd「岗位分配系统」: 跑堂/掌柜/采购/修练 ＋ 待命） */
+export type PostId = 'waiter' | 'manager' | 'purchaser' | 'training';
+export type StaffPost = PostId | 'standby';
+export type TrainStat = 'speed' | 'craft' | 'stamina';
+
+/** 志向（gdd「志向系统」: 财/侠/名） */
+export type AmbitionId = 'wealth' | 'xia' | 'fame';
+
+/** 画面坐标点（px。数值は config.GAME_LAYOUT の权威値 — 本类型は引擎无关） */
+export interface Point {
+  readonly x: number;
+  readonly y: number;
+}
+
+/** 伙计初期种子（config.STAFF_ROSTER の要素。gdd「伙计初始值」表） */
+export interface StaffSeed {
+  readonly id: string;
+  readonly nameKey: string;
+  readonly speed: number;
+  readonly craft: number;
+  readonly stamina: number;
+  /** 修练で伸びる指定属性（各伙计の得意属性 — 実装判断は config.ts に注记） */
+  readonly trainStat: TrainStat;
+}
+
+export interface StaffMember {
+  readonly id: string;
+  readonly nameKey: string;
+  readonly speed: number;
+  readonly craft: number;
+  readonly stamina: number;
+  readonly trainStat: TrainStat;
+  readonly post: StaffPost;
+  readonly fatigue: boolean;
+}
+
+/** 客人の订单链ステージ（到达→点单→等菜→上菜→吃→收钱 — gdd「客人流与订单系统」） */
+export type CustomerStage =
+  | 'awaitingOrder'
+  | 'ordering'
+  | 'awaitingDish'
+  | 'serving'
+  | 'eating'
+  | 'awaitingPayment'
+  | 'collecting';
+
+export interface CustomerState {
+  readonly id: number;
+  readonly seat: number;
+  readonly dishId: number;
+  readonly stage: CustomerStage;
+  readonly patienceMs: number;
+  readonly maxPatienceMs: number;
+  readonly eatMs: number;
+}
+
+/** 跑堂の单一动作（移动→动作の 2 段。同一伙计は同時に 1 动作 — S-06 acceptance） */
+export type WaiterActionKind =
+  | 'moveToOrder'
+  | 'takingOrder'
+  | 'moveToWindow'
+  | 'serving'
+  | 'moveToCollect'
+  | 'collecting';
+
+export interface WaiterAction {
+  readonly staffId: string;
+  readonly kind: WaiterActionKind;
+  readonly customerId: number;
+  readonly seat: number;
+  readonly remainingMs: number;
+  readonly totalMs: number;
+}
+
+export interface KitchenTicket {
+  readonly customerId: number;
+  readonly dishId: number;
+  readonly remainingMs: number;
+}
+
+export interface ReadyDish {
+  readonly customerId: number;
+  readonly dishId: number;
+}
+
+export interface KitchenState {
+  readonly tickets: readonly KitchenTicket[];
+  readonly ready: readonly ReadyDish[];
+}
+
+/** 单日成绩摘要（gdd「单日成绩摘要」: 夜结算で表示、只展示不另计分） */
+export interface DaySummary {
+  readonly income: number;
+  readonly reputationNet: number;
+  readonly served: number;
+  readonly failed: number;
+  readonly wage: number;
+}
+
+export type NightStage = 'summary' | 'card' | 'result';
+
+export interface DrawnEventCard {
+  readonly cardId: number;
+  readonly chosenIndex: number | null;
+  readonly resultTextKey: string | null;
+}
+
+/** 事件卡数据表要素（数据表=systems/eventCardData.ts、逻辑=systems/eventCard.ts — S-09） */
+export interface EventCardOptionData {
+  readonly textKey: string;
+  readonly resultTextKey: string;
+  readonly silverDelta: number;
+  readonly reputationDelta: number;
+  readonly xiaDelta: number;
+  /** 适配志向（この志向开局时、正の Δ に AMBITION_BIAS 偏移 — gdd「事件卡系统」） */
+  readonly favoredAmbition: AmbitionId | null;
+}
+
+export interface EventCardData {
+  readonly id: number;
+  readonly titleKey: string;
+  readonly options: readonly EventCardOptionData[];
+}
+
+/** 周目内全体状态（runEngine の单一持有。不可变更新 — conventions「类型设计」） */
+export interface RunState {
+  readonly day: number;
+  readonly phase: Phase;
+  readonly phaseElapsedMs: number;
+  readonly silver: number;
+  readonly reputation: number;
+  readonly xiaPoints: number;
+  readonly ambition: AmbitionId;
+  readonly staff: readonly StaffMember[];
+  readonly customers: readonly CustomerState[];
+  readonly kitchen: KitchenState;
+  readonly waiterActions: readonly WaiterAction[];
+  readonly arrivalTimerMs: number;
+  readonly selectedPost: PostId | null;
+  /** 直前の操作に対する提示（容量拒绝等。i18n key — systems は文案を知らない） */
+  readonly noticeKey: string | null;
+  readonly daySummary: DaySummary;
+  readonly nightStage: NightStage;
+  readonly drawnCard: DrawnEventCard | null;
+  readonly discardedCardIds: readonly number[];
+  readonly customerSeq: number;
+  readonly finalBattleNight: boolean;
+  readonly ended: RunEndSummary | null;
+}
