@@ -55,9 +55,16 @@ export function backgroundKeyForPhase(phase: Phase): string {
   }
 }
 
-/** 伙计 id → 立绘资产键。未登记 id（存在しないはず）は null — 呼出側はスプライトを省略 */
+/** 伙计 id → 立绘资产键。未登记 id（存在しないはず — 呼出側 bug）は null — 呼出側はスプライトを省略。
+ * CR-CODE iteration 1 finding 5: 静默省略は底板だけの画面を生むため warn で可観測化
+ * （warn 正当性: 回復可能な防御路径 — 立绘省略でゲームは継続し、即死しない。error ではない） */
 export function staffSpriteKey(staffId: string): string | null {
-  return STAFF_SPRITE_KEYS[staffId] ?? null;
+  const key = STAFF_SPRITE_KEYS[staffId];
+  if (key === undefined) {
+    console.warn(`[visualAssets] 未登録の staffId=${staffId} — 立绘を省略（呼出側のバグ疑い）`);
+    return null;
+  }
+  return key;
 }
 
 /** 客人 → 立绘资产键（id は 1 起始 — 3 種が均等に割れるよう 1 起点の循环） */
@@ -66,8 +73,13 @@ export function guestSpriteKey(customerId: number): string {
   return GUEST_SPRITE_KEYS[index] as string;
 }
 
-/** 菜号（1–6）→ 菜品图标资产键。範囲外は菜号帯にクランプ（登場しないはずの防御） */
+/** 菜号（1–6）→ 菜品图标资产键。範囲外は菜号帯にクランプ（登場しないはずの防御）。
+ * CR-CODE iteration 1 finding 5: 静默クランプは誤アイコン表示を隠すため warn で可観測化
+ * （warn 正当性: 回復可能 — クランプ後も正当なキーを返し表示は継続。呼出側 bug の検出用） */
 export function dishSpriteKey(dishId: number): string {
+  if (dishId < 1 || dishId > DISH_SPRITE_KEYS.length) {
+    console.warn(`[visualAssets] 菜号帯外 dishId=${dishId} — ${DISH_SPRITE_KEYS.length} にクランプ（呼出側のバグ疑い）`);
+  }
   const clamped = Math.max(1, Math.min(DISH_SPRITE_KEYS.length, dishId));
   return DISH_SPRITE_KEYS[clamped - 1] as string;
 }

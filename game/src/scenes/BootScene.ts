@@ -15,6 +15,8 @@ import { setLanguage } from '../systems/i18n';
  * 音频实际解锁（AudioContext resume）在 TitleScene 首次输入时进行 — 规范 6（autoplay 应对）。
  * IMG 资产が未落盘の場合（S-30 との合流前）は ASSET_FALLBACK の无地纹理を同一キーで
  * 登録し、以降の Scene/UI が欠落キーを参照しても描画が壊れないようにする（正常時は不発）。
+ * 欠落は CR-CODE iteration 1 の指摘どおり静默にせず、[AssetMissing] で console.error する
+ * （fallback は合流までの过渡措置 — 失败キーは Checkpoint に報告される）。
  */
 export class BootScene extends Phaser.Scene {
   constructor() {
@@ -22,6 +24,12 @@ export class BootScene extends Phaser.Scene {
   }
 
   preload(): void {
+    // 加载失败的可观测化（CR-CODE iteration 1 finding 2）: 静默 fallback は欠落を隠すため、
+    // 失败キーを [AssetMissing] で明示する。検証は headless QA の console error 0 で拾われる。
+    this.load.on(Phaser.Loader.Events.FILE_LOAD_ERROR, (file: Phaser.Loader.File) => {
+      console.error(`[AssetMissing] key=${file.key} url=${String(file.src)} — fallback 纹理で代替（Checkpoint 報告対象）`);
+    });
+
     // SFX-01～08（tech-stack.md 规范 5: 路径只经 ASSET_KEYS。各键给 OGG+M4A 双 URL、
     // Phaser AudioFile 按 canPlay 自动择一，无扩展名硬编码的格式分支）
     Object.values(ASSET_KEYS.audio).forEach((basePath) => {
@@ -52,21 +60,58 @@ export class BootScene extends Phaser.Scene {
 
   /** ロード失敗/未同梱の IMG キーへ ASSET_FALLBACK 纹理を同一キーで登録（冪等） */
   private ensureImageFallbackTextures(): void {
-    const imageKeys = [
-      ...Object.values(ASSET_KEYS.images),
-      ...Object.values(ASSET_KEYS.spriteSheets),
-    ];
-    imageKeys.forEach((key) => {
-      if (this.textures.exists(key)) {
-        return;
+    Object.values(ASSET_KEYS.images).forEach((key) => {
+      if (!this.textures.exists(key)) {
+        this.generateFallbackImageTexture(key);
       }
-      const g = this.make.graphics({ x: 0, y: 0 }, false);
-      g.fillStyle(ASSET_FALLBACK.FILL, 1);
-      g.fillRect(0, 0, ASSET_FALLBACK.SIZE, ASSET_FALLBACK.SIZE);
-      g.lineStyle(ASSET_FALLBACK.STROKE_WIDTH, ASSET_FALLBACK.STROKE, 1);
-      g.strokeRect(0, 0, ASSET_FALLBACK.SIZE, ASSET_FALLBACK.SIZE);
-      g.generateTexture(key, ASSET_FALLBACK.SIZE, ASSET_FALLBACK.SIZE);
-      g.destroy();
     });
+    // sheet キー（CR-CODE iteration 1 finding 4）: 単帧プレーン纹理だと帧参照（0–5）が
+    // 存在しない帧を刺すため、IMG_SHEET_FRAME のグリッド＝帧区画つきで生成する。
+    Object.values(ASSET_KEYS.spriteSheets).forEach((key) => {
+      if (!this.textures.exists(key)) {
+        this.generateFallbackSheetTexture(key);
+      }
+    });
+  }
+
+  /** 单帧の无地プレート（image キー用） */
+  private generateFallbackImageTexture(key: string): void {
+    const g = this.make.graphics({ x: 0, y: 0 }, false);
+    g.fillStyle(ASSET_FALLBACK.FILL, 1);
+    g.fillRect(0, 0, ASSET_FALLBACK.SIZE, ASSET_FALLBACK.SIZE);
+    g.lineStyle(ASSET_FALLBACK.STROKE_WIDTH, ASSET_FALLBACK.STROKE, 1);
+    g.strokeRect(0, 0, ASSET_FALLBACK.SIZE, ASSET_FALLBACK.SIZE);
+    g.generateTexture(key, ASSET_FALLBACK.SIZE, ASSET_FALLBACK.SIZE);
+    g.destroy();
+  }
+
+  /** sheet キー用: IMG_SHEET_FRAME の COLS x ROWS グリッドを帧として登记した代用纹理 */
+  private generateFallbackSheetTexture(key: string): void {
+    const width = IMG_SHEET_FRAME.WIDTH * IMG_SHEET_FRAME.COLS;
+    const height = IMG_SHEET_FRAME.HEIGHT * IMG_SHEET_FRAME.ROWS;
+    const g = this.make.graphics({ x: 0, y: 0 }, false);
+    let frame = 0;
+    for (let row = 0; row < IMG_SHEET_FRAME.ROWS; row += 1) {
+      for (let col = 0; col < IMG_SHEET_FRAME.COLS; col += 1) {
+        // 帧区画を区別できるよう市松模様の明度差（フレーム番号の視認 — 欠落時の識別用）
+        const alpha = ASSET_FALLBACK.CELL_ALPHAS[frame % ASSET_FALLBACK.CELL_ALPHAS.length];
+        g.fillStyle(ASSET_FALLBACK.FILL, alpha);
+        g.fillRect(col * IMG_SHEET_FRAME.WIDTH, row * IMG_SHEET_FRAME.HEIGHT, IMG_SHEET_FRAME.WIDTH, IMG_SHEET_FRAME.HEIGHT);
+        g.lineStyle(ASSET_FALLBACK.STROKE_WIDTH, ASSET_FALLBACK.STROKE, 1);
+        g.strokeRect(col * IMG_SHEET_FRAME.WIDTH, row * IMG_SHEET_FRAME.HEIGHT, IMG_SHEET_FRAME.WIDTH, IMG_SHEET_FRAME.HEIGHT);
+        frame += 1;
+      }
+    }
+    g.generateTexture(key, width, height);
+    g.destroy();
+    // 実资产と同じ帧索引（0–COLS*ROWS−1）を付与 — UI 側の帧参照が fallback でも成立する
+    const texture = this.textures.get(key);
+    let index = 0;
+    for (let row = 0; row < IMG_SHEET_FRAME.ROWS; row += 1) {
+      for (let col = 0; col < IMG_SHEET_FRAME.COLS; col += 1) {
+        texture.add(index, 0, col * IMG_SHEET_FRAME.WIDTH, row * IMG_SHEET_FRAME.HEIGHT, IMG_SHEET_FRAME.WIDTH, IMG_SHEET_FRAME.HEIGHT);
+        index += 1;
+      }
+    }
   }
 }
