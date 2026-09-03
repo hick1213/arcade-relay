@@ -68,6 +68,7 @@ export class TitleScene extends Phaser.Scene {
     this.add
       .text(GAME_WIDTH / 2, TITLE.TITLE_TEXT_Y, this.textProvider(TITLE_TEXT_KEYS.TITLE_GAME_TITLE), {
         fontFamily: UI.HUD_FONT_FAMILY,
+        resolution: UI.TEXT_RESOLUTION,
         fontSize: TITLE.TITLE_FONT_SIZE,
         fontStyle: 'bold',
         color: UI.HUD_VALUE_COLOR,
@@ -82,6 +83,7 @@ export class TitleScene extends Phaser.Scene {
     return this.add
       .text(GAME_WIDTH / 2, TITLE.PROMPT_Y, this.textProvider(TITLE_TEXT_KEYS.TITLE_START_PROMPT), {
         fontFamily: UI.HUD_FONT_FAMILY,
+        resolution: UI.TEXT_RESOLUTION,
         fontSize: TITLE.PROMPT_FONT_SIZE,
         fontStyle: 'bold',
         color: UI.HUD_TEXT_COLOR,
@@ -100,6 +102,7 @@ export class TitleScene extends Phaser.Scene {
         this.textProvider(TITLE_TEXT_KEYS.TITLE_RECOVERED_NOTICE),
         {
           fontFamily: UI.HUD_FONT_FAMILY,
+          resolution: UI.TEXT_RESOLUTION,
           fontSize: TITLE.RECOVERED_NOTICE_FONT_SIZE,
           color: UI.HUD_FLASH_UP_COLOR,
           stroke: UI.HUD_STROKE_COLOR,

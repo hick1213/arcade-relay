@@ -152,6 +152,7 @@ export class Hud {
   private labelStyle(): Phaser.Types.GameObjects.Text.TextStyle {
     return {
       fontFamily: UI.HUD_FONT_FAMILY,
+      resolution: UI.TEXT_RESOLUTION,
       fontSize: UI.HUD_LABEL_FONT_SIZE,
       color: UI.HUD_TEXT_COLOR,
       stroke: UI.HUD_STROKE_COLOR,
@@ -162,6 +163,7 @@ export class Hud {
   private valueStyle(): Phaser.Types.GameObjects.Text.TextStyle {
     return {
       fontFamily: UI.HUD_FONT_FAMILY,
+      resolution: UI.TEXT_RESOLUTION,
       fontSize: UI.HUD_VALUE_FONT_SIZE,
       fontStyle: 'bold',
       color: UI.HUD_VALUE_COLOR,
@@ -173,6 +175,7 @@ export class Hud {
   private ledgerStyle(): Phaser.Types.GameObjects.Text.TextStyle {
     return {
       fontFamily: UI.HUD_FONT_FAMILY,
+      resolution: UI.TEXT_RESOLUTION,
       fontSize: UI.HUD_LEDGER_FONT_SIZE,
       fontStyle: 'bold',
       color: UI.HUD_TEXT_COLOR,
@@ -184,6 +187,7 @@ export class Hud {
   private popupStyle(): Phaser.Types.GameObjects.Text.TextStyle {
     return {
       fontFamily: UI.HUD_FONT_FAMILY,
+      resolution: UI.TEXT_RESOLUTION,
       fontSize: UI.HUD_POPUP_FONT_SIZE,
       fontStyle: 'bold',
       color: UI.HUD_FLASH_UP_COLOR,

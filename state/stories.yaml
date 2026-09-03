@@ -107,7 +107,40 @@ stories:
     phase: prototype
     status: review
     acceptance: "ResultScene 显示败局或周目结果与总评分（score=floor(silver×0.5+rep×10+power×20+endingBonus)）; 「再来一周目」→GameScene 志向选择且重开时计时器/客人/岗位表/弃牌堆全部重置（状态泄漏检查）; 「回到菜单」→MenuScene; 以实际操作走完 Title→Menu→Game→Result→Menu 一轮无报错"
-  # ---- build phase ----
+  # ---- build phase ----（Phase 3 实现顺序: 资产生成（S-30/S-31）→ 资产接入与视觉修复（S-33/S-32）→ 系统扩展（S-16～S-24）→ UI/演出打磨（S-25～S-28）→ 教学（S-29））
+  # ---- Phase 3 追加（checkpoint-b-feedback 2026-09-03T15:16:57Z 落实） ----
+  # feedback 1【最优先】图像资产 0/17（中转 503）→ 恢复生成; feedback 3 → AR-ASSET 对照 key image 逐批判定
+  - id: S-30
+    title: "[IMG] 图像资产 30 张全量生成（恢复 gpt-image-2 中转 lane）"
+    pillar: P-01
+    assignee: art-director
+    phase: build
+    status: todo
+    acceptance: "design/assets.md 的 IMG-01～30 全部生成并落盘到 game/assets/（文件名、尺寸、opaque/transparent 方针与 assets.md 表一致）; 透明精灵逐张 alpha 机器验证通过（无白底/背景残留），IMG-02/03 经 /v1/images/edits 以 IMG-01 为参考保持布局一致; 每张经 AR-ASSET 对照 design/art-bible.json（key image 候选 1）判定风格一致; MANIFEST.jsonl 全 30 行齐备（provider/plan_tier/sha256/license_note）; 生成失败的资产按 assets-config.md 退避重试后记录路由+HTTP 状态并上报，不得静默跳过"
+  # feedback 1 音频侧: BGM-01/02 未生成（prototype 留到 Phase 3）
+  - id: S-31
+    title: "[BGM] BGM-01/02 生成与循环验证"
+    pillar: P-01
+    assignee: audio-designer
+    phase: build
+    status: todo
+    acceptance: "BGM-01（92 BPM）/BGM-02（132 BPM）按 assets.md 提示词＋共通 style block 生成，A 羽调五声、force_instrumental、记录 seed; loudnorm 后实测 -16 LUFS ±1; 2 段拼接接缝咔哒声/RMS 阶差扫描通过（不合格重新生成，不降级交付）; 交付格式 OGG＋M4A 双格式存在; MANIFEST 行齐备（license_note: elevenlabs-free-tier）"
+  # feedback 1/4: 真实资产替换占位色块（S-02 允许的占位在此收尾）
+  - id: S-33
+    title: "真实资产接入与视觉整合（替换全部占位色块）"
+    pillar: P-01
+    assignee: gameplay-engineer
+    phase: build
+    status: in-progress
+    acceptance: "IMG-01～30 经 config.ts 的 ASSET_KEYS 接入: 晨/日/夜分别显示 IMG-01/02/03（相位切换有可见变化）、6 桌用 IMG-21、伙计/客人/大敌用 IMG-04～14、菜品气泡与出餐口用 IMG-15～20、志向/事件卡/UI 用 IMG-22～25/29/30; 画面中不存在纯色/渐变占位矩形（Inspector/截图确认）; 立绘显示尺寸按 assets.md（192–256px 等）且不裁切关键轮廓; 全部引用经 ASSET_KEYS，无硬编码路径"
+  # feedback 2【高】UI 非常模糊 — 排查 Scale.FIT 缩放/字体渲染/对比度
+  - id: S-32
+    title: "UI 模糊排查与可读性修复"
+    pillar: P-04
+    assignee: ui-engineer
+    phase: build
+    status: review
+    acceptance: "在真实资产（S-30/33 落地后）基础上: 文本渲染 resolution ≥GAME 渲染分辨率（模糊时以命名常量 TEXT_RESOLUTION 集中 config.ts，禁止散置魔法数字）; 1280x720 基准与 0.5x/2x 窗口尺寸下 Title/Menu/HUD 主要文本无肉眼可见模糊; gates.md UI 文字可读性机械检查通过（文本区域裁切 standard_deviation ≥0.05，无 SUSPECT_LOW_CONTRAST 残留）; Scale.FIT 下任意窗口尺寸主要交互区不裁切（回归 S-02 验收）"
   - id: S-16
     title: "难度曲线全阶段与全客人类型"
     pillar: P-01

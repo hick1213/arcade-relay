@@ -136,6 +136,7 @@ export class MenuStatsPanel {
   private titleStyle(): Phaser.Types.GameObjects.Text.TextStyle {
     return {
       fontFamily: UI.HUD_FONT_FAMILY,
+      resolution: UI.TEXT_RESOLUTION,
       fontSize: MENU.PANEL_TITLE_FONT_SIZE,
       fontStyle: 'bold',
       color: UI.HUD_TEXT_COLOR,
@@ -147,6 +148,7 @@ export class MenuStatsPanel {
   private lineStyle(): Phaser.Types.GameObjects.Text.TextStyle {
     return {
       fontFamily: UI.HUD_FONT_FAMILY,
+      resolution: UI.TEXT_RESOLUTION,
       fontSize: MENU.PANEL_LINE_FONT_SIZE,
       color: UI.HUD_TEXT_COLOR,
       stroke: UI.HUD_STROKE_COLOR,
@@ -157,6 +159,7 @@ export class MenuStatsPanel {
   private buttonStyle(): Phaser.Types.GameObjects.Text.TextStyle {
     return {
       fontFamily: UI.HUD_FONT_FAMILY,
+      resolution: UI.TEXT_RESOLUTION,
       fontSize: MENU.PANEL_CLOSE_BUTTON_FONT_SIZE,
       fontStyle: 'bold',
       color: UI.HUD_TEXT_COLOR,

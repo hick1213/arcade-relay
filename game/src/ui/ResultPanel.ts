@@ -97,6 +97,7 @@ export class ResultPanel {
     const scoreLabel = scene.add
       .text(centerX, centerY + RESULT.SCORE_LABEL_OFFSET_Y, textProvider(RESULT_TEXT_KEYS.RESULT_SCORE_LABEL), {
         fontFamily: UI.HUD_FONT_FAMILY,
+        resolution: UI.TEXT_RESOLUTION,
         fontSize: RESULT.SCORE_LABEL_FONT_SIZE,
         color: UI.HUD_TEXT_COLOR,
         stroke: UI.HUD_STROKE_COLOR,
@@ -106,6 +107,7 @@ export class ResultPanel {
     const scoreValue = scene.add
       .text(centerX, centerY + RESULT.SCORE_VALUE_OFFSET_Y, String(computeTotalScore(summary)), {
         fontFamily: UI.HUD_FONT_FAMILY,
+        resolution: UI.TEXT_RESOLUTION,
         fontSize: RESULT.SCORE_VALUE_FONT_SIZE,
         fontStyle: 'bold',
         color: UI.HUD_TEXT_COLOR,
@@ -179,6 +181,7 @@ export class ResultPanel {
     const y = centerY + RESULT.BREAKDOWN_START_OFFSET_Y + index * RESULT.BREAKDOWN_LINE_GAP;
     const style: Phaser.Types.GameObjects.Text.TextStyle = {
       fontFamily: UI.HUD_FONT_FAMILY,
+      resolution: UI.TEXT_RESOLUTION,
       fontSize: RESULT.BREAKDOWN_FONT_SIZE,
       color: UI.HUD_TEXT_COLOR,
       stroke: UI.HUD_STROKE_COLOR,
@@ -225,6 +228,7 @@ export class ResultPanel {
   private titleStyle(): Phaser.Types.GameObjects.Text.TextStyle {
     return {
       fontFamily: UI.HUD_FONT_FAMILY,
+      resolution: UI.TEXT_RESOLUTION,
       fontSize: RESULT.TITLE_FONT_SIZE,
       fontStyle: 'bold',
       color: UI.HUD_TEXT_COLOR,
@@ -236,6 +240,7 @@ export class ResultPanel {
   private buttonStyle(): Phaser.Types.GameObjects.Text.TextStyle {
     return {
       fontFamily: UI.HUD_FONT_FAMILY,
+      resolution: UI.TEXT_RESOLUTION,
       fontSize: RESULT.BUTTON_FONT_SIZE,
       fontStyle: 'bold',
       color: UI.HUD_TEXT_COLOR,

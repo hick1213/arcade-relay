@@ -35,6 +35,7 @@ export class VolumeSlider {
     const label = scene.add
       .text(centerX + MENU.SLIDER_LABEL_X_OFFSET, options.centerY, options.labelText, {
         fontFamily: UI.HUD_FONT_FAMILY,
+        resolution: UI.TEXT_RESOLUTION,
         fontSize: MENU.SLIDER_FONT_SIZE,
         fontStyle: 'bold',
         color: UI.HUD_TEXT_COLOR,
@@ -71,6 +72,7 @@ export class VolumeSlider {
     this.valueText = scene.add
       .text(centerX + MENU.SLIDER_VALUE_X_OFFSET, options.centerY, '', {
         fontFamily: UI.HUD_FONT_FAMILY,
+        resolution: UI.TEXT_RESOLUTION,
         fontSize: MENU.SLIDER_FONT_SIZE,
         color: UI.HUD_TEXT_COLOR,
         stroke: UI.HUD_STROKE_COLOR,

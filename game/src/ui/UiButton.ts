@@ -19,7 +19,10 @@ export const createUiButton = (
   textStyle: Phaser.Types.GameObjects.Text.TextStyle,
 ): UiButton => {
   const background = scene.add.image(centerX, centerY, textureKey).setOrigin(0.5);
-  const label = scene.add.text(centerX, centerY, labelText, textStyle).setOrigin(0.5);
+  // S-32: 按钮标签一律以 TEXT_RESOLUTION 光栅化（调用方 style 未指定时也保证不模糊）
+  const label = scene.add
+    .text(centerX, centerY, labelText, { ...textStyle, resolution: UI.TEXT_RESOLUTION })
+    .setOrigin(0.5);
   return { visuals: [background, label] };
 };
 

@@ -190,6 +190,7 @@ export class PausePanel {
   private titleStyle(): Phaser.Types.GameObjects.Text.TextStyle {
     return {
       fontFamily: UI.HUD_FONT_FAMILY,
+      resolution: UI.TEXT_RESOLUTION,
       fontSize: UI.PAUSE_TITLE_FONT_SIZE,
       fontStyle: 'bold',
       color: UI.HUD_TEXT_COLOR,
@@ -201,6 +202,7 @@ export class PausePanel {
   private buttonStyle(): Phaser.Types.GameObjects.Text.TextStyle {
     return {
       fontFamily: UI.HUD_FONT_FAMILY,
+      resolution: UI.TEXT_RESOLUTION,
       fontSize: UI.PAUSE_BUTTON_FONT_SIZE,
       fontStyle: 'bold',
       color: UI.HUD_TEXT_COLOR,

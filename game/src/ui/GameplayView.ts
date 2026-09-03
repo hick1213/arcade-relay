@@ -514,6 +514,7 @@ export class GameplayView {
           this.scene.add
             .text(NIGHT.PANEL_X, y, this.textProvider(option.textKey), {
               fontFamily: UI.HUD_FONT_FAMILY,
+              resolution: UI.TEXT_RESOLUTION,
               fontSize: NIGHT.OPTION_FONT_SIZE,
               color: UI.HUD_TEXT_COLOR,
               stroke: UI.HUD_STROKE_COLOR,
@@ -536,6 +537,7 @@ export class GameplayView {
         this.scene.add
           .text(NIGHT.PANEL_X, NIGHT.PANEL_Y + NIGHT.RESULT_TEXT_OFFSET_Y, this.textProvider(run.drawnCard.resultTextKey ?? TEXT_KEYS.CARD_RESULT_LABEL), {
             fontFamily: UI.HUD_FONT_FAMILY,
+            resolution: UI.TEXT_RESOLUTION,
             fontSize: NIGHT.RESULT_FONT_SIZE,
             color: UI.HUD_TEXT_COLOR,
             stroke: UI.HUD_STROKE_COLOR,
@@ -637,6 +639,7 @@ export class GameplayView {
     return this.scene.add
       .text(x, y, text, {
         fontFamily: UI.HUD_FONT_FAMILY,
+        resolution: UI.TEXT_RESOLUTION,
         fontSize,
         color,
         stroke: UI.HUD_STROKE_COLOR,

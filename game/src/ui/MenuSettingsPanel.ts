@@ -221,6 +221,7 @@ export class MenuSettingsPanel {
   private languageButtonStyle(): Phaser.Types.GameObjects.Text.TextStyle {
     return {
       fontFamily: UI.HUD_FONT_FAMILY,
+      resolution: UI.TEXT_RESOLUTION,
       fontSize: MENU.LANGUAGE_BUTTON_FONT_SIZE,
       color: UI.HUD_TEXT_COLOR,
       stroke: UI.HUD_STROKE_COLOR,
@@ -231,6 +232,7 @@ export class MenuSettingsPanel {
   private titleStyle(): Phaser.Types.GameObjects.Text.TextStyle {
     return {
       fontFamily: UI.HUD_FONT_FAMILY,
+      resolution: UI.TEXT_RESOLUTION,
       fontSize: MENU.PANEL_TITLE_FONT_SIZE,
       fontStyle: 'bold',
       color: UI.HUD_TEXT_COLOR,
@@ -242,6 +244,7 @@ export class MenuSettingsPanel {
   private hintTitleStyle(): Phaser.Types.GameObjects.Text.TextStyle {
     return {
       fontFamily: UI.HUD_FONT_FAMILY,
+      resolution: UI.TEXT_RESOLUTION,
       fontSize: MENU.PANEL_HINT_TITLE_FONT_SIZE,
       fontStyle: 'bold',
       color: UI.HUD_TEXT_COLOR,
@@ -253,6 +256,7 @@ export class MenuSettingsPanel {
   private hintBodyStyle(): Phaser.Types.GameObjects.Text.TextStyle {
     return {
       fontFamily: UI.HUD_FONT_FAMILY,
+      resolution: UI.TEXT_RESOLUTION,
       fontSize: MENU.PANEL_HINT_BODY_FONT_SIZE,
       color: UI.HUD_TEXT_COLOR,
       stroke: UI.HUD_STROKE_COLOR,
@@ -265,6 +269,7 @@ export class MenuSettingsPanel {
   private buttonStyle(): Phaser.Types.GameObjects.Text.TextStyle {
     return {
       fontFamily: UI.HUD_FONT_FAMILY,
+      resolution: UI.TEXT_RESOLUTION,
       fontSize: MENU.PANEL_CLOSE_BUTTON_FONT_SIZE,
       fontStyle: 'bold',
       color: UI.HUD_TEXT_COLOR,

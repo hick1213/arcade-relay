@@ -87,6 +87,7 @@ export class MenuScene extends Phaser.Scene {
     this.add
       .text(GAME_WIDTH / 2, MENU.TITLE_Y, this.textProvider(MENU_TEXT_KEYS.MENU_TITLE), {
         fontFamily: UI.HUD_FONT_FAMILY,
+        resolution: UI.TEXT_RESOLUTION,
         fontSize: MENU.TITLE_FONT_SIZE,
         fontStyle: 'bold',
         color: UI.HUD_TEXT_COLOR,
@@ -105,6 +106,7 @@ export class MenuScene extends Phaser.Scene {
         this.textProvider(MENU_TEXT_KEYS.MENU_RECOVERED_NOTICE),
         {
           fontFamily: UI.HUD_FONT_FAMILY,
+        resolution: UI.TEXT_RESOLUTION,
           fontSize: MENU.RECOVERED_NOTICE_FONT_SIZE,
           color: UI.HUD_FLASH_UP_COLOR,
           stroke: UI.HUD_STROKE_COLOR,
@@ -231,6 +233,7 @@ export class MenuScene extends Phaser.Scene {
   private buttonStyle(): Phaser.Types.GameObjects.Text.TextStyle {
     return {
       fontFamily: UI.HUD_FONT_FAMILY,
+      resolution: UI.TEXT_RESOLUTION,
       fontSize: MENU.BUTTON_FONT_SIZE,
       fontStyle: 'bold',
       color: UI.HUD_TEXT_COLOR,

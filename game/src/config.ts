@@ -55,7 +55,56 @@ export const ASSET_KEYS = {
     sfxBattleGong: 'assets/audio/sfx-battle-gong', // SFX-08
   },
 
-  // 背景/精灵（IMG-01～30 未生成 — 保持程序化占位。到位后在此登记并替换 placeholderTextures）
+  // 背景/精灵（S-33: IMG-01～30 正式资产 — design/assets.md。値 = assets/ 下のパス = そのまま
+  // Phaser のテクスチャキー（audio と同一規約）。表示サイズは SPRITE_DISPLAY、
+  // 実体との対応づけは systems/visualAssets.ts に集約）
+  images: {
+    // IMG-01～03 奥底背景（晨/日/夜 — 相位切换。opaque、cover 裁切至 1280x720）
+    bgInnMorning: 'assets/images/tile-inn-hall-morning.png',
+    bgInnDay: 'assets/images/tile-inn-hall-day.png',
+    bgInnNight: 'assets/images/tile-inn-hall-night.png',
+    // IMG-04～10 伙计立绘（キー = STAFF_ROSTER.id に対応。IMG-09/10 = UNL-01/02 解锁伙计）
+    staffAfu: 'assets/images/sprite-staff-a-fu.png',
+    staffTieniu: 'assets/images/sprite-staff-tie-niu.png',
+    staffWenqu: 'assets/images/sprite-staff-wen-qu.png',
+    staffXiaodie: 'assets/images/sprite-staff-xiao-die.png',
+    staffDasong: 'assets/images/sprite-staff-da-song.png',
+    staffLiubiaotou: 'assets/images/sprite-staff-liu-biao-tou.png',
+    staffSuyuchu: 'assets/images/sprite-staff-su-yu-chu.png',
+    // IMG-11～13 客人（散客/镖师/老饕 — customer.id で循环割当）
+    guestCommoner: 'assets/images/sprite-guest-commoner.png',
+    guestEscort: 'assets/images/sprite-guest-escort.png',
+    guestGourmet: 'assets/images/sprite-guest-gourmet.png',
+    // IMG-14 大敌（终战 — finalBattleNight の夜に表示）
+    rivalWarlord: 'assets/images/sprite-rival-warlord.png',
+    // IMG-15～20 菜品图标（菜号 1～6 = 配列順。systems/visualAssets.ts の dishSpriteKey）
+    dish1: 'assets/images/sprite-dish-01-noodles.png',
+    dish2: 'assets/images/sprite-dish-02-buns.png',
+    dish3: 'assets/images/sprite-dish-03-chicken.png',
+    dish4: 'assets/images/sprite-dish-04-tofu.png',
+    dish5: 'assets/images/sprite-dish-05-fish.png',
+    dish6: 'assets/images/sprite-dish-06-broth.png',
+    // IMG-21 圆桌（6 桌に程序化摆放）
+    tableRound: 'assets/images/sprite-table-round.png',
+    // IMG-22～24 志向图标（財/侠/名）
+    ambitionWealth: 'assets/images/ui-ambition-wealth.png',
+    ambitionXia: 'assets/images/ui-ambition-xia.png',
+    ambitionRenown: 'assets/images/ui-ambition-renown.png',
+    // IMG-25 事件卡框（夜间卡段の背飾り）
+    eventCardFrame: 'assets/images/ui-event-card-frame.png',
+    // IMG-26～28 结局插画（財/侠/名 — ResultScene 侧の接线は ui-engineer lane）
+    endingWealth: 'assets/images/tile-ending-wealth.png',
+    endingXia: 'assets/images/tile-ending-xia.png',
+    endingRenown: 'assets/images/tile-ending-renown.png',
+    // IMG-29 标题 emblem（無文字装飾 — タイトル文は Phaser Text で中央に重ねる）
+    titleEmblem: 'assets/images/ui-title-emblem.png',
+  },
+
+  // IMG-30 共通 UI sheet（assets.md「IMG-30 的切分」: 不可視規則グリッド = IMG_SHEET_FRAME の
+  // 3x2 = 512px 帧。フレーム参照は ui/ 側の置換対象 — placeholderTextures の注記どおり）
+  spriteSheets: {
+    commonSheet: 'assets/images/ui-common-sheet.png',
+  },
 
   // BGM-01/02 未生成（design/assets.md「生成实绩」: 留到 Phase 3。到位后在此登记）
   // UI 占位纹理（S-10 ui-engineer。运行时程序化生成 — game/src/ui/placeholderTextures.ts。
@@ -100,6 +149,10 @@ export const UI = {
 
   // HUD 文字（ui-code 规范: 一眼可读的尺寸＋墨色描边与背景分离）
   HUD_FONT_FAMILY: 'sans-serif',
+  // 文本渲染 resolution（S-32: UI 模糊修复。Phaser Text 默认以 1x 光栅化，Scale.FIT 缩放/
+  // 高 DPI 显示下笔画发糊 — 内部 canvas 以 2x 光栅化后回缩，字形边缘显著锐化。
+  // 覆盖 0.5x/2x 窗口尺寸的 acceptance。全部 Text 一律经由本常量，禁止散置魔法数字）
+  TEXT_RESOLUTION: 2,
   HUD_LABEL_FONT_SIZE: '15px',
   HUD_VALUE_FONT_SIZE: '22px',
   HUD_TEXT_COLOR: '#F0C182',
