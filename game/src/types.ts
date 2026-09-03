@@ -135,6 +135,16 @@ export interface RunEndSummary {
   readonly staffPower: number;
   /** 结局加成（财/侠/名结局 = 200 — S-20 结局判定接线前为占位 0） */
   readonly endingBonus: number;
+  /**
+   * 达成结局（财/侠/名。runComplete 时由 S-20 结局判定填入 — 败局/接线前は省略）。
+   * S-25 Result 结局演出: 显示侧は省略时に汎用タイトルへ回落（插画/结局文も非表示）。
+   */
+  readonly ending?: AmbitionId | null;
+  /**
+   * persist 直前の best_score（S-25 新纪录标记の判定基準。GameScene.goToResult が
+   * applyRunResult 適用前に取得して付与 — finalBattleLoss は persist 不発のため未更新値）。
+   */
+  readonly bestScoreBefore?: number;
 }
 
 // ==== 元进度存档（gdd「元进度（游戏外）」「存档数据方针」节）====

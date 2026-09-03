@@ -115,8 +115,10 @@ export class GameScene extends Phaser.Scene {
   }
 
   private goToResult(summary: RunEndSummary): void {
+    // 新纪录标记（S-25）の基準値 — applyRunResult による best_score 更新の前に取得
+    const bestScoreBefore = loadSaveData().data.best_score;
     this.persistRunResult(summary);
-    this.scene.start('Result', summary);
+    this.scene.start('Result', { ...summary, bestScoreBefore });
   }
 
   /**

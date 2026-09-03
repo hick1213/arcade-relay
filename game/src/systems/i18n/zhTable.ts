@@ -32,6 +32,18 @@ export const ZH_TABLE: Readonly<Record<string, string>> = {
   [RESULT_TEXT_KEYS.RESULT_SCORE_BONUS]: '结局加成',
   [RESULT_TEXT_KEYS.RESULT_RETRY]: '再来一周目',
   [RESULT_TEXT_KEYS.RESULT_TO_MENU]: '回到菜单',
+  // Result 结局演出完整版（S-25: 结局文/败局专属文案/新纪录标记 — 一行为短文，显示侧换行幅度内）
+  [RESULT_TEXT_KEYS.RESULT_TITLE_BANKRUPTCY]: '账本合上 — 客栈倒闭',
+  [RESULT_TEXT_KEYS.RESULT_TITLE_FINAL_LOSS]: '终战败北',
+  [RESULT_TEXT_KEYS.RESULT_BODY_BANKRUPTCY]: '银钱耗尽，伙计四散，客栈的灯火熄灭了。',
+  [RESULT_TEXT_KEYS.RESULT_BODY_FINAL_LOSS]: '镖旗折断，江湖路远，养精蓄锐来年再战。',
+  [RESULT_TEXT_KEYS.RESULT_ENDING_WEALTH_TITLE]: '财结局 — 财通四海',
+  [RESULT_TEXT_KEYS.RESULT_ENDING_WEALTH_BODY]: '银山高堆，宾客盈门，客栈的灯笼彻夜不熄。',
+  [RESULT_TEXT_KEYS.RESULT_ENDING_XIA_TITLE]: '侠结局 — 侠名远扬',
+  [RESULT_TEXT_KEYS.RESULT_ENDING_XIA_BODY]: '仗义疏财，快意恩仇，侠者的名字留在江湖。',
+  [RESULT_TEXT_KEYS.RESULT_ENDING_FAME_TITLE]: '名结局 — 名动天下',
+  [RESULT_TEXT_KEYS.RESULT_ENDING_FAME_BODY]: '一桌难求，名号传遍四方，江湖客满于此。',
+  [RESULT_TEXT_KEYS.RESULT_NEW_RECORD]: '★ 新纪录',
   // Title（S-12）
   [TITLE_TEXT_KEYS.TITLE_GAME_TITLE]: '江湖客满',
   [TITLE_TEXT_KEYS.TITLE_START_PROMPT]: '点击开始',

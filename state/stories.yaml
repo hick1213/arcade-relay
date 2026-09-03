@@ -213,7 +213,8 @@ stories:
     pillar: P-03
     assignee: ui-engineer
     phase: build
-    status: in-progress
+    status: review
+    notes: "S-25 lane 実装 (ui-engineer)。结局插画 (IMG-26~28) は RunEndSummary.ending (S-20 判定値・types.ts に optional 追加) が non-null のとき表示 — S-20 未合流の現状は汎用タイトルへ回落。新纪录标记は GameScene.goToResult が persist 前の best_score を bestScoreBefore として付与 (finalBattleLoss は persist 不発のため非対象)。IMG-26~28 の実ファイルは S-30 lane の落盤を待つ (未落盘時は BootScene の fallback 纹理)。"
     acceptance: "3 结局各自显示结局插画（IMG-26~28）+结局文（i18n）+总评分细目（三线数值与权重贡献）; 破产败局与终战败各有专属文案/演出（账本合上、败局文）; 新纪录时显示最高分更新标记"
   - id: S-26
     title: "Menu 游戏外面板完整版（图鉴/成就/统计）"

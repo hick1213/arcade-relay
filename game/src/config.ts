@@ -309,7 +309,6 @@ export const RESULT = {
   BODY_OFFSET_Y: -122,
   BODY_FONT_SIZE: '15px',
   BODY_WRAP_WIDTH: 520,
-  BODY_LINE_GAP: 20,
 
   /** 结局插画（IMG-26～28。画面全覆盖 cover 拡縮 — 比率はテクスチャ実寸から導出、直書きなし） */
   ENDING_IMAGE: {
@@ -341,8 +340,9 @@ export const RESULT = {
   LEDGER_FADE_MS: 400,
   LEDGER_SPINE_INSET: 4,
 
-  /** 终战败演出（全画面への朱 flash — 短時間・入力は妨げない） */
-  DEFEAT_FLASH_COLOR: UI.HUD_FLASH_DOWN_COLOR,
+  /** 终战败演出（全画面への朱 flash — 短時間・入力は妨げない。色は GAMEPLAY.STAFF_FILL の朱 =
+   *  art-bible 調色板 accent — 数値定数は UI.HUD_FLASH_DOWN_COLOR の文字列形式では不可のため
+   *  同一パレット色の数値版 GAMEPLAY.STAFF_FILL を使用側で参照） */
   DEFEAT_FLASH_ALPHA: 0.32,
   DEFEAT_FLASH_MS: 650,
 } as const;

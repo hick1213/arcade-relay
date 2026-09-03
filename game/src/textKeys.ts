@@ -95,6 +95,18 @@ export const RESULT_TEXT_KEYS = {
   RESULT_SCORE_BONUS: 'result.score.bonus',
   RESULT_RETRY: 'result.retry',
   RESULT_TO_MENU: 'result.toMenu',
+  // ==== S-25: Result 结局演出完整版（结局文/败局专属文案/新纪录标记）====
+  RESULT_TITLE_BANKRUPTCY: 'result.title.bankruptcy',
+  RESULT_TITLE_FINAL_LOSS: 'result.title.finalBattleLoss',
+  RESULT_BODY_BANKRUPTCY: 'result.body.bankruptcy',
+  RESULT_BODY_FINAL_LOSS: 'result.body.finalBattleLoss',
+  RESULT_ENDING_WEALTH_TITLE: 'result.ending.wealth.title',
+  RESULT_ENDING_WEALTH_BODY: 'result.ending.wealth.body',
+  RESULT_ENDING_XIA_TITLE: 'result.ending.xia.title',
+  RESULT_ENDING_XIA_BODY: 'result.ending.xia.body',
+  RESULT_ENDING_FAME_TITLE: 'result.ending.fame.title',
+  RESULT_ENDING_FAME_BODY: 'result.ending.fame.body',
+  RESULT_NEW_RECORD: 'result.newRecord',
 } as const;
 
 /** 玩家可见文本 key（Title 场景 — S-12） */

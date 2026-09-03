@@ -31,6 +31,18 @@ export const EN_TABLE: Readonly<Record<string, string>> = {
   [RESULT_TEXT_KEYS.RESULT_SCORE_BONUS]: 'Ending Bonus',
   [RESULT_TEXT_KEYS.RESULT_RETRY]: 'New Run',
   [RESULT_TEXT_KEYS.RESULT_TO_MENU]: 'Back to Menu',
+  // Result ending presentation (S-25: ending texts / per-defeat copy / new record badge)
+  [RESULT_TEXT_KEYS.RESULT_TITLE_BANKRUPTCY]: 'Ledger Closed — Bankrupt',
+  [RESULT_TEXT_KEYS.RESULT_TITLE_FINAL_LOSS]: 'Defeat at the Final Battle',
+  [RESULT_TEXT_KEYS.RESULT_BODY_BANKRUPTCY]: 'The silver ran out and the staff drifted away — the lanterns went dark.',
+  [RESULT_TEXT_KEYS.RESULT_BODY_FINAL_LOSS]: 'The banner is broken. Sharpen your blades and fight again next year.',
+  [RESULT_TEXT_KEYS.RESULT_ENDING_WEALTH_TITLE]: 'Wealth Spans the Seas',
+  [RESULT_TEXT_KEYS.RESULT_ENDING_WEALTH_BODY]: 'Silver piles high and the lanterns of the inn never dim.',
+  [RESULT_TEXT_KEYS.RESULT_ENDING_XIA_TITLE]: 'A Heroic Name Endures',
+  [RESULT_TEXT_KEYS.RESULT_ENDING_XIA_BODY]: 'Generous to friends, fearless to foes — the name of honor spreads.',
+  [RESULT_TEXT_KEYS.RESULT_ENDING_FAME_TITLE]: 'Renown Shakes the Realm',
+  [RESULT_TEXT_KEYS.RESULT_ENDING_FAME_BODY]: 'Every table is taken — the name of the inn is on every lip.',
+  [RESULT_TEXT_KEYS.RESULT_NEW_RECORD]: '★ New Record',
   // Title (S-12)
   [TITLE_TEXT_KEYS.TITLE_GAME_TITLE]: 'Jianghu Ke Man',
   [TITLE_TEXT_KEYS.TITLE_START_PROMPT]: 'Tap to Start',
