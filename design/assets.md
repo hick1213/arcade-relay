@@ -70,14 +70,14 @@
 
 | id | 用途 | 文件名 | 尺寸 (s) | P-xx | 提示词草案（前置共通 block） | 路由 | 状态 |
 |---|---|---|---|---|---|---|---|
-| SFX-01 | 共通 UI 点击／晨间岗位指派确认（两次点击的第二击。变调/音量差区分场景） | sfx-ui-tap | 0.6 | P-04 | Soft short wooden tap, knuckle knocking once on a warm wooden counter, dry and gentle, tiny cloth muffle | primary (elevenlabs:sfx-v2) | planned |
-| SFX-02 | 晨→日相位迁移「开门营业」（P-01 呼吸感的开场重音） | sfx-door-open | 2.0 | P-01 | Heavy wooden inn door swinging open with a low creak and soft settling thud, faint distant courtyard birds, warm welcoming feeling | primary (elevenlabs:sfx-v2) | planned |
-| SFX-03 | 日间点单气泡亮起／派空闲跑堂（引导视线的轻提示） | sfx-order-bubble | 0.8 | P-01/P-04 | Light bright porcelain ting like a small teacup lightly touched, followed by one soft wooden tap, attention-getting but gentle | primary (elevenlabs:sfx-v2) | planned |
-| SFX-04 | 出餐口出菜／上菜动作完成（日间节奏的正反馈重音） | sfx-dish-serve | 1.0 | P-01 | Porcelain bowl gently set down on a wooden table, soft ceramic clack, warm and satisfying, no shatter | primary (elevenlabs:sfx-v2) | planned |
-| SFX-05 | 收银两（桌上的银两气泡。财线的即时兑现反馈） | sfx-coin-collect | 1.2 | P-03 | Small handful of bronze Chinese coins and one silver ingot dropped onto a wooden counter, mellow metallic jingle quickly settling | primary (elevenlabs:sfx-v2) | planned |
-| SFX-06 | 服务失败客人失望离店（声望 −2～−4 的负反馈。温和不刺耳） | sfx-fail-leave | 1.5 | P-01 | Disappointed low wooden stool scrape and a door closing softly, muted descending thud, gentle and wistful, not harsh | primary (elevenlabs:sfx-v2) | planned |
-| SFX-07 | 夜间结算翻帐本＋事件卡「翻卡」（夜间仪式感的开始音） | sfx-abacus-ledger | 2.0 | P-03 | Wooden abacus beads clicking in one quick short sweep, ending with a paper ledger page flip, cozy nighttime accounting mood | primary (elevenlabs:sfx-v2) | planned |
-| SFX-08 | 终战「开战」与各回合胜负判定／结局揭示（P-03 兑现时刻的仪式重音） | sfx-battle-gong | 2.5 | P-03/P-02 | Large Chinese bronze gong strike with slow warm decay, one wooden staff clash right at the start, tense and ceremonial | primary (elevenlabs:sfx-v2) | planned |
+| SFX-01 | 共通 UI 点击／晨间岗位指派确认（两次点击的第二击。变调/音量差区分场景） | sfx-ui-tap | 0.6 | P-04 | Soft short wooden tap, knuckle knocking once on a warm wooden counter, dry and gentle, tiny cloth muffle | primary (elevenlabs:sfx-v2) | generated |
+| SFX-02 | 晨→日相位迁移「开门营业」（P-01 呼吸感的开场重音） | sfx-door-open | 2.0 | P-01 | Heavy wooden inn door swinging open with a low creak and soft settling thud, faint distant courtyard birds, warm welcoming feeling | primary (elevenlabs:sfx-v2) | generated |
+| SFX-03 | 日间点单气泡亮起／派空闲跑堂（引导视线的轻提示） | sfx-order-bubble | 0.8 | P-01/P-04 | Light bright porcelain ting like a small teacup lightly touched, followed by one soft wooden tap, attention-getting but gentle | primary (elevenlabs:sfx-v2) | generated |
+| SFX-04 | 出餐口出菜／上菜动作完成（日间节奏的正反馈重音） | sfx-dish-serve | 1.0 | P-01 | Porcelain bowl gently set down on a wooden table, soft ceramic clack, warm and satisfying, no shatter | primary (elevenlabs:sfx-v2) | generated |
+| SFX-05 | 收银两（桌上的银两气泡。财线的即时兑现反馈） | sfx-coin-collect | 1.2 | P-03 | Small handful of bronze Chinese coins and one silver ingot dropped onto a wooden counter, mellow metallic jingle quickly settling | primary (elevenlabs:sfx-v2) | generated |
+| SFX-06 | 服务失败客人失望离店（声望 −2～−4 的负反馈。温和不刺耳） | sfx-fail-leave | 1.5 | P-01 | Disappointed low wooden stool scrape and a door closing softly, muted descending thud, gentle and wistful, not harsh | primary (elevenlabs:sfx-v2) | generated |
+| SFX-07 | 夜间结算翻帐本＋事件卡「翻卡」（夜间仪式感的开始音） | sfx-abacus-ledger | 2.0 | P-03 | Wooden abacus beads clicking in one quick short sweep, ending with a paper ledger page flip, cozy nighttime accounting mood | primary (elevenlabs:sfx-v2) | generated |
+| SFX-08 | 终战「开战」与各回合胜负判定／结局揭示（P-03 兑现时刻的仪式重音） | sfx-battle-gong | 2.5 | P-03/P-02 | Large Chinese bronze gong strike with slow warm decay, one wooden staff clash right at the start, tense and ceremonial | primary (elevenlabs:sfx-v2) | generated |
 
 **非专用音效的复用映射**（8 个上限内覆盖全部 gdd 事件，生成数不增）:
 修练完成= SFX-01 高音量＋升调变体 / 破产败局= SFX-06 低速变调 / 成就・解锁达成= SFX-05 短变体 / 事件卡选项确定= SFX-07 尾段纸页音单独截取 / 菜单确认= SFX-01。变调一律由 Phaser 侧 `detune`/rate 实现，不生成新文件。
@@ -100,6 +100,14 @@ BGM 共通 style block（机械前置）:
 - **autoplay 限制**: 音频均在首次用户输入后由 `sound.context.resume()` 启动（tech-stack.md 规范 6）— 实现是 engineer 侧职责，此处仅声明资产不依赖自动播放
 - **降级路径**: SFX 生成失败 → `local:jsfxr`（公有领域、可发布）；BGM 失败 → `local:jsfxr-ambient-must-replace` 并在 MANIFEST 标 `must_replace: true` ＋上报未解决事项。Primary API 失败时先做退避重试并报告 HTTP 状态，不得直接跳到降级
 - **许可披露**: ElevenLabs free 计划输出按项目决策（2026-09-03）允许发布；MANIFEST 全行 `license_note: "elevenlabs-free-tier"`、`plan_tier: "free"`，Checkpoint C 许可标记节披露
+
+### 生成实绩（prototype 垂直切片、SFX-01～08、2026-09-03）
+
+- **全部 8 个 SFX 已生成**（provider `elevenlabs:sfx-v2` REST 直连、39 次生成 ≈51s 音频、合计 cost ≈$0.08 估算）。每个资产 4 变体→实测（LUFS/True Peak/crest）筛选最佳，筛选理由逐条记录在 MANIFEST 的 `variant_selection.reason`
+- **响度合规**: 全部 8 文件实测 -16 LUFS ±1 内（-15.9～-16.7）、TP ≤ -1.5 dBTP。注意: ffmpeg 8.0 的 `loudnorm`/`ebur128` integrated 测量对 <400ms 的 clip 不可靠（测得静音值）— 测量时须 `apad=whole_dur=2` 后进行；`loudnorm` linear 模式对短 clip 亦失效，因此本批改用「实测 gain + alimiter TP -1.5」方法（数值等效 -16 LUFS 目标）。后续批次沿用此方法
+- **SFX-01 提示词修正**: 原提示词（knuckle knock）的 4 变体全部为纯脉冲（crest 19–27dB），在 TP -1.5 dBTP 约束下物理上不可能达到 -16 LUFS（上限 ≈-20.3）。再生成 4 变体同样结果后，改为木鱼（muyu）质感提示词，第 3 组中选出 crest 15.0dB 的合规变体。听感仍是「软木质 UI 点击」，与 brief 的「温软木质、禁尖锐电子音」一致 — 记录为对提示词草案的有意偏离（表内提示词保留原草案，实际生成 prompt 见 MANIFEST）
+- **复用映射的变调基准**: 修练完成= SFX-01 升调、破产败局= SFX-06 低速、成就=SFX-05 短变体、事件卡确定=SFX-07 尾段、菜单确认=SFX-01（变调由 Phaser `detune`/rate 实现，不新增文件）— 方针不变
+- **BGM（BGM-01/02）未生成** — 按 workflow 指示留到 Phase 3（循环验证为其交付条件）
 
 ## 汇总与预算
 
