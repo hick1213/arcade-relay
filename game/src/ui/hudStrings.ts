@@ -31,6 +31,13 @@ export const RESULT_TEXT_KEYS = {
   RESULT_TO_MENU: 'result.toMenu',
 } as const;
 
+/** 玩家可见文本 key（Title 场景 — S-12） */
+export const TITLE_TEXT_KEYS = {
+  TITLE_GAME_TITLE: 'title.gameTitle',
+  TITLE_START_PROMPT: 'title.startPrompt',
+  TITLE_RECOVERED_NOTICE: 'title.recovered',
+} as const;
+
 /** 玩家可见文本 key（Menu 场景 — S-13 必需要素 4 项） */
 export const MENU_TEXT_KEYS = {
   MENU_TITLE: 'menu.title',
@@ -74,6 +81,9 @@ const ZH_TABLE: Readonly<Record<string, string>> = {
   [RESULT_TEXT_KEYS.RESULT_SCORE_BONUS]: '结局加成',
   [RESULT_TEXT_KEYS.RESULT_RETRY]: '再来一周目',
   [RESULT_TEXT_KEYS.RESULT_TO_MENU]: '回到菜单',
+  [TITLE_TEXT_KEYS.TITLE_GAME_TITLE]: '江湖客满',
+  [TITLE_TEXT_KEYS.TITLE_START_PROMPT]: '点击开始',
+  [TITLE_TEXT_KEYS.TITLE_RECOVERED_NOTICE]: '存档已损坏，本次以初始数据重新开始',
   [MENU_TEXT_KEYS.MENU_TITLE]: '菜单',
   [MENU_TEXT_KEYS.MENU_CONTINUE]: '继续周目',
   [MENU_TEXT_KEYS.MENU_NEW_RUN]: '新周目',

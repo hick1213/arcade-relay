@@ -84,7 +84,7 @@ stories:
     pillar: P-03
     assignee: ui-engineer
     phase: prototype
-    status: todo
+    status: review
     acceptance: "TitleScene 显示标题（emblem 占位可用）+「点击开始」提示; 任意点击迁移到 MenuScene 且首次输入时 resume AudioContext（autoplay 应对）; 存档损坏恢复会话中显示 1 次 recovered 通知; 从 Menu「返回标题」回到 TitleScene 后再次点击可再次进入 Menu"
   - id: S-13
     title: "Menu 场景（必需要素齐全）"

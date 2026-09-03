@@ -68,6 +68,7 @@ export const ASSET_KEYS = {
     menuButton: 'ui/menu-button', // S-13 Menu 纵向按钮列（MENU.BUTTON_WIDTH x HEIGHT）
     menuPanel: 'ui/menu-panel', // S-13 图鉴统计/设置模态面板（MENU.PANEL_WIDTH x HEIGHT）
     resultPanel: 'ui/result-panel', // S-15 Result 总评分面板（RESULT.PANEL_WIDTH x HEIGHT）
+    titleEmblem: 'ui/title-emblem', // S-12 Title emblem 占位（TITLE.EMBLEM_SIZE 正方形）
   },
 } as const;
 
@@ -216,6 +217,28 @@ export const RESULT_FALLBACK_SUMMARY: RunEndSummary = {
   staffPower: RESULT.STAFF_POWER_PLACEHOLDER,
   endingBonus: RESULT.ENDING_BONUS_PLACEHOLDER,
 };
+
+// ==== Title 场景（S-12: 标题画面显示要素 — ui-engineer。布局由 GAME_WIDTH/HEIGHT 基准分辨率推导，
+// Scale.FIT 下不错位。配色复用 art-bible 调色板的 UI.PANEL_* / HUD_* 常量）====
+export const TITLE = {
+  // emblem 占位（程序化纹理。IMG-xx 正式资产到位后仅替换 ASSET_KEYS）
+  EMBLEM_SIZE: 160,
+  EMBLEM_Y: 208,
+
+  // 游戏标题文（design/concept.md「一句话概念」: 江湖客满）
+  TITLE_TEXT_Y: 356,
+  TITLE_FONT_SIZE: '56px',
+
+  // 「点击开始」提示（脉动闪烁 — delta-time 驱动）
+  PROMPT_Y: 484,
+  PROMPT_FONT_SIZE: '26px',
+  PROMPT_PULSE_MS: 900,
+  PROMPT_ALPHA_MIN: 0.5,
+
+  // 存档损坏恢复通知（画面上端 1 行 — contract §6 recovered 传播到 Title）
+  RECOVERED_NOTICE_Y: 28,
+  RECOVERED_NOTICE_FONT_SIZE: '15px',
+} as const;
 
 // ==== Menu 场景（S-13: Menu 必需要素 — ui-engineer。布局/字号由 GAME_WIDTH/HEIGHT 基准分辨率推导，
 // Scale.FIT 下不错位。配色复用 art-bible 调色板的 UI.PANEL_* / HUD_* 常量）====
