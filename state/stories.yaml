@@ -70,7 +70,7 @@ stories:
     pillar: P-04
     assignee: ui-engineer
     phase: prototype
-    status: todo
+    status: review
     acceptance: "画面常驻显示银子/声望/日数（经 i18n 文案）; 右上「帐本」按钮 ≥48px、点击打开暂停面板（继续/回到菜单），面板开启时日间计时暂停且其他点击被屏蔽; HUD 数值变化有即时反馈（增减闪动等任一形式）"
   - id: S-11
     title: "i18n 基础（中文全量 + 缺 key 兜底）"
