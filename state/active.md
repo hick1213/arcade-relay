@@ -1,17 +1,20 @@
-# state/active.md — 会话交接（更新: 2026-09-03T10:01:57Z）
+# state/active.md — 会话交接（更新: 2026-09-03T11:02:01Z）
 
 ## 当前位置
-Phase 2 Setup 完成（tech-director）。产出物:
-- game/ 脚手架: Vite + TS(strict) + Phaser 3（^3.90.0）、必需 4 scripts、5 必需场景、systems/meta/persistence/ui 边界骨架、ASSET_KEYS 容器于 src/config.ts。验证: `npm install && npm run typecheck && npm run build` exit 0
-- docs/architecture.md（场景构成/系统边界/数据流）、docs/conventions.md（游戏专有追加规范）
-- state/stories.yaml: S-01～S-29（prototype 15 + build 14）。Title=S-12 / Menu=S-13 / 元进度=S-14 / 环境=S-02
+Phase 2 Integrate（gameplay-engineer、串行区间）完成 — 生成资产の game/ 統合:
+- `game/src/config.ts`: `ASSET_KEYS.audio` に SFX-01～08 を意味キー（sfxUiTap 等）で登録（OGG+M4A 双形式、拡張子なし基準パス＋`AUDIO_FORMATS`）。IMG-xx / BGM-xx は未生成のため未登録（コメントで予約）
+- `game/src/scenes/BootScene.ts`: `Object.values(ASSET_KEYS.audio)` で preload（Phaser AudioFile が canPlay で OGG/M4A を自動選択）。AudioContext 解錠は既存どおり TitleScene 初回 pointerdown の `sound.unlock()`（規範 6）
+- `game/vite.config.ts`: `game/assets/` が import されない生ファイルで Vite 配信外だった問題を修正（dev ミドルウェア＋build closeBundle で dist/assets へ複製。依存追加なし。パストラバーサルガード付き）。修正前は preview が SPA フォールバックの HTML を 200 返し、音声デコードが必ず失敗していた
+- `game/assets/MANIFEST.jsonl`: 8 SFX 全行に `validator` 追加（sha256 ogg/m4a・formats・loudness −16±1・engine_preload 実機記録）。`sfx-coin-collect.m4a` の alt sha256 の転記 typo を 1 文字修正（ファイル自体は commit 0173bca から不変、ファイル値が正）
+- 検証: `cd game && npm run typecheck && npm run build` exit 0。preview/dev 両方で `Content-Type: audio/ogg|mp4` 実配信を curl 確認
 
 ## 下一步操作
-按 stories.yaml 顺序实现 prototype story（S-01 输入抽象化 → S-02 环境 → …）。各 story CR-CODE 后推进; lane 合流后批处理验证（typecheck+build）。随后 AssetGen 并行、Integrate、QA-PLAY（含 Title→Menu→Game→Result→Menu 与持久化验证）→ Checkpoint B。
+QA-PLAY（qa-lead）: headless ブラウザで実操作 — Title→Menu→Game→Result→Menu、SFX-01～08 のデコード（validator の engine_preload は build+配信確認まで、実デコードは QA-PLAY で判定）→ Checkpoint B。
 
-## 未解决事项（带入实现）
-1. 【高】DR-GDD iteration 3 的 3 项修订未经 reviewer 再判定 — Checkpoint B 时验证（gdd 数值算式已在 config.ts 抄写策略中遵循）。
-2. 【中】gpt-image-2 经 packcode 中转的生成风险与 fallback 终点 must-replace（见 Phase 1 移交）。
-3. 【中】图像 30/30 满额、P-02 成长差分全程序化（S-07/S-28 重点验证）。
-4. 【低】ElevenLabs free tier（license_note: elevenlabs-free-tier）。
-5. 人类已确认的 brief 名义差异: 总评分不含用时; 工钱 30 两/日×5。
+## 未解决事项（带入下一工序）
+1. 【高】**IMG-01～30 未生成** — 背景/精灵/UI 全部程序化占位（`ui/placeholderTextures.ts`、BootScene のASSET_KEYS コメントで予約）。UI 资产置换は未実施（置換先が存在しない）
+2. 【高】**BGM-01/02 未生成** — design/assets.md「生成实绩」どおり Phase 3 へ持ち越し（循环验证が交付条件）
+3. 【中】DR-GDD iteration 3 の 3 项修订未经 reviewer 再判定 — Checkpoint B 时验证（引续）。
+4. 【中】SFX-01～08 のイベント接続（どのイベントでどの SFX を鳴らすか）は S-27（build、ui-engineer）スコープ — prototype では preload のみで鳴らないのは仕様どおり
+5. 【低】ElevenLabs free tier（license_note: elevenlabs-free-tier）— Checkpoint 许可标记节で披露（引续）。
+6. 【低】tsc/vite の chunk size 警告（1.49MB、Phaser 本体）— 情報告知のみ、動作に影響なし

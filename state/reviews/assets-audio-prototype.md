@@ -1,0 +1,13 @@
+## AR-ASSET iteration 1 — APPROVE
+- 日期时间: 2026-09-03T10:46:02Z
+- 对象: Phase 2 SFX 批次 SFX-01〜08（game/assets/audio/、game/assets/MANIFEST.jsonl 本批 8 行）
+- 机器核对结果（ffmpeg/ffprobe 实测、全部 OGG+M4A 双格式确认）:
+  - 响度（loudnorm input_i 实测）: SFX-02 -16.70 / SFX-03 -15.88 / SFX-04 -16.60 / SFX-05 -15.05 / SFX-06 -15.92 / SFX-07 -16.21 / SFX-08 -16.14 — 全部落在 -16 LUFS ±1 内。SFX-01（0.28s）短于 loudnorm 的积分窗口，input_i=-inf 是测量下限产物而非静音（astats RMS -15.34 dB、peak -1.33 dB、crest ≈14.0 dB，与 MANIFEST 记录的 crest 15.0 dB 选型逻辑一致）→ 判合格
+  - 时长（ffprobe 实测 vs MANIFEST duration_final_s）: 8/8 一致（1.778 / 2.129 / 1.200 / 1.000 / 1.406 / 1.390 / 0.732 / 0.280 s）。短于 design/assets.md 的 duration 指定值是静音裁切后的音乐长度（SFX-01 的 0.6s→0.28s 已在 MANIFEST variant_selection 说明）
+  - 格式: phaser 必需的 OGG Vorbis（44.1kHz stereo）+ M4A/AAC 两种格式 16 文件全部存在，编解码正常
+  - sha256: 8 行 OGG 全部与 MANIFEST 一致。M4A 的 alt_formats.sha256 7/8 一致；sfx-coin-collect.m4a 的记录值为 62 hex（缺字符、无法为有效 sha256）— 实际文件 sha256=841601b69d201193981ebbcd3a0779ae3dd0e9ab82b579f8a02fdb8b4a087697 已验证，属于 MANIFEST 记录 typo（见披露 3）
+  - loop: 本批全部 loop:false（SFX），循环接缝检查不适用。BGM 批次另评
+  - provenance: 8 行必需字段（file/provider/model/prompt/seed/cost_usd/plan_tier/sha256/license/license_note/generated_at）齐备。license_note: elevenlabs-free-tier 全行转记。变体筛选理由逐条记录在 variant_selection.reason（符合 assets.md「筛选理由逐条追加写入」的要求）。风格方向（温软木质/瓷器/铜钱，禁尖锐电子音）与 art-bible.json style_block、assets.md 共通质感 block 一致
+  - 禁用提供方/模型: 无（REST 直连 elevenlabs:sfx-v2、路由表 Primary 一致，无 MCP 经由、无 MusicGen/AudioGen、无 rembg）
+- 问题摘要: 无不合格资产。无需重新生成
+- 处理: （由 revise 方填写）

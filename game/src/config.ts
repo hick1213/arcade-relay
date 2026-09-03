@@ -15,15 +15,28 @@ export const SAVE_BACKUP_PREFIX = 'arcaderelay-save.bak.';
 
 // ==== 资产引用（tech-stack.md 规范 5: ASSET_KEYS）====
 // design/assets.md 的 IMG-xx / SFX-xx / BGM-xx 资产到位后在此登记。
-// 键名 = 资产用途，值 = assets/ 下相对路径（不含扩展名）。
-export const ASSET_KEYS = {
-  // 背景（IMG-01～03）
-  // backgrounds: { ... }
-  // 精灵（IMG-04～25）
-  // sprites: { ... }
-  // 音频（SFX-01～08 / BGM-01～02）
-  // audio: { ... }
+// 键名 = 资产用途（conventions「命名」: 不使用 IMG-xx 编号），值 = assets/ 下相对路径（不含扩展名）。
 
+// 音频交付格式（design/assets.md「音频」节: OGG Vorbis + M4A/AAC 双格式。BootScene 据此展开 URL、
+// Phaser AudioFile 以浏览器 canPlay 自动择一 — Safari 落 M4A、其余落 OGG）
+export const AUDIO_FORMATS = ['ogg', 'm4a'] as const;
+
+// SFX-01～08（已生成 — game/assets/MANIFEST.jsonl。变调复用变体由 S-27 以 detune/rate 实现、不新增文件）
+export const ASSET_KEYS = {
+  audio: {
+    sfxUiTap: 'assets/audio/sfx-ui-tap', // SFX-01（菜单确认/通用 UI tap）
+    sfxDoorOpen: 'assets/audio/sfx-door-open', // SFX-02
+    sfxOrderBubble: 'assets/audio/sfx-order-bubble', // SFX-03
+    sfxDishServe: 'assets/audio/sfx-dish-serve', // SFX-04
+    sfxCoinCollect: 'assets/audio/sfx-coin-collect', // SFX-05
+    sfxFailLeave: 'assets/audio/sfx-fail-leave', // SFX-06
+    sfxAbacusLedger: 'assets/audio/sfx-abacus-ledger', // SFX-07
+    sfxBattleGong: 'assets/audio/sfx-battle-gong', // SFX-08
+  },
+
+  // 背景/精灵（IMG-01～30 未生成 — 保持程序化占位。到位后在此登记并替换 placeholderTextures）
+
+  // BGM-01/02 未生成（design/assets.md「生成实绩」: 留到 Phase 3。到位后在此登记）
   // UI 占位纹理（S-10 ui-engineer。运行时程序化生成 — game/src/ui/placeholderTextures.ts。
   // IMG-xx UI 资产到位后替换为正式资产键即可，显示组件无需改动）
   uiPlaceholder: {
