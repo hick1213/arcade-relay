@@ -23,3 +23,15 @@ export const ASSET_KEYS = {
   // 音频（SFX-01～08 / BGM-01～02）
   // audio: { ... }
 } as const;
+
+// ==== 输入（P-04 纯点击 — S-01。出处: gdd「数值表」「输入」节）====
+/** 最小可点击判定区边长（px）。gdd 数值表: 初始 48、调整范围 48–64 */
+export const BUTTON_MIN_SIZE_PX = 48;
+/** 点击命中优先级。gdd「输入」节: 暂停面板 > 事件卡选项 > 出餐口 > 收钱气泡 > 点单桌 */
+export const INPUT_PRIORITY = {
+  PAUSE_PANEL: 50,
+  EVENT_CARD_OPTION: 40,
+  SERVE_WINDOW: 30,
+  PAYMENT_BUBBLE: 20,
+  TABLE_ORDER: 10,
+} as const;
