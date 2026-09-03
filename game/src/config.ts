@@ -3,7 +3,7 @@
  * GDD「数值表」的常量在实现各系统的 story 中按 GDD 记载初始值逐次追加于此。
  * 本文件当前为脚手架阶段的最小集合。
  */
-import type { HudState } from './types';
+import type { HudState, RunEndSummary } from './types';
 
 // ==== 画面 ====
 export const GAME_WIDTH = 1280;
@@ -50,6 +50,7 @@ export const ASSET_KEYS = {
     pauseButton: 'ui/pause-button',
     menuButton: 'ui/menu-button', // S-13 Menu 纵向按钮列（MENU.BUTTON_WIDTH x HEIGHT）
     menuPanel: 'ui/menu-panel', // S-13 图鉴统计/设置模态面板（MENU.PANEL_WIDTH x HEIGHT）
+    resultPanel: 'ui/result-panel', // S-15 Result 总评分面板（RESULT.PANEL_WIDTH x HEIGHT）
   },
 } as const;
 
@@ -103,14 +104,14 @@ export const UI = {
   HUD_POPUP_MS: 720,
   HUD_POPUP_FONT_SIZE: '20px',
 
-  // 暂停面板（画面中央模态）
+  // 暂停面板（画面中央模态。3 按钮: 继续 / 结束周目（S-03/S-08 接线前的临时経路）/ 回到菜单）
   PAUSE_PANEL_WIDTH: 420,
-  PAUSE_PANEL_HEIGHT: 300,
+  PAUSE_PANEL_HEIGHT: 380,
   PAUSE_TITLE_OFFSET_Y: 44,
   PAUSE_TITLE_FONT_SIZE: '26px',
   PAUSE_BUTTON_WIDTH: 240,
   PAUSE_BUTTON_HEIGHT: 56,
-  PAUSE_BUTTON_STACK_OFFSET_Y: 44,
+  PAUSE_BUTTON_STACK_GAP: 72,
   PAUSE_BUTTON_FONT_SIZE: '20px',
 
   // 按压反馈（纯点击的单次 pointerdown）
@@ -136,8 +137,68 @@ export const UI = {
   PAUSE_LAYER_ID: 'pause',
   ZONE_LEDGER: 'ui.ledger',
   ZONE_PAUSE_RESUME: 'ui.pause.resume',
+  ZONE_PAUSE_END_RUN: 'ui.pause.endRun',
   ZONE_PAUSE_MENU: 'ui.pause.menu',
 } as const;
+
+// ==== 评分（S-15 ResultScene 总评分。出处: story S-15 acceptance 的公式）====
+// 注意: design/gdd.md「总评分」公式行记 silverEnd×0.5，同节「三线贡献表」记权重 2 — 两者矛盾。
+// 本处暂以 acceptance 公式（0.5）为准；调参只改此处，判断事项已上报 game-designer。
+export const SCORE = {
+  WEIGHT_SILVER: 0.5,
+  WEIGHT_REPUTATION: 10,
+  WEIGHT_POWER: 20,
+} as const;
+
+// ==== Result 场景（S-15: ResultScene 与场景循环闭合 — ui-engineer。布局由 GAME_WIDTH/HEIGHT
+// 基准分辨率推导，Scale.FIT 下不错位。配色复用 art-bible 调色板的 UI.PANEL_* / HUD_* 常量）====
+export const RESULT = {
+  // 模态面板（画面中央）
+  PANEL_WIDTH: 560,
+  PANEL_HEIGHT: 460,
+
+  // 标题（败局 / 周目结果）
+  TITLE_OFFSET_Y: -158,
+  TITLE_FONT_SIZE: '34px',
+
+  // 总评分（大字号 — 一眼可读的单一数字化）
+  SCORE_LABEL_OFFSET_Y: -96,
+  SCORE_LABEL_FONT_SIZE: '20px',
+  SCORE_VALUE_OFFSET_Y: -58,
+  SCORE_VALUE_FONT_SIZE: '44px',
+
+  // 评分明细（4 行: 银子 / 声望 / 伙计实力 / 结局加成）
+  BREAKDOWN_START_OFFSET_Y: 4,
+  BREAKDOWN_LINE_GAP: 34,
+  BREAKDOWN_FONT_SIZE: '18px',
+  BREAKDOWN_LABEL_X_OFFSET: -180,
+  BREAKDOWN_VALUE_X_OFFSET: 180,
+
+  // 按钮（画面中央下部横排 2 个）
+  BUTTON_WIDTH: 240,
+  BUTTON_HEIGHT: 56,
+  BUTTON_GAP: 32,
+  BUTTONS_OFFSET_Y: 170,
+  BUTTON_FONT_SIZE: '20px',
+  PRIORITY_BUTTON: 10,
+
+  // 判定区 id
+  ZONE_RETRY: 'result.retry',
+  ZONE_TO_MENU: 'result.toMenu',
+
+  /** Systems 层接线（S-05/S-08/S-20）前的占位值 — UI 不生成周目数值，仅透传 HUD feed */
+  STAFF_POWER_PLACEHOLDER: 0,
+  ENDING_BONUS_PLACEHOLDER: 0,
+} as const;
+
+/** Result 载荷缺省时的回落值（Systems 层真值接线前的占位 — 与 HUD_INITIAL_STATE 同型的接线占位） */
+export const RESULT_FALLBACK_SUMMARY: RunEndSummary = {
+  kind: 'runComplete',
+  silver: 0,
+  reputation: 0,
+  staffPower: RESULT.STAFF_POWER_PLACEHOLDER,
+  endingBonus: RESULT.ENDING_BONUS_PLACEHOLDER,
+};
 
 // ==== Menu 场景（S-13: Menu 必需要素 — ui-engineer。布局/字号由 GAME_WIDTH/HEIGHT 基准分辨率推导，
 // Scale.FIT 下不错位。配色复用 art-bible 调色板的 UI.PANEL_* / HUD_* 常量）====

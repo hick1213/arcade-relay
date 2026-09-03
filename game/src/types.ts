@@ -36,8 +36,15 @@ export const TAP_EVENTS = {
   LEDGER_BUTTON: 'onLedgerTap',
   /** 暂停面板「继续」 */
   PAUSE_RESUME: 'onPauseResumeTap',
+  /** 暂停面板「结束周目」（prototype 临时経路 — S-03/S-08 接线后由破产/终战判定置換） */
+  PAUSE_END_RUN: 'onPauseEndRunTap',
   /** 暂停面板「回到菜单」 */
   PAUSE_TO_MENU: 'onPauseToMenuTap',
+  // ==== Result 场景（S-15: 场景循环闭合）====
+  /** 「再来一周目」→ GameScene 志向选择（不继承任何周目内状态 — gdd「重新开始」） */
+  RESULT_RETRY: 'onResultRetryTap',
+  /** 「回到菜单」→ MenuScene */
+  RESULT_TO_MENU: 'onResultToMenuTap',
   // ==== Menu 场景（S-13: Menu 必需要素）====
   /** 「继续周目」（run 快照存在时显示）→ GameScene 恢复 */
   MENU_CONTINUE: 'onMenuContinueTap',
@@ -107,6 +114,24 @@ export interface HudState {
  * S-11 systems/i18n 落地后由其 t() 实现（缺 key 回落中文）。
  */
 export type TextProvider = (key: string) => string;
+
+// ==== 周目终结摘要（S-15: Game→Result 迁移载荷。真值由 Systems 层生成 — UI 仅接收绘制，
+// 禁止在 UI 侧持有/累加。字段对应 gdd「总评分」公式的输入项）====
+
+/** 周目终结种类（破产败局 / 终战败 / 周目完成 — gdd「胜负条件」） */
+export type RunEndKind = 'bankruptcy' | 'finalBattleLoss' | 'runComplete';
+
+export interface RunEndSummary {
+  readonly kind: RunEndKind;
+  /** 周目终值银子（silverEnd） */
+  readonly silver: number;
+  /** 周目终值声望（repEnd） */
+  readonly reputation: number;
+  /** 全伙计三属性合计（staffPowerTotal） */
+  readonly staffPower: number;
+  /** 结局加成（财/侠/名结局 = 200 — S-20 结局判定接线前为占位 0） */
+  readonly endingBonus: number;
+}
 
 // ==== 元进度存档（gdd「元进度（游戏外）」「存档数据方针」节 — S-13 Menu 显示/设置接线所需）====
 // 权威 shape 由 S-14 systems/meta/metaTypes.ts 承接; 迁移函数链+验证在 systems/meta/metaSchema.ts。

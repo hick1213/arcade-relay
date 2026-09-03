@@ -1,4 +1,4 @@
-# state/active.md — 会话交接（更新: 2026-09-03T12:44:08Z）
+# state/active.md — 会话交接（更新: 2026-09-03T12:59:00Z）
 
 ## 当前位置
 Phase 2 QA-PLAY fix（ui-engineer、S-13）完了:
@@ -11,6 +11,7 @@ Phase 2 QA-PLAY fix（ui-engineer、S-13）完了:
 CR-CODE（S-13 diff）→ qa-lead による QA-PLAY 再判定（Menu 遷移・設置実効性の再検証）→ Checkpoint B
 
 ## 未解决事项（带入下一工序）
+0. 【中】S-15 の一時経路: PausePanel「结束周目」は prototype 専用（S-08 破産判定/S-19 終戦の自動遷移が入れば削除）。Result 遷移時の applyRunResult→persist は S-14（gameplay-engineer）スコープ — 現状未接続のため Result 表示値は SaveData に反映されない
 1. 【高】**IMG-01～30 未生成** — 背景/精灵/UI 全部程序化占位（`ui/placeholderTextures.ts`、BootScene のASSET_KEYS コメントで予約）。UI 资产置换は未実施（置換先が存在しない）
 2. 【高】**BGM-01/02 未生成** — design/assets.md「生成实绩」どおり Phase 3 へ持ち越し（循环验证が交付条件）
 3. 【中】DR-GDD iteration 3 の 3 项修订未经 reviewer 再判定 — Checkpoint B 时验证（引续）。

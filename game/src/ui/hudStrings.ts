@@ -14,7 +14,21 @@ export const HUD_TEXT_KEYS = {
   HUD_LEDGER: 'hud.ledger',
   PAUSE_TITLE: 'pause.title',
   PAUSE_RESUME: 'pause.resume',
+  PAUSE_END_RUN: 'pause.endRun',
   PAUSE_QUIT: 'pause.quit',
+} as const;
+
+/** 玩家可见文本 key（Result 场景 — S-15） */
+export const RESULT_TEXT_KEYS = {
+  RESULT_TITLE_DEFEAT: 'result.title.defeat',
+  RESULT_TITLE_COMPLETE: 'result.title.complete',
+  RESULT_SCORE_LABEL: 'result.score',
+  RESULT_SCORE_SILVER: 'result.score.silver',
+  RESULT_SCORE_REPUTATION: 'result.score.reputation',
+  RESULT_SCORE_POWER: 'result.score.power',
+  RESULT_SCORE_BONUS: 'result.score.bonus',
+  RESULT_RETRY: 'result.retry',
+  RESULT_TO_MENU: 'result.toMenu',
 } as const;
 
 /** 玩家可见文本 key（Menu 场景 — S-13 必需要素 4 项） */
@@ -49,7 +63,17 @@ const ZH_TABLE: Readonly<Record<string, string>> = {
   [HUD_TEXT_KEYS.HUD_LEDGER]: '帐本',
   [HUD_TEXT_KEYS.PAUSE_TITLE]: '暂停',
   [HUD_TEXT_KEYS.PAUSE_RESUME]: '继续',
+  [HUD_TEXT_KEYS.PAUSE_END_RUN]: '结束周目',
   [HUD_TEXT_KEYS.PAUSE_QUIT]: '回到菜单',
+  [RESULT_TEXT_KEYS.RESULT_TITLE_DEFEAT]: '败局',
+  [RESULT_TEXT_KEYS.RESULT_TITLE_COMPLETE]: '周目结果',
+  [RESULT_TEXT_KEYS.RESULT_SCORE_LABEL]: '总评分',
+  [RESULT_TEXT_KEYS.RESULT_SCORE_SILVER]: '银子贡献',
+  [RESULT_TEXT_KEYS.RESULT_SCORE_REPUTATION]: '声望贡献',
+  [RESULT_TEXT_KEYS.RESULT_SCORE_POWER]: '伙计实力贡献',
+  [RESULT_TEXT_KEYS.RESULT_SCORE_BONUS]: '结局加成',
+  [RESULT_TEXT_KEYS.RESULT_RETRY]: '再来一周目',
+  [RESULT_TEXT_KEYS.RESULT_TO_MENU]: '回到菜单',
   [MENU_TEXT_KEYS.MENU_TITLE]: '菜单',
   [MENU_TEXT_KEYS.MENU_CONTINUE]: '继续周目',
   [MENU_TEXT_KEYS.MENU_NEW_RUN]: '新周目',

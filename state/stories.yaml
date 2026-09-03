@@ -105,7 +105,7 @@ stories:
     pillar: P-03
     assignee: ui-engineer
     phase: prototype
-    status: todo
+    status: review
     acceptance: "ResultScene 显示败局或周目结果与总评分（score=floor(silver×0.5+rep×10+power×20+endingBonus)）; 「再来一周目」→GameScene 志向选择且重开时计时器/客人/岗位表/弃牌堆全部重置（状态泄漏检查）; 「回到菜单」→MenuScene; 以实际操作走完 Title→Menu→Game→Result→Menu 一轮无报错"
   # ---- build phase ----
   - id: S-16

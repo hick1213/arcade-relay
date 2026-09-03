@@ -16,6 +16,10 @@ import { ensureUiPlaceholderTextures } from './placeholderTextures';
 import { createUiButton, playPressFeedback } from './UiButton';
 
 export interface PausePanelCallbacks {
+  /** 「结束周目」→ GameScene 迁移到 ResultScene（prototype 临时経路 — S-03/S-08 接线后
+   *  由破产/终战判定的自动迁移置換，本按钮届时移除。QA 必需场景循环 Title→…→Result 的
+   *  Game→Result 经由此按钮以实际操作走通） */
+  readonly onEndRun: () => void;
   /** 「回到菜单」→ GameScene 迁移到 MenuScene */
   readonly onQuitToMenu: () => void;
 }
@@ -62,24 +66,43 @@ export class PausePanel {
       )
       .setOrigin(0.5);
 
-    const resume = this.createButton(
-      centerX,
-      centerY - UI.PAUSE_BUTTON_STACK_OFFSET_Y,
-      UI.ZONE_PAUSE_RESUME,
-      TAP_EVENTS.PAUSE_RESUME,
-      textProvider(HUD_TEXT_KEYS.PAUSE_RESUME),
+    // 纵向堆叠（3 按钮: 继续 / 结束周目 / 回到菜单 — 位置由 config 的间隔常量推导）
+    const definitions = [
+      {
+        zoneId: UI.ZONE_PAUSE_RESUME,
+        event: TAP_EVENTS.PAUSE_RESUME,
+        labelKey: HUD_TEXT_KEYS.PAUSE_RESUME,
+      },
+      {
+        zoneId: UI.ZONE_PAUSE_END_RUN,
+        event: TAP_EVENTS.PAUSE_END_RUN,
+        labelKey: HUD_TEXT_KEYS.PAUSE_END_RUN,
+      },
+      {
+        zoneId: UI.ZONE_PAUSE_MENU,
+        event: TAP_EVENTS.PAUSE_TO_MENU,
+        labelKey: HUD_TEXT_KEYS.PAUSE_QUIT,
+      },
+    ] as const;
+    const buttons = definitions.map((definition, index) =>
+      this.createButton(
+        centerX,
+        centerY + (index - (definitions.length - 1) / 2) * UI.PAUSE_BUTTON_STACK_GAP,
+        definition.zoneId,
+        definition.event,
+        textProvider(definition.labelKey),
+      ),
     );
-    const quit = this.createButton(
-      centerX,
-      centerY + UI.PAUSE_BUTTON_STACK_OFFSET_Y,
-      UI.ZONE_PAUSE_MENU,
-      TAP_EVENTS.PAUSE_TO_MENU,
-      textProvider(HUD_TEXT_KEYS.PAUSE_QUIT),
-    );
-    this.buttons = [resume, quit];
-    this.container.add([blocker, panel, title, ...resume.visuals, ...quit.visuals]);
+    this.buttons = buttons;
+    this.container.add([
+      blocker,
+      panel,
+      title,
+      ...buttons.flatMap((button) => [...button.visuals]),
+    ]);
 
     router.on(TAP_EVENTS.PAUSE_RESUME, this.handleResumeTap);
+    router.on(TAP_EVENTS.PAUSE_END_RUN, this.handleEndRunTap);
     router.on(TAP_EVENTS.PAUSE_TO_MENU, this.handleQuitTap);
   }
 
@@ -118,14 +141,23 @@ export class PausePanel {
   }
 
   private readonly handleResumeTap = (): void => {
-    playPressFeedback(this.scene, this.buttons[0]?.visuals ?? []);
+    playPressFeedback(this.scene, this.visualsFor(TAP_EVENTS.PAUSE_RESUME));
     this.close();
   };
 
+  private readonly handleEndRunTap = (): void => {
+    playPressFeedback(this.scene, this.visualsFor(TAP_EVENTS.PAUSE_END_RUN));
+    this.callbacks.onEndRun();
+  };
+
   private readonly handleQuitTap = (): void => {
-    playPressFeedback(this.scene, this.buttons[1]?.visuals ?? []);
+    playPressFeedback(this.scene, this.visualsFor(TAP_EVENTS.PAUSE_TO_MENU));
     this.callbacks.onQuitToMenu();
   };
+
+  private visualsFor(event: TapEventName): readonly Phaser.GameObjects.GameObject[] {
+    return this.buttons.find((button) => button.event === event)?.visuals ?? [];
+  }
 
   private createButton(
     centerX: number,

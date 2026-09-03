@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
-import { HUD_INITIAL_STATE } from '../config';
+import { HUD_INITIAL_STATE, RESULT } from '../config';
 import { InputRouter } from '../systems/input/InputRouter';
-import type { HudState, TextProvider } from '../types';
+import type { HudState, RunEndSummary, TextProvider } from '../types';
 import { Hud } from '../ui/Hud';
 import { PausePanel } from '../ui/PausePanel';
 import { createFallbackTextProvider } from '../ui/hudStrings';
@@ -32,6 +32,8 @@ export class GameScene extends Phaser.Scene {
     const textProvider: TextProvider = createFallbackTextProvider();
 
     this.pausePanel = new PausePanel(this, textProvider, this.router, {
+      // prototype 临时経路 — S-08（破产判定）/ S-19（终战）接线后由 Systems 层的自动迁移置換
+      onEndRun: () => this.scene.start('Result', this.buildRunEndSummary()),
       onQuitToMenu: () => this.scene.start('Menu'),
     });
     this.hud = new Hud(this, textProvider, this.router, () => this.pausePanel.open());
@@ -45,5 +47,21 @@ export class GameScene extends Phaser.Scene {
       return;
     }
     this.hud.update(this.hudFeed);
+  }
+
+  /**
+   * 周目终结摘要（prototype 临时経路用 — S-15 QA 必需场景循环的 Game→Result）。
+   * 值仅从 HUD feed（Systems 层真值的接线通道）透传 — UI/Scene 侧不生成周目数值。
+   * S-08/S-19/S-20 接线后由 systems 层的 RunResult 取代（staffPower/endingBonus 的
+   * 占位值在 config.RESULT 的 PLACEHOLDER 常量）。
+   */
+  private buildRunEndSummary(): RunEndSummary {
+    return {
+      kind: 'runComplete',
+      silver: this.hudFeed.silver,
+      reputation: this.hudFeed.reputation,
+      staffPower: RESULT.STAFF_POWER_PLACEHOLDER,
+      endingBonus: RESULT.ENDING_BONUS_PLACEHOLDER,
+    };
   }
 }
