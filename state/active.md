@@ -1,15 +1,14 @@
-# state/active.md — 会话交接（更新: 2026-09-03T11:02:01Z）
+# state/active.md — 会话交接（更新: 2026-09-03T12:44:08Z）
 
 ## 当前位置
-Phase 2 Integrate（gameplay-engineer、串行区间）完成 — 生成资产の game/ 統合:
-- `game/src/config.ts`: `ASSET_KEYS.audio` に SFX-01～08 を意味キー（sfxUiTap 等）で登録（OGG+M4A 双形式、拡張子なし基準パス＋`AUDIO_FORMATS`）。IMG-xx / BGM-xx は未生成のため未登録（コメントで予約）
-- `game/src/scenes/BootScene.ts`: `Object.values(ASSET_KEYS.audio)` で preload（Phaser AudioFile が canPlay で OGG/M4A を自動選択）。AudioContext 解錠は既存どおり TitleScene 初回 pointerdown の `sound.unlock()`（規範 6）
-- `game/vite.config.ts`: `game/assets/` が import されない生ファイルで Vite 配信外だった問題を修正（dev ミドルウェア＋build closeBundle で dist/assets へ複製。依存追加なし。パストラバーサルガード付き）。修正前は preview が SPA フォールバックの HTML を 200 返し、音声デコードが必ず失敗していた
-- `game/assets/MANIFEST.jsonl`: 8 SFX 全行に `validator` 追加（sha256 ogg/m4a・formats・loudness −16±1・engine_preload 実機記録）。`sfx-coin-collect.m4a` の alt sha256 の転記 typo を 1 文字修正（ファイル自体は commit 0173bca から不変、ファイル値が正）
-- 検証: `cd game && npm run typecheck && npm run build` exit 0。preview/dev 両方で `Content-Type: audio/ogg|mp4` 実配信を curl 確認
+Phase 2 QA-PLAY fix（ui-engineer、S-13）完了:
+- QA 指摘「MenuScene 完全空白」の実装（S-13 必須 4 要素）がワーキングツリーにあったが未 commit で QA の dist に未反映だった状態を解消。実装内容: `game/src/scenes/MenuScene.ts`（タイトル/新周目・続周目/図鑑統計/設置/戻るボタン）＋ `game/src/ui/MenuStatsPanel.ts` `MenuSettingsPanel.ts` `VolumeSlider.ts` `game/src/persistence/SaveAdapter.ts`
+- 追加修正: Phaser 3.90 WebAudio `sound.volume` setter の再設定が無視される罠（`setValueAtTime(value, 0)` 重複イベントが Chromium で破棄）に対し `MenuScene.applyMasterVolume`（cancel + 現在時刻で再適用、WebAudio 以外は setter フォールバック）で対処。音量変更が SaveData 真値→persist→実音声出力へ確実に反映
+- 検証: `cd game && npm run typecheck && npm run build` exit 0。headless probe 実機確認: Menu 子要素 11（タイトル+4 ボタン）、新周目実クリックで Menu→Game 遷移、図鑑統計/設置パネル表示、BGM スライダー click→`game.sound.volume` 反映＋localStorage 持続化、返回标题→Title、pageerror 0。陷阱は `.claude/docs/tech-stack.md`「已知陷阱」へ記録
+- stories.yaml: S-13 → review
 
 ## 下一步操作
-QA-PLAY（qa-lead）: headless ブラウザで実操作 — Title→Menu→Game→Result→Menu、SFX-01～08 のデコード（validator の engine_preload は build+配信確認まで、実デコードは QA-PLAY で判定）→ Checkpoint B。
+CR-CODE（S-13 diff）→ qa-lead による QA-PLAY 再判定（Menu 遷移・設置実効性の再検証）→ Checkpoint B
 
 ## 未解决事项（带入下一工序）
 1. 【高】**IMG-01～30 未生成** — 背景/精灵/UI 全部程序化占位（`ui/placeholderTextures.ts`、BootScene のASSET_KEYS コメントで予約）。UI 资产置换は未実施（置換先が存在しない）

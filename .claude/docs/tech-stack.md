@@ -71,3 +71,8 @@ game/
 
 - `systems/` 不 import/引用 Phaser API、`localStorage`（仅类型与数值逻辑）— 这里是引擎无关层（`systems/meta/` 同样）
 - Phaser 依赖封闭在 `scenes/` `ui/` `main.ts` 中，浏览器持久化 API 封闭在 `persistence/` 中
+
+## 已知陷阱
+
+- **Phaser 3.90 WebAudio `SoundManager#volume` setter の再設定が無視されることがある**（2026-09-03、S-13 QA fix で確認）。setter は内部で毎回 `masterVolumeNode.gain.setValueAtTime(value, 0)` をスケジュールするが、同一時刻（`0`）への重複オートメーションイベントや、timeline 上の既存イベントより前の時刻への挿入は Chromium が静默的に破棄する — 「2 回目以降の音量変更が反映されない」のように見える（`game.sound.volume` の readback も render スレッドの評価待ちで遅延する。即時 readback の検証は数百 ms 待ってから行うこと）。対処: `masterVolumeNode.gain.cancelScheduledValues(context.currentTime)` → `setValueAtTime(value, context.currentTime)` で再適用する（実装例: `game/src/scenes/MenuScene.ts` の `applyMasterVolume`）。WebAudio 以外の SoundManager（HTML5/NoAudio）には該当ノードが無いため feature-detect して素の setter へフォールバックする
+- **バンドル版 Phaser ESM には `Phaser.GAMES` レジストリが存在しない**（3.90 で確認）。headless QA プローブから Game インスタンスへ到達するには、`addInitScript` で `window.Phaser` の setter を差し替えて `Game.prototype.boot` をラップし、インスタンスを捕捉する（DisplayList の子要素数は `scene.children.list.length`。`getLength()`/`iterate()` は DisplayList に無い）

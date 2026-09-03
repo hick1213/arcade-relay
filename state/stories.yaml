@@ -91,7 +91,7 @@ stories:
     pillar: P-04
     assignee: ui-engineer
     phase: prototype
-    status: todo
+    status: review
     acceptance: "MenuScene 实际存在 4 要素并可用点击操作: (1)开始游戏=「新周目」按钮跳转 GameScene 志向选择、有 run 快照时另显示「继续周目」; (2)游戏外显示=可展开的面板显示最高分/统计（周目数等）; (3)设置=BGM/SFX 音量滑块（0–1、实时作用于 sound.volume）、操作说明面板; (4)退出入口=「返回标题」按钮回 TitleScene"
   - id: S-14
     title: "元进度持久化（最高分/统计 + 损坏协议）"

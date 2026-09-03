@@ -80,6 +80,8 @@ export class InputRouter {
       zoneId: best.id,
       event: best.event,
       payload: best.payload ?? {},
+      x,
+      y,
     };
   }
 

@@ -4,7 +4,7 @@
  * 键名经 config.ts 的 ASSET_KEYS.uiPlaceholder 登记，资产到位后仅替换 ASSET_KEYS 与加载处。
  */
 import Phaser from 'phaser';
-import { ASSET_KEYS, UI } from '../config';
+import { ASSET_KEYS, MENU, UI } from '../config';
 
 type PanelDrawer = (g: Phaser.GameObjects.Graphics, width: number, height: number) => void;
 
@@ -73,6 +73,20 @@ export const ensureUiPlaceholderTextures = (scene: Phaser.Scene): void => {
     ASSET_KEYS.uiPlaceholder.pauseButton,
     UI.PAUSE_BUTTON_WIDTH,
     UI.PAUSE_BUTTON_HEIGHT,
+    drawPanelBase,
+  );
+  ensureTexture(
+    scene,
+    ASSET_KEYS.uiPlaceholder.menuButton,
+    MENU.BUTTON_WIDTH,
+    MENU.BUTTON_HEIGHT,
+    drawPanelBase,
+  );
+  ensureTexture(
+    scene,
+    ASSET_KEYS.uiPlaceholder.menuPanel,
+    MENU.PANEL_WIDTH,
+    MENU.PANEL_HEIGHT,
     drawPanelBase,
   );
 };

@@ -12,6 +12,10 @@ export const GAME_HEIGHT = 720;
 // ==== 持久化 ====
 export const SAVE_KEY = 'arcaderelay-save';
 export const SAVE_BACKUP_PREFIX = 'arcaderelay-save.bak.';
+/** SaveData 版本（gdd「存档数据方针」。比此更新的版本视同损坏 — 禁止隐式降级） */
+export const SAVE_VERSION = 1;
+/** 首次启动时的设置初始值（gdd「存档数据方针」表） */
+export const DEFAULT_SETTINGS = { bgm_volume: 0.7, sfx_volume: 0.8, lang: 'zh' } as const;
 
 // ==== 资产引用（tech-stack.md 规范 5: ASSET_KEYS）====
 // design/assets.md 的 IMG-xx / SFX-xx / BGM-xx 资产到位后在此登记。
@@ -44,6 +48,8 @@ export const ASSET_KEYS = {
     ledgerButton: 'ui/ledger-button',
     pausePanel: 'ui/pause-panel',
     pauseButton: 'ui/pause-button',
+    menuButton: 'ui/menu-button', // S-13 Menu 纵向按钮列（MENU.BUTTON_WIDTH x HEIGHT）
+    menuPanel: 'ui/menu-panel', // S-13 图鉴统计/设置模态面板（MENU.PANEL_WIDTH x HEIGHT）
   },
 } as const;
 
@@ -120,6 +126,7 @@ export const UI = {
   PANEL_ACCENT: 0xc18e52,
   PANEL_ACCENT_WIDTH: 2,
   PANEL_ACCENT_INSET: 6,
+  PANEL_BRIGHT_ACCENT: 0xf0c182,
 
   // 暂停中的画面变暗遮罩（视觉上传达「已暂停」）
   BLOCKER_COLOR: 0x281d10,
@@ -130,6 +137,77 @@ export const UI = {
   ZONE_LEDGER: 'ui.ledger',
   ZONE_PAUSE_RESUME: 'ui.pause.resume',
   ZONE_PAUSE_MENU: 'ui.pause.menu',
+} as const;
+
+// ==== Menu 场景（S-13: Menu 必需要素 — ui-engineer。布局/字号由 GAME_WIDTH/HEIGHT 基准分辨率推导，
+// Scale.FIT 下不错位。配色复用 art-bible 调色板的 UI.PANEL_* / HUD_* 常量）====
+export const MENU = {
+  // 标题
+  TITLE_X_OFFSET_FROM_CENTER: 0,
+  TITLE_Y: 104,
+  TITLE_FONT_SIZE: '40px',
+
+  // 纵向按钮列（画面中央。继续周目有无导致 4/5 段变化 — 以固定起点向下堆叠）
+  BUTTON_WIDTH: 320,
+  BUTTON_HEIGHT: 64,
+  BUTTON_FONT_SIZE: '24px',
+  BUTTON_START_Y: 208,
+  BUTTON_GAP: 76,
+
+  // 存档损坏恢复通知（画面上端 1 行 — contract §6 recovered 传播到 Menu）
+  RECOVERED_NOTICE_Y: 28,
+  RECOVERED_NOTICE_FONT_SIZE: '15px',
+
+  // 模态面板（图鉴统计/设置共通。画面中央）
+  PANEL_WIDTH: 620,
+  PANEL_HEIGHT: 440,
+  PANEL_TITLE_OFFSET_Y: 48,
+  PANEL_TITLE_FONT_SIZE: '26px',
+  PANEL_LINE_FONT_SIZE: '19px',
+  PANEL_LINE_START_Y: 252,
+  PANEL_LINE_GAP: 40,
+  PANEL_LINE_LABEL_X_OFFSET: -140,
+  PANEL_LINE_VALUE_X_OFFSET: 140,
+  PANEL_CLOSE_BUTTON_WIDTH: 200,
+  PANEL_CLOSE_BUTTON_HEIGHT: 56,
+  PANEL_CLOSE_BUTTON_Y: 532,
+  PANEL_CLOSE_BUTTON_FONT_SIZE: '20px',
+
+  // 设置面板内操作说明（自动换行）
+  PANEL_HINT_TITLE_Y: 392,
+  PANEL_HINT_TITLE_FONT_SIZE: '18px',
+  PANEL_HINT_BODY_Y: 424,
+  PANEL_HINT_BODY_FONT_SIZE: '15px',
+  PANEL_HINT_WRAP_WIDTH: 540,
+
+  // 音量滑块（点击轨道任意位置即设定 — P-04 单击、无拖拽依赖）
+  SLIDER_TRACK_WIDTH: 340,
+  SLIDER_TRACK_HEIGHT: 14,
+  SLIDER_HANDLE_WIDTH: 26,
+  SLIDER_HANDLE_HEIGHT: 34,
+  SLIDER_LABEL_X_OFFSET: -230,
+  SLIDER_TRACK_X_OFFSET: 10,
+  SLIDER_VALUE_X_OFFSET: 230,
+  SLIDER_FONT_SIZE: '18px',
+  SETTINGS_BGM_Y: 268,
+  SETTINGS_SFX_Y: 332,
+
+  // 输入路由（模态层屏蔽基础按钮 — conventions 规则 7。模态 > 基础按钮 > 无）
+  LAYER_ID: 'menu.modal',
+  PRIORITY_BUTTON: 10,
+  PRIORITY_MODAL: 60,
+  DEPTH_MODAL: 300,
+
+  // 判定区 id
+  ZONE_CONTINUE: 'menu.continue',
+  ZONE_NEW_RUN: 'menu.newRun',
+  ZONE_OPEN_STATS: 'menu.openStats',
+  ZONE_OPEN_SETTINGS: 'menu.openSettings',
+  ZONE_BACK_TITLE: 'menu.backTitle',
+  ZONE_STATS_CLOSE: 'menu.stats.close',
+  ZONE_SETTINGS_CLOSE: 'menu.settings.close',
+  ZONE_BGM_SLIDER: 'menu.slider.bgm',
+  ZONE_SFX_SLIDER: 'menu.slider.sfx',
 } as const;
 
 /** HUD 初期表示値（志向确定前的占位。S-04/S-08 接线后由 Systems 层真值置换） */

@@ -38,6 +38,23 @@ export const TAP_EVENTS = {
   PAUSE_RESUME: 'onPauseResumeTap',
   /** 暂停面板「回到菜单」 */
   PAUSE_TO_MENU: 'onPauseToMenuTap',
+  // ==== Menu 场景（S-13: Menu 必需要素）====
+  /** 「继续周目」（run 快照存在时显示）→ GameScene 恢复 */
+  MENU_CONTINUE: 'onMenuContinueTap',
+  /** 「新周目」→ GameScene 志向选择 */
+  MENU_NEW_RUN: 'onMenuNewRunTap',
+  /** 「图鉴・统计」→ 游戏外显示面板展开 */
+  MENU_OPEN_STATS: 'onMenuOpenStatsTap',
+  /** 「设置」→ 设置面板展开 */
+  MENU_OPEN_SETTINGS: 'onMenuOpenSettingsTap',
+  /** 「返回标题」→ TitleScene（退出入口） */
+  MENU_BACK_TITLE: 'onMenuBackTitleTap',
+  /** 面板「关闭」 */
+  MENU_CLOSE_PANEL: 'onMenuClosePanelTap',
+  /** BGM 音量滑块（点击轨道位置即设定 — P-04 单击） */
+  MENU_BGM_VOLUME: 'onMenuBgmVolumeTap',
+  /** SFX 音量滑块 */
+  MENU_SFX_VOLUME: 'onMenuSfxVolumeTap',
 } as const;
 
 export type TapEventName = (typeof TAP_EVENTS)[keyof typeof TAP_EVENTS];
@@ -66,6 +83,9 @@ export interface TapHit {
   readonly zoneId: string;
   readonly event: TapEventName;
   readonly payload: Readonly<Record<string, number | string>>;
+  /** pointer 坐标（音量滑块等位置感知判定区用。InputRouter 的 pointerdown 直通传入） */
+  readonly x: number;
+  readonly y: number;
 }
 
 export type TapEventHandler = (hit: TapHit) => void;
@@ -87,3 +107,55 @@ export interface HudState {
  * S-11 systems/i18n 落地后由其 t() 实现（缺 key 回落中文）。
  */
 export type TextProvider = (key: string) => string;
+
+// ==== 元进度存档（gdd「元进度（游戏外）」「存档数据方针」节 — S-13 Menu 显示/设置接线所需）====
+// 权威 shape 由 S-14 systems/meta/metaTypes.ts 承接; 迁移函数链+验证在 systems/meta/metaSchema.ts。
+// 本定义是 persistence/SaveAdapter 的最小契约，字段名与 gdd 存档表一一对应（禁止结构重复声明 —
+// S-14 落地后本节迁移引用 metaTypes，禁止另起第二份定义）。
+
+export type LanguageCode = 'zh' | 'en' | 'ja' | 'ko' | 'th';
+
+export type AchievementId = 'ACH-01' | 'ACH-02' | 'ACH-03' | 'ACH-04' | 'ACH-05' | 'ACH-06';
+export type UnlockId = 'UNL-01' | 'UNL-02';
+
+/** 统计（gdd「统计」表） */
+export interface MetaStats {
+  readonly finished_runs: number;
+  readonly silver_peak: number;
+  readonly rep_peak: number;
+  readonly served_total: number;
+}
+
+/** 设置（音量接线到实际音频输出并持久化 — contract §11 Menu 必需要素） */
+export interface MetaSettings {
+  readonly bgm_volume: number;
+  readonly sfx_volume: number;
+  readonly lang: LanguageCode;
+}
+
+/**
+ * 周目续玩快照。gdd: 保存日数/银子/声望/侠点/伙计表/弃牌堆。
+ * Menu 仅判定存在性（run !== null → 显示「继续周目」）; 全字段由 runSnapshot story 扩展
+ * （追加字段不破坏本契约）。终战败保留、破产/终战胜时置 null（architecture §4）。
+ */
+export interface RunSnapshot {
+  readonly day: number;
+  readonly silver: number;
+  readonly reputation: number;
+  readonly [key: string]: unknown;
+}
+
+/** SaveData（localStorage 键 arcaderelay-save、首字段 save_version — contract §6） */
+export interface SaveData {
+  readonly save_version: number;
+  readonly best_score: number;
+  readonly stats: MetaStats;
+  /** 3 结局（财/侠/名）达成标志 */
+  readonly endings_seen: readonly boolean[];
+  readonly achievements: Readonly<Record<AchievementId, boolean>>;
+  readonly unlocks: Readonly<Record<UnlockId, boolean>>;
+  readonly run: RunSnapshot | null;
+  readonly settings: MetaSettings;
+  /** 仅存档损坏恢复会话中为 true（contract §6 — 传播到 Title/Menu 显示通知） */
+  readonly recovered: boolean;
+}
