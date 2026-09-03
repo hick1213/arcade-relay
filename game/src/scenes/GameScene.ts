@@ -3,6 +3,8 @@ import { InputRouter } from '../systems/input/InputRouter';
 import { advanceRun, createInitialRun, handleTapEvent } from '../systems/runEngine';
 import { TAP_EVENTS, type HudState, type RunEndSummary, type RunState, type TapHit, type TextProvider } from '../types';
 import { buildRunEndSummary } from '../systems/economy';
+import { applyRunResult, createRunResult } from '../systems/meta/metaProgression';
+import { loadSaveData, saveSaveData } from '../persistence/SaveAdapter';
 import { Hud } from '../ui/Hud';
 import { PausePanel } from '../ui/PausePanel';
 import { GameplayView } from '../ui/GameplayView';
@@ -22,6 +24,8 @@ export class GameScene extends Phaser.Scene {
   private pausePanel!: PausePanel;
   private view!: GameplayView;
   private run: RunState = createInitialRun();
+  /** 同一周目の二重 persist 抑止（S-14 — create 时重置） */
+  private runResultPersisted = false;
 
   constructor() {
     super('Game');
@@ -30,6 +34,7 @@ export class GameScene extends Phaser.Scene {
   create(): void {
     // 场景重建＝状态全リセット（重开时计时器/客人/岗位表/弃牌堆の泄漏なし — S-15 acceptance）
     this.run = createInitialRun();
+    this.runResultPersisted = false;
 
     // 点击输入唯一入口（S-01 InputRouter — tech-stack 规范 4 / conventions 规则 7）
     this.router = new InputRouter();
@@ -93,6 +98,23 @@ export class GameScene extends Phaser.Scene {
   }
 
   private goToResult(summary: RunEndSummary): void {
+    this.persistRunResult(summary);
     this.scene.start('Result', summary);
+  }
+
+  /**
+   * 周目终结 → applyRunResult → 立即 persist 1 次（S-14 / gdd「存档数据方针」保存时机）。
+   * - 终战败は run 快照保留（重试当日 = S-19 接线）のため適用しない —
+   *   「回到菜单／再来一周目」时に適用される（S-19 で Result 側へ接线）。
+   * - applyRunResult は run := null にするため連続重開でも同じ 1 回の終局しか反映しない
+   *   （场景 flag で同一周目の二重 persist も抑止）。
+   */
+  private persistRunResult(summary: RunEndSummary): void {
+    if (summary.kind === 'finalBattleLoss' || this.runResultPersisted) {
+      return;
+    }
+    this.runResultPersisted = true;
+    const loaded = loadSaveData();
+    saveSaveData(applyRunResult(loaded.data, createRunResult(summary)));
   }
 }

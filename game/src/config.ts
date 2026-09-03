@@ -17,6 +17,23 @@ export const SAVE_VERSION = 1;
 /** 首次启动时的设置初始值（gdd「存档数据方针」表） */
 export const DEFAULT_SETTINGS = { bgm_volume: 0.7, sfx_volume: 0.8, lang: 'zh' } as const;
 
+// ==== 元进度 schema（S-14 — gdd「元进度（游戏外）」「存档数据方针」。ID 一览与初始值的唯一来源。
+// metaTypes/metaSchema/metaProgression 按此构建/验证 — 调整阈值或增删条目只动这里）====
+export const META_SAVE = {
+  /** 结局图鉴格数（财/侠/名 — gdd「统计」endings_seen[3]） */
+  ENDINGS_COUNT: 3,
+  /** 结局 id → endings_seen 下标（S-20 结局判定接线时使用同一映射） */
+  ENDING_INDEX: { wealth: 0, xia: 1, fame: 2 } as const,
+  /** 成就 id（gdd「成就」表。判定接线 = S-21） */
+  ACHIEVEMENT_IDS: ['ACH-01', 'ACH-02', 'ACH-03', 'ACH-04', 'ACH-05', 'ACH-06'],
+  /** 解锁 id（gdd「解锁」表。解放接线 = S-22） */
+  UNLOCK_IDS: ['UNL-01', 'UNL-02'],
+  /** 界面语言（gdd「设置」— i18n 全量 = S-24） */
+  LANGUAGE_CODES: ['zh', 'en', 'ja', 'ko', 'th'],
+  /** 统计初始值（gdd「存档数据方针」stats — 全 0） */
+  STATS_INITIAL: { finished_runs: 0, silver_peak: 0, rep_peak: 0, served_total: 0 },
+} as const;
+
 // ==== 资产引用（tech-stack.md 规范 5: ASSET_KEYS）====
 // design/assets.md 的 IMG-xx / SFX-xx / BGM-xx 资产到位后在此登记。
 // 键名 = 资产用途（conventions「命名」: 不使用 IMG-xx 编号），值 = assets/ 下相对路径（不含扩展名）。

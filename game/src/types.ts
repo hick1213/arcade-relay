@@ -133,57 +133,19 @@ export interface RunEndSummary {
   readonly endingBonus: number;
 }
 
-// ==== 元进度存档（gdd「元进度（游戏外）」「存档数据方针」节 — S-13 Menu 显示/设置接线所需）====
-// 权威 shape 由 S-14 systems/meta/metaTypes.ts 承接; 迁移函数链+验证在 systems/meta/metaSchema.ts。
-// 本定义是 persistence/SaveAdapter 的最小契约，字段名与 gdd 存档表一一对应（禁止结构重复声明 —
-// S-14 落地后本节迁移引用 metaTypes，禁止另起第二份定义）。
+// ==== 元进度存档（gdd「元进度（游戏外）」「存档数据方针」节）====
+// 权威 shape = systems/meta/metaTypes.ts（S-14 落地）。本文件仅 re-export —
+// 禁止另起第二份定义（迁移函数链+验证在 systems/meta/metaSchema.ts、I/O 在 persistence/）。
 
-export type LanguageCode = 'zh' | 'en' | 'ja' | 'ko' | 'th';
-
-export type AchievementId = 'ACH-01' | 'ACH-02' | 'ACH-03' | 'ACH-04' | 'ACH-05' | 'ACH-06';
-export type UnlockId = 'UNL-01' | 'UNL-02';
-
-/** 统计（gdd「统计」表） */
-export interface MetaStats {
-  readonly finished_runs: number;
-  readonly silver_peak: number;
-  readonly rep_peak: number;
-  readonly served_total: number;
-}
-
-/** 设置（音量接线到实际音频输出并持久化 — contract §11 Menu 必需要素） */
-export interface MetaSettings {
-  readonly bgm_volume: number;
-  readonly sfx_volume: number;
-  readonly lang: LanguageCode;
-}
-
-/**
- * 周目续玩快照。gdd: 保存日数/银子/声望/侠点/伙计表/弃牌堆。
- * Menu 仅判定存在性（run !== null → 显示「继续周目」）; 全字段由 runSnapshot story 扩展
- * （追加字段不破坏本契约）。终战败保留、破产/终战胜时置 null（architecture §4）。
- */
-export interface RunSnapshot {
-  readonly day: number;
-  readonly silver: number;
-  readonly reputation: number;
-  readonly [key: string]: unknown;
-}
-
-/** SaveData（localStorage 键 arcaderelay-save、首字段 save_version — contract §6） */
-export interface SaveData {
-  readonly save_version: number;
-  readonly best_score: number;
-  readonly stats: MetaStats;
-  /** 3 结局（财/侠/名）达成标志 */
-  readonly endings_seen: readonly boolean[];
-  readonly achievements: Readonly<Record<AchievementId, boolean>>;
-  readonly unlocks: Readonly<Record<UnlockId, boolean>>;
-  readonly run: RunSnapshot | null;
-  readonly settings: MetaSettings;
-  /** 仅存档损坏恢复会话中为 true（contract §6 — 传播到 Title/Menu 显示通知） */
-  readonly recovered: boolean;
-}
+export type {
+  AchievementId,
+  LanguageCode,
+  MetaSettings,
+  MetaStats,
+  RunSnapshot,
+  SaveData,
+  UnlockId,
+} from './systems/meta/metaTypes';
 
 // ==== 周目内玩法状态（S-02/S-03/S-05/S-06/S-08/S-09 — systems 纯逻辑 ⇔ ui/GameplayView 显示）====
 // 真值は Systems 层（runEngine）。UI はこの状态を受けて描くだけ（双重管理禁止 — ui-code 规范）。

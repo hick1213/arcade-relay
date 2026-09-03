@@ -98,7 +98,7 @@ stories:
     pillar: P-03
     assignee: gameplay-engineer
     phase: prototype
-    status: todo
+    status: review
     acceptance: "systems/meta/（metaTypes/metaSchema/metaProgression 纯 reducer）+ persistence/SaveAdapter: 周目终结时 applyRunResult→立即 persist 1 次（连续重开不重复保存）; 测试 A=保存→新实例从 localStorage 重新加载→最高分/统计/endings_seen 一致恢复; 测试 B=注入损坏存档（含 1 件 valid JSON 但 schema 不正的用例）→原始数据备份到 .bak.<epoch> 键、console.error 前缀 [SaveCorruption] 恰好 1 次、以默认值重建且 recovered 传播到 Title/Menu; 测试用内存 Storage mock，不触碰真实存档"
   - id: S-15
     title: "ResultScene 与场景循环闭合"
