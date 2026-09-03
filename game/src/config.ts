@@ -55,9 +55,10 @@ export const ASSET_KEYS = {
     sfxBattleGong: 'assets/audio/sfx-battle-gong', // SFX-08
   },
 
-  // 背景/精灵（S-33: IMG-01～30 正式资产 — design/assets.md。値 = assets/ 下のパス = そのまま
-  // Phaser のテクスチャキー（audio と同一規約）。表示サイズは SPRITE_DISPLAY、
-  // 実体との対応づけは systems/visualAssets.ts に集約）
+  // 背景/精灵（S-33: IMG-01～30 正式资产 — design/assets.md。登録は S-32 コミットに同梱）
+  // 値 = assets/ 下のパス = そのまま Phaser のテクスチャキー。※audio と異なり .png 拡張子を含む
+  // （audio は OGG/M4A 双形式展開のため拡張子なし — 規約は同一ではない点に注意）。
+  // 表示サイズは SPRITE_DISPLAY、実体との対応づけは systems/visualAssets.ts に集約）
   images: {
     // IMG-01～03 奥底背景（晨/日/夜 — 相位切换。opaque、cover 裁切至 1280x720）
     bgInnMorning: 'assets/images/tile-inn-hall-morning.png',
@@ -121,6 +122,32 @@ export const ASSET_KEYS = {
   },
 } as const;
 
+// IMG-30 のグリッド切分规格（1536x1024 → 3x2 帧。assets.md「IMG-30 的切分」）
+export const IMG_SHEET_FRAME = { WIDTH: 512, HEIGHT: 512 } as const;
+
+// ==== 立绘/物件の表示サイズ（S-33 — design/assets.md「尺寸」栏の游戏内表示値。px）====
+export const SPRITE_DISPLAY = {
+  /** 伙计/客人立绘（assets.md: 192–256px） */
+  STAFF_AVATAR_HEIGHT: 96, // 晨间头像框内（MORNING.AVATAR_WIDTH/HEIGHT に収める框内表示）
+  GUEST_HEIGHT: 192, // 桌に着席する客人（等比。192–256px 带の下限）
+  WAITER_MARKER_HEIGHT: 112, // 日间の跑堂移動体
+  /** 大敌（assets.md: ~320px） */
+  RIVAL_HEIGHT: 320,
+  /** 菜品图标（assets.md: 64–96px 带の下限）/ 出餐口棚では棚セルに合わせて縮小 */
+  DISH_BUBBLE_SIZE: 72,
+  DISH_RACK_SIZE: 48,
+  /** 圆桌（assets.md: ~160px） */
+  TABLE_SIZE: 160,
+  /** 志向图标（assets.md: 64–96px 带。按钮上の空き帯に収るサイズ） */
+  AMBITION_ICON_SIZE: 72,
+  /** 事件卡框（assets.md: ~400x600） */
+  EVENT_CARD_WIDTH: 400,
+  EVENT_CARD_HEIGHT: 600,
+  /** 标题 emblem（assets.md: ~640x427。中央を空けた装飾 — タイトル文を中央に重ねる） */
+  TITLE_EMBLEM_WIDTH: 640,
+  TITLE_EMBLEM_HEIGHT: 427,
+} as const;
+
 // ==== 输入（P-04 纯点击 — S-01。出处: gdd「数值表」「输入」节）====
 /** 最小可点击判定区边长（px）。gdd 数值表: 初始 48、调整范围 48–64 */
 export const BUTTON_MIN_SIZE_PX = 48;
@@ -151,7 +178,9 @@ export const UI = {
   HUD_FONT_FAMILY: 'sans-serif',
   // 文本渲染 resolution（S-32: UI 模糊修复。Phaser Text 默认以 1x 光栅化，Scale.FIT 缩放/
   // 高 DPI 显示下笔画发糊 — 内部 canvas 以 2x 光栅化后回缩，字形边缘显著锐化。
-  // 覆盖 0.5x/2x 窗口尺寸的 acceptance。全部 Text 一律经由本常量，禁止散置魔法数字）
+  // 覆盖 0.5x/2x 窗口尺寸（≤2560px 宽）的 acceptance。上限注记: 固定 2x 在更宽窗口
+  // （4K ≈ 3x FIT 放大）下会低于有效渲染分辨率 — 若需覆盖，改为从 window.devicePixelRatio
+  // 推导。全部 Text 一律经由本常量，禁止散置魔法数字）
   TEXT_RESOLUTION: 2,
   HUD_LABEL_FONT_SIZE: '15px',
   HUD_VALUE_FONT_SIZE: '22px',
@@ -210,6 +239,16 @@ export const UI = {
   ZONE_PAUSE_RESUME: 'ui.pause.resume',
   ZONE_PAUSE_END_RUN: 'ui.pause.endRun',
   ZONE_PAUSE_MENU: 'ui.pause.menu',
+} as const;
+
+// ==== 资产欠落 fallback（S-33 — IMG 资产未落盘时的程序化代用纹理。
+// BootScene が ASSET_KEYS.images/spriteSheets の全キーに対し未登録分へ適用。
+// 正常時（S-30 落盘後）は一切描画されない — 欠落を目立たせるための无地プレート）====
+export const ASSET_FALLBACK = {
+  SIZE: 256,
+  FILL: UI.PANEL_FILL,
+  STROKE: UI.PANEL_STROKE,
+  STROKE_WIDTH: UI.PANEL_STROKE_WIDTH,
 } as const;
 
 // ==== 评分（S-15 ResultScene 总评分。出处: story S-15 acceptance 的公式）====
@@ -529,6 +568,8 @@ export const AMBITION_UI = {
   TITLE_FONT_SIZE: '28px',
   HINT_Y: 250,
   HINT_FONT_SIZE: '18px',
+  /** 志向图标（IMG-22～24。按钮と hint 文の間の空き帯に收める — ボタン中央 y からのオフセット） */
+  ICON_OFFSET_Y: -84,
 } as const;
 
 // ==== 画面布局（S-02: 6 桌/出餐口/柜台の固定构图。GAME_WIDTH×GAME_HEIGHT 基准 —
@@ -649,6 +690,32 @@ export const GAMEPLAY = {
   /** 晨间引导超时の「开门营业」按钮脉冲（周期 ms — 実装演出定数） */
   GUIDE_PULSE_MS: 600,
   GUIDE_PULSE_SCALE: 1.06,
+
+  // ==== 资产表示の配置（S-33。IMG スプライト化に伴う位置・サイズ定数）====
+  /** 客人立绘（桌に着席 — 桌中心からのオフセット。テーブルより奥に見える配置） */
+  GUEST_OFFSET_Y: -80,
+  /** 立绘の後ろに敷く半透明プレート（選択枠线の土台。視認性確保の最低限の下敷き） */
+  SPRITE_PLATE_ALPHA: 0.28,
+  /** 点单/上菜/收钱气泡の桌中心からのオフセット（従来の直書き 52 を定数化） */
+  BUBBLE_OFFSET_Y: -52,
+  /** 出餐口の出来上がり菜ラック（SERVE_WINDOW からのオフセットとセル寸法） */
+  SERVE_RACK_X_OFFSET: -56,
+  SERVE_RACK_Y_OFFSET: 40,
+  SERVE_RACK_CELL: 56,
+  /** 跑堂マーカーの名前ラベル（スプライト下端のオフセット） */
+  MARKER_NAME_OFFSET_Y: 64,
+  /** 跑堂の待機位置（柜台に横並び — 従来の直書き 40 を定数化） */
+  WAITER_STAND_GAP: 40,
+  /** 大敌立绘（终战の夜。夜パネルの左側に表示） */
+  RIVAL_SPRITE: { x: 170, y: 400 },
+  /** 耐心バーの桌中心からのオフセット（従来の直書き 56 を定数化） */
+  PATIENCE_BAR_OFFSET_Y: 56,
+  // 柜台/出餐口プレート（IMG 资产の無い施設。枠线付きパネル — 従来の直書きを定数化）
+  COUNTER_WIDTH: 160,
+  COUNTER_HEIGHT: 48,
+  SERVE_WINDOW_WIDTH: 120,
+  SERVE_WINDOW_HEIGHT: 56,
+  SERVE_LABEL_OFFSET_Y: 40,
 } as const;
 
 // ==== 玩法点击判定区（InputRouter 登録。优先级は INPUT_PRIORITY の既定档を使用）====

@@ -131,7 +131,7 @@ stories:
     pillar: P-01
     assignee: gameplay-engineer
     phase: build
-    status: in-progress
+    status: review
     acceptance: "IMG-01～30 经 config.ts 的 ASSET_KEYS 接入: 晨/日/夜分别显示 IMG-01/02/03（相位切换有可见变化）、6 桌用 IMG-21、伙计/客人/大敌用 IMG-04～14、菜品气泡与出餐口用 IMG-15～20、志向/事件卡/UI 用 IMG-22～25/29/30; 画面中不存在纯色/渐变占位矩形（Inspector/截图确认）; 立绘显示尺寸按 assets.md（192–256px 等）且不裁切关键轮廓; 全部引用经 ASSET_KEYS，无硬编码路径"
   # feedback 2【高】UI 非常模糊 — 排查 Scale.FIT 缩放/字体渲染/对比度
   - id: S-32
@@ -139,8 +139,9 @@ stories:
     pillar: P-04
     assignee: ui-engineer
     phase: build
-    status: review
+    status: done # S-32 CR-CODE it.1 CONCERNS → findings 3件中 2件修正・1件はreviews注記（注記は Checkpoint 提示 — MAX_ITER 到達による done）
     acceptance: "在真实资产（S-30/33 落地后）基础上: 文本渲染 resolution ≥GAME 渲染分辨率（模糊时以命名常量 TEXT_RESOLUTION 集中 config.ts，禁止散置魔法数字）; 1280x720 基准与 0.5x/2x 窗口尺寸下 Title/Menu/HUD 主要文本无肉眼可见模糊; gates.md UI 文字可读性机械检查通过（文本区域裁切 standard_deviation ≥0.05，无 SUSPECT_LOW_CONTRAST 残留）; Scale.FIT 下任意窗口尺寸主要交互区不裁切（回归 S-02 验收）"
+    notes: "未处理 finding 1件: ASSET_KEYS.images/spriteSheets 登録（~48行）が S-33 スコープで S-32 コミットに同梱 — キーは不活性（本コミット時点で読込なし）で機能影響なし。削除は S-33 の進行中 WIP（systems/visualAssets.ts）と衝突するリスクがあるため暫不処理、config コメントに帰属注記＋state/reviews/s-32.md に記録。残 2件（TEXT_RESOLUTION 4K上限の注記追記／images 規約コメントの audio との差異是正）は修正済。typecheck: 自己編集ファイル（config.ts）起因エラー 0（残存 30 件は src/ui/GameplayView.ts の並行 lane WIP — GAME_LAYOUT/GAME_HEIGHT 未提供参照）"
   - id: S-16
     title: "难度曲线全阶段与全客人类型"
     pillar: P-01

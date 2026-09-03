@@ -6,16 +6,17 @@
  * - 構造（相位/客人構成/夜段階/選択岗位…）が変わった時だけ再構築し、
  *   每フレーム更新は waiter 移動・耐心バー・日间進行バーのみ（GC 負荷を抑える）。
  * - 点击判定は InputRouter へ登録（優先度仲裁は input 层 — conventions 规则 7）。
- * - 占位色块＋程序化 tint（IMG 资产未生成 — S-02 acceptance / conventions 规则 6）。
+ * - IMG 资产の表示（S-33）: 実体 ↔ 資産キーの対応は systems/visualAssets.ts、
+ *   サイズは SPRITE_DISPLAY、配置は ui/assetSprites.ts のヘルパに集約。
  */
 import Phaser from 'phaser';
 import {
   AMBITION_UI,
+  ASSET_KEYS,
   CUSTOMER,
   DAY_CYCLE,
   GAMEPLAY,
   GAMEPLAY_ZONES,
-  GAME_HEIGHT,
   GAME_LAYOUT,
   GAME_WIDTH,
   INPUT_PRIORITY,
@@ -23,6 +24,7 @@ import {
   MS_PER_SECOND,
   NIGHT,
   POST_CAPACITY,
+  SPRITE_DISPLAY,
   UI,
 } from '../config';
 import type { InputRouter } from '../systems/input/InputRouter';
@@ -30,6 +32,14 @@ import { AMBITION_PACKS } from '../systems/ambition';
 import { EVENT_CARD_POOL } from '../systems/eventCardData';
 import { getLanguage } from '../systems/i18n';
 import { growthStage } from '../systems/training';
+import {
+  ambitionIconKey,
+  backgroundKeyForPhase,
+  dishSpriteKey,
+  guestSpriteKey,
+  staffSpriteKey,
+} from '../systems/visualAssets';
+import { addCoverBackground, addScaledSprite } from './assetSprites';
 import { HUD_TEXT_KEYS, TEXT_KEYS } from '../textKeys';
 import {
   TAP_EVENTS,
@@ -155,11 +165,7 @@ export class GameplayView {
   }
 
   private buildAmbition(_run: RunState, container: Phaser.GameObjects.Container): void {
-    container.add(
-      this.scene.add
-        .rectangle(0, 0, GAME_WIDTH, GAME_HEIGHT, GAMEPLAY.BG_MORNING)
-        .setOrigin(0, 0),
-    );
+    container.add(addCoverBackground(this.scene, backgroundKeyForPhase('ambition')));
     container.add(
       this.label(
         GAME_WIDTH / 2,
@@ -175,6 +181,16 @@ export class GameplayView {
     // 財/侠/名 3 按钮（S-04: ≥48px — AMBITION_UI.BUTTON_WIDTH/HEIGHT。初期值も併記）
     AMBITION_PACKS.forEach((pack, index) => {
       const position = pointAt(AMBITION_UI.BUTTONS, index);
+      // 志向图标（IMG-22～24 — ボタン上端の上に配置）
+      container.add(
+        addScaledSprite(
+          this.scene,
+          ambitionIconKey(pack.id),
+          position.x,
+          position.y + AMBITION_UI.ICON_OFFSET_Y,
+          SPRITE_DISPLAY.AMBITION_ICON_SIZE,
+        ),
+      );
       const rect = this.scene.add
         .rectangle(
           position.x,
@@ -212,11 +228,7 @@ export class GameplayView {
   }
 
   private buildMorning(run: RunState, container: Phaser.GameObjects.Container): void {
-    container.add(
-      this.scene.add
-        .rectangle(0, 0, GAME_WIDTH, GAME_HEIGHT, GAMEPLAY.BG_MORNING)
-        .setOrigin(0, 0),
-    );
+    container.add(addCoverBackground(this.scene, backgroundKeyForPhase('morning')));
     container.add(
       this.label(GAME_WIDTH / 2, MORNING.TITLE_Y, this.textProvider(TEXT_KEYS.MORNING_TITLE), MORNING.TITLE_FONT_SIZE),
     );
@@ -260,8 +272,31 @@ export class GameplayView {
 
     run.staff.forEach((member, index) => {
       const position = pointAt(MORNING.AVATARS, index);
+      const total = member.speed + member.craft + member.stamina;
+      const stage = growthStage(total);
+      // 伙计立绘（IMG-04～10 — systems/visualAssets.ts の対応づけ。選択表示は枠线 rect が担う）
+      const spriteKey = staffSpriteKey(member.id);
+      if (spriteKey !== null) {
+        const sprite = addScaledSprite(
+          this.scene,
+          spriteKey,
+          position.x,
+          position.y,
+          MORNING.AVATAR_HEIGHT,
+        );
+        // 成长阶段別の差分（S-07）: 立绘の表示倍率（缩放 — STAGE_SCALES）
+        sprite.setScale(sprite.scale * GAMEPLAY.STAGE_SCALES[stage]);
+        container.add(sprite);
+      }
       const rect = this.scene.add
-        .rectangle(position.x, position.y, MORNING.AVATAR_WIDTH, MORNING.AVATAR_HEIGHT, GAMEPLAY.STAFF_FILL)
+        .rectangle(
+          position.x,
+          position.y,
+          MORNING.AVATAR_WIDTH,
+          MORNING.AVATAR_HEIGHT,
+          GAMEPLAY.STAFF_FILL,
+          GAMEPLAY.SPRITE_PLATE_ALPHA,
+        )
         .setStrokeStyle(UI.PANEL_STROKE_WIDTH, UI.PANEL_STROKE);
       container.add(rect);
       container.add(
@@ -270,18 +305,16 @@ export class GameplayView {
       container.add(
         this.label(position.x, position.y, this.postLabel(member.post), MORNING.AVATAR_POST_FONT_SIZE),
       );
-      const total = member.speed + member.craft + member.stamina;
       container.add(
         this.label(
           position.x,
           position.y + 24,
-          `速${member.speed} 艺${member.craft} 体${member.stamina} ${STAGE_DOTS[growthStage(total)]}`,
+          `速${member.speed} 艺${member.craft} 体${member.stamina} ${STAGE_DOTS[stage]}`,
           MORNING.AVATAR_STAT_FONT_SIZE,
         ),
       );
-      // 成长阶段別の差分（S-07）: 色调（阶段で明るくなる tint）＋阶段別台词 1 行
-      const stage = growthStage(total);
-      rect.setFillStyle(GAMEPLAY.STAGE_TINTS[stage]);
+      // 成长阶段別の差分（S-07）: 台词按阶段切换（plate の色は半透明 — 立绘の視認性を壊さない）
+      rect.setFillStyle(GAMEPLAY.STAGE_TINTS[stage], GAMEPLAY.SPRITE_PLATE_ALPHA);
       container.add(
         this.label(
           position.x,
@@ -328,11 +361,7 @@ export class GameplayView {
   }
 
   private buildDay(run: RunState, container: Phaser.GameObjects.Container): void {
-    container.add(
-      this.scene.add
-        .rectangle(0, 0, GAME_WIDTH, GAME_HEIGHT, GAMEPLAY.BG_DAY)
-        .setOrigin(0, 0),
-    );
+    container.add(addCoverBackground(this.scene, backgroundKeyForPhase('day')));
 
     // 日间唯一硬计时の進行バー（S-03: DAY_SERVICE_DURATION_S）
     container.add(
@@ -346,72 +375,76 @@ export class GameplayView {
     container.add(progressFill);
     this.progressFill = progressFill;
 
-    // 柜台と出餐口
+    // 柜台と出餐口（IMG 资产の無い施設プレート — 枠线付きパネル矩形で統一）
     container.add(
-      this.scene.add.rectangle(GAME_LAYOUT.COUNTER.x, GAME_LAYOUT.COUNTER.y, 160, 48, GAMEPLAY.SERVE_FILL).setStrokeStyle(UI.PANEL_STROKE_WIDTH, UI.PANEL_STROKE),
+      this.scene.add.rectangle(GAME_LAYOUT.COUNTER.x, GAME_LAYOUT.COUNTER.y, GAMEPLAY.COUNTER_WIDTH, GAMEPLAY.COUNTER_HEIGHT, GAMEPLAY.SERVE_FILL).setStrokeStyle(UI.PANEL_STROKE_WIDTH, UI.PANEL_STROKE),
     );
     container.add(
       this.label(GAME_LAYOUT.COUNTER.x, GAME_LAYOUT.COUNTER.y, this.textProvider(TEXT_KEYS.LABEL_COUNTER), GAMEPLAY.LABEL_FONT_SIZE),
     );
     container.add(
       this.scene.add
-        .rectangle(GAME_LAYOUT.SERVE_WINDOW.x, GAME_LAYOUT.SERVE_WINDOW.y, 120, 56, GAMEPLAY.SERVE_FILL)
+        .rectangle(GAME_LAYOUT.SERVE_WINDOW.x, GAME_LAYOUT.SERVE_WINDOW.y, GAMEPLAY.SERVE_WINDOW_WIDTH, GAMEPLAY.SERVE_WINDOW_HEIGHT, GAMEPLAY.SERVE_FILL)
         .setStrokeStyle(UI.PANEL_STROKE_WIDTH, UI.PANEL_STROKE),
     );
     container.add(
-      this.label(GAME_LAYOUT.SERVE_WINDOW.x, GAME_LAYOUT.SERVE_WINDOW.y - 40, this.textProvider(TEXT_KEYS.LABEL_SERVE_WINDOW), GAMEPLAY.LABEL_FONT_SIZE),
+      this.label(GAME_LAYOUT.SERVE_WINDOW.x, GAME_LAYOUT.SERVE_WINDOW.y - GAMEPLAY.SERVE_LABEL_OFFSET_Y, this.textProvider(TEXT_KEYS.LABEL_SERVE_WINDOW), GAMEPLAY.LABEL_FONT_SIZE),
     );
 
-    // 出餐口に亮った菜（点击で上菜派遣）
+    // 出餐口に亮った菜（IMG-15～20 — 点击で上菜派遣。菜アイコンで客の注文と照合）
     run.kitchen.ready.forEach((dish, index) => {
-      const x = GAME_LAYOUT.SERVE_WINDOW.x - 40 + (index % 3) * 40;
-      const y = GAME_LAYOUT.SERVE_WINDOW.y + 40 + Math.floor(index / 3) * 40;
-      container.add(
-        this.scene.add.rectangle(x, y, 36, 36, GAMEPLAY.CUSTOMER_FILL).setStrokeStyle(UI.PANEL_ACCENT_WIDTH, UI.PANEL_ACCENT),
-      );
-      container.add(this.label(x, y, String(dish.dishId), GAMEPLAY.DISH_FONT_SIZE, GAMEPLAY.BUBBLE_TEXT_COLOR));
-      this.registerZone(GAMEPLAY_ZONES.SERVE_DISH(dish.customerId), { x, y }, 48, 48, {
+      const x = GAME_LAYOUT.SERVE_WINDOW.x + GAMEPLAY.SERVE_RACK_X_OFFSET + (index % 3) * GAMEPLAY.SERVE_RACK_CELL;
+      const y = GAME_LAYOUT.SERVE_WINDOW.y + GAMEPLAY.SERVE_RACK_Y_OFFSET + Math.floor(index / 3) * GAMEPLAY.SERVE_RACK_CELL;
+      container.add(addScaledSprite(this.scene, dishSpriteKey(dish.dishId), x, y, SPRITE_DISPLAY.DISH_RACK_SIZE));
+      this.registerZone(GAMEPLAY_ZONES.SERVE_DISH(dish.customerId), { x, y }, GAMEPLAY.SERVE_RACK_CELL, GAMEPLAY.SERVE_RACK_CELL, {
         event: TAP_EVENTS.SERVE_WINDOW,
         priority: INPUT_PRIORITY.SERVE_WINDOW,
         payload: { customerId: dish.customerId },
       });
     });
 
-    // 6 桌と客人
+    // 6 桌（IMG-21 — 程序化摆放）
     for (let seat = 0; seat < CUSTOMER.SEATS; seat += 1) {
       const table = pointAt(GAME_LAYOUT.TABLES, seat);
-      container.add(
-        this.scene.add.rectangle(table.x, table.y, GAME_LAYOUT.TABLE_WIDTH, GAME_LAYOUT.TABLE_HEIGHT, GAMEPLAY.TABLE_FILL).setStrokeStyle(UI.PANEL_STROKE_WIDTH, GAMEPLAY.TABLE_STROKE),
-      );
+      container.add(addScaledSprite(this.scene, ASSET_KEYS.images.tableRound, table.x, table.y, SPRITE_DISPLAY.TABLE_SIZE));
     }
+    // 客人（IMG-11～13 — 桌に着席。id で 3 種を循环割当）
     for (const customer of run.customers) {
       const table = pointAt(GAME_LAYOUT.TABLES, customer.seat);
       container.add(
-        this.scene.add.circle(table.x, table.y, GAMEPLAY.MARKER_SIZE, GAMEPLAY.CUSTOMER_FILL).setStrokeStyle(UI.PANEL_ACCENT_WIDTH, UI.PANEL_ACCENT),
+        addScaledSprite(
+          this.scene,
+          guestSpriteKey(customer.id),
+          table.x,
+          table.y + GAMEPLAY.GUEST_OFFSET_Y,
+          SPRITE_DISPLAY.GUEST_HEIGHT,
+        ),
       );
       // 耐心バー（待ちステージのみ — systems の patienceMs を每フレーム反映）
       const barBackground = this.scene.add
-        .rectangle(table.x, table.y + 56, GAMEPLAY.PATIENCE_BAR_WIDTH, GAMEPLAY.PATIENCE_BAR_HEIGHT, GAMEPLAY.PATIENCE_BG)
+        .rectangle(table.x, table.y + GAMEPLAY.PATIENCE_BAR_OFFSET_Y, GAMEPLAY.PATIENCE_BAR_WIDTH, GAMEPLAY.PATIENCE_BAR_HEIGHT, GAMEPLAY.PATIENCE_BG)
         .setOrigin(0.5, 0);
       const barFill = this.scene.add
-        .rectangle(table.x - GAMEPLAY.PATIENCE_BAR_WIDTH / 2, table.y + 56, GAMEPLAY.PATIENCE_BAR_WIDTH, GAMEPLAY.PATIENCE_BAR_HEIGHT, GAMEPLAY.PATIENCE_FILL)
+        .rectangle(table.x - GAMEPLAY.PATIENCE_BAR_WIDTH / 2, table.y + GAMEPLAY.PATIENCE_BAR_OFFSET_Y, GAMEPLAY.PATIENCE_BAR_WIDTH, GAMEPLAY.PATIENCE_BAR_HEIGHT, GAMEPLAY.PATIENCE_FILL)
         .setOrigin(0, 0);
       container.add(barBackground);
       container.add(barFill);
       this.patienceBars.set(customer.id, barFill);
 
+      const bubbleY = table.y + GAMEPLAY.BUBBLE_OFFSET_Y;
       if (customer.stage === 'awaitingOrder') {
-        this.addBubble(container, table.x, table.y - 52, this.textProvider(TEXT_KEYS.BUBBLE_ORDER));
-        this.registerZone(GAMEPLAY_ZONES.TABLE(customer.id), { x: table.x, y: table.y - 52 }, GAMEPLAY.BUBBLE_WIDTH, GAMEPLAY.BUBBLE_HEIGHT, {
+        this.addBubble(container, table.x, bubbleY, this.textProvider(TEXT_KEYS.BUBBLE_ORDER));
+        this.registerZone(GAMEPLAY_ZONES.TABLE(customer.id), { x: table.x, y: bubbleY }, GAMEPLAY.BUBBLE_WIDTH, GAMEPLAY.BUBBLE_HEIGHT, {
           event: TAP_EVENTS.TABLE_ORDER,
           priority: INPUT_PRIORITY.TABLE_ORDER,
           payload: { customerId: customer.id },
         });
       } else if (customer.stage === 'awaitingDish' || customer.stage === 'serving') {
-        this.addBubble(container, table.x, table.y - 52, String(customer.dishId));
+        // 注文菜（IMG-15～20）を气泡位置に表示 — 出餐口のアイコンと照合する
+        container.add(addScaledSprite(this.scene, dishSpriteKey(customer.dishId), table.x, bubbleY, SPRITE_DISPLAY.DISH_BUBBLE_SIZE));
       } else if (customer.stage === 'awaitingPayment') {
-        this.addBubble(container, table.x, table.y - 52, this.textProvider(TEXT_KEYS.BUBBLE_PAYMENT));
-        this.registerZone(GAMEPLAY_ZONES.PAYMENT(customer.id), { x: table.x, y: table.y - 52 }, GAMEPLAY.BUBBLE_WIDTH, GAMEPLAY.BUBBLE_HEIGHT, {
+        this.addBubble(container, table.x, bubbleY, this.textProvider(TEXT_KEYS.BUBBLE_PAYMENT));
+        this.registerZone(GAMEPLAY_ZONES.PAYMENT(customer.id), { x: table.x, y: bubbleY }, GAMEPLAY.BUBBLE_WIDTH, GAMEPLAY.BUBBLE_HEIGHT, {
           event: TAP_EVENTS.PAYMENT_BUBBLE,
           priority: INPUT_PRIORITY.PAYMENT_BUBBLE,
           payload: { customerId: customer.id },
@@ -420,30 +453,43 @@ export class GameplayView {
     }
 
     // 跑堂マーカー（每フレーム位置更新 — delta 驱动移动の可視化）。
-    // 成长阶段別の程序化差分（S-07）: 色调＋缩放（立绘の見た目が成長で変わる）
+    // 立绘（IMG-04～10）＋成长阶段別の差分（S-07）: 缩放
     run.staff
       .filter((member) => member.post === 'waiter')
       .forEach((member, index) => {
         const stage = growthStage(member.speed + member.craft + member.stamina);
-        const marker = this.scene.add.container(GAME_LAYOUT.COUNTER.x + index * 40, GAME_LAYOUT.COUNTER.y);
-        marker.add(
-          this.scene.add
-            .rectangle(0, 0, GAMEPLAY.MARKER_SIZE, GAMEPLAY.MARKER_SIZE, GAMEPLAY.STAGE_TINTS[stage])
-            .setStrokeStyle(UI.PANEL_ACCENT_WIDTH, UI.PANEL_ACCENT),
+        const marker = this.scene.add.container(
+          GAME_LAYOUT.COUNTER.x + index * GAMEPLAY.WAITER_STAND_GAP,
+          GAME_LAYOUT.COUNTER.y,
         );
-        marker.add(this.label(0, 0, this.textProvider(member.nameKey), MORNING.AVATAR_STAT_FONT_SIZE));
-        marker.setScale(GAMEPLAY.STAGE_SCALES[stage]);
+        const spriteKey = staffSpriteKey(member.id);
+        if (spriteKey !== null) {
+          const sprite = addScaledSprite(this.scene, spriteKey, 0, 0, SPRITE_DISPLAY.WAITER_MARKER_HEIGHT);
+          sprite.setScale(sprite.scale * GAMEPLAY.STAGE_SCALES[stage]);
+          marker.add(sprite);
+        }
+        marker.add(
+          this.label(0, GAMEPLAY.MARKER_NAME_OFFSET_Y, this.textProvider(member.nameKey), MORNING.AVATAR_STAT_FONT_SIZE),
+        );
         container.add(marker);
         this.waiterMarkers.set(member.id, marker);
       });
   }
 
   private buildNight(run: RunState, container: Phaser.GameObjects.Container): void {
-    container.add(
-      this.scene.add
-        .rectangle(0, 0, GAME_WIDTH, GAME_HEIGHT, GAMEPLAY.BG_NIGHT)
-        .setOrigin(0, 0),
-    );
+    container.add(addCoverBackground(this.scene, backgroundKeyForPhase('night')));
+    // 大敌（IMG-14 — 终战の夜のみ。夜パネルの左に立つ）
+    if (run.finalBattleNight) {
+      container.add(
+        addScaledSprite(
+          this.scene,
+          ASSET_KEYS.images.rivalWarlord,
+          GAMEPLAY.RIVAL_SPRITE.x,
+          GAMEPLAY.RIVAL_SPRITE.y,
+          SPRITE_DISPLAY.RIVAL_HEIGHT,
+        ),
+      );
+    }
     container.add(
       this.scene.add
         .rectangle(NIGHT.PANEL_X, NIGHT.PANEL_Y, NIGHT.PANEL_WIDTH, NIGHT.PANEL_HEIGHT, UI.PANEL_FILL, UI.PANEL_FILL_ALPHA)
@@ -493,6 +539,16 @@ export class GameplayView {
     }
 
     if (run.nightStage === 'card' && run.drawnCard !== null) {
+      // 事件卡框（IMG-25 — 无文字装飾。選択肢と题字を框内に重ねる）
+      container.add(
+        addScaledSprite(
+          this.scene,
+          ASSET_KEYS.images.eventCardFrame,
+          NIGHT.PANEL_X,
+          NIGHT.PANEL_Y,
+          SPRITE_DISPLAY.EVENT_CARD_HEIGHT,
+        ),
+      );
       container.add(
         this.label(
           NIGHT.PANEL_X,
@@ -587,7 +643,7 @@ export class GameplayView {
       const action = run.waiterActions.find((candidate) => candidate.staffId === staffId);
       if (action === undefined) {
         const index = run.staff.findIndex((member) => member.id === staffId);
-        marker.setPosition(GAME_LAYOUT.COUNTER.x + index * 40, GAME_LAYOUT.COUNTER.y);
+        marker.setPosition(GAME_LAYOUT.COUNTER.x + index * GAMEPLAY.WAITER_STAND_GAP, GAME_LAYOUT.COUNTER.y);
         continue;
       }
       const target =

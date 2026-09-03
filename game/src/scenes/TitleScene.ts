@@ -9,7 +9,7 @@
  * 参数集中在 config.TITLE、存档读取经 persistence 层。
  */
 import Phaser from 'phaser';
-import { ASSET_KEYS, GAME_WIDTH, TITLE, UI } from '../config';
+import { ASSET_KEYS, GAME_WIDTH, SPRITE_DISPLAY, TITLE, UI } from '../config';
 import { loadSaveData } from '../persistence/SaveAdapter';
 import { createFallbackTextProvider, TITLE_TEXT_KEYS } from '../ui/hudStrings';
 import { ensureUiPlaceholderTextures } from '../ui/placeholderTextures';
@@ -59,8 +59,11 @@ export class TitleScene extends Phaser.Scene {
   }
 
   private createEmblem(): void {
+    // S-33: 正式 emblem（IMG-29 — 無文字装飾。中央を空けた意匠にタイトル文を重ねる）。
+    // プレースホルダ（uiPlaceholder.titleEmblem 160px 正方形）から assets.md 表示サイズへ。
     this.add
-      .image(GAME_WIDTH / 2, TITLE.EMBLEM_Y, ASSET_KEYS.uiPlaceholder.titleEmblem)
+      .image(GAME_WIDTH / 2, TITLE.EMBLEM_Y, ASSET_KEYS.images.titleEmblem)
+      .setDisplaySize(SPRITE_DISPLAY.TITLE_EMBLEM_WIDTH, SPRITE_DISPLAY.TITLE_EMBLEM_HEIGHT)
       .setDepth(UI.DEPTH_HUD);
   }
 
