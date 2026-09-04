@@ -254,7 +254,7 @@ stories:
     pillar: P-02
     assignee: ui-engineer
     phase: build
-    status: in-progress
+    status: review
     acceptance: "各伙计的 3 档成长阶段有肉眼可辨的独立表现组合（tint/表情/速度/台词至少 3 项中 2 项变化）; 出菜金光/黑烟、残影等 gdd 差分表条目按阶段呈现; 全部效果为程序化、无新增资产文件"
   - id: S-29
     title: "教学期引导（第 1–3 日）"
