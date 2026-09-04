@@ -127,6 +127,18 @@ export const ZH_TABLE: Readonly<Record<string, string>> = {
   [TEXT_KEYS.STAFF_WENQU]: '文曲',
   [TEXT_KEYS.STAFF_XIAODIE]: '小蝶',
   [TEXT_KEYS.STAFF_DASONG]: '大嵩',
+  // 解锁伙计（S-22: gdd「解锁」表 UNL-01/02）
+  [TEXT_KEYS.STAFF_LIUBIAOTOU]: '柳镖头',
+  [TEXT_KEYS.STAFF_SUYUCHU]: '苏御厨',
+  // 初始伙计选择（S-22）
+  [TEXT_KEYS.STAFF_SELECT_TITLE]: '初始伙计选择',
+  [TEXT_KEYS.STAFF_SELECT_HINT]: '点击解锁伙计，再点击要替换的默认伙计（各限 1 名）',
+  [TEXT_KEYS.STAFF_SELECT_LOCKED]: '未解锁',
+  [TEXT_KEYS.BUTTON_STAFF_SELECT_CONFIRM]: '开始经营',
+  // 伙计三属性略称（gdd「伙计初始值」表的列名）
+  [TEXT_KEYS.STAFF_STAT_SPEED]: '速',
+  [TEXT_KEYS.STAFF_STAT_CRAFT]: '艺',
+  [TEXT_KEYS.STAFF_STAT_STAMINA]: '体',
   // 事件卡（垂直切片 3 张 — gdd「事件卡」表の #1/#5/#8。build S-17 で 15 张に拡張）
   [TEXT_KEYS.CARD_1_TITLE]: '镖师借宿',
   [TEXT_KEYS.CARD_1_OPT1]: '赠银送行（银 −15 / 声望 +6）',

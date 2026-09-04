@@ -33,6 +33,11 @@ export const META_SAVE = {
   ACH05_REPUTATION: 80,
   /** 解锁 id（gdd「解锁」表。解放接线 = S-22） */
   UNLOCK_IDS: ['UNL-01', 'UNL-02'],
+  /**
+   * 解锁阈值: endings_seen 的达成種类数 ≥ 本值时置位（gdd「解锁」表。
+   * 调整范围: UNL-01 = 1–2 / UNL-02 = 2–3。判定 = systems/meta/unlocks.ts — 调参只动这里）
+   */
+  UNLOCK_ENDINGS_REQUIRED: { 'UNL-01': 1, 'UNL-02': 2 },
   /** 界面语言（gdd「设置」— i18n 全量 = S-24） */
   LANGUAGE_CODES: ['zh', 'en', 'ja', 'ko', 'th'],
   /** 统计初始值（gdd「存档数据方针」stats — 全 0） */
@@ -586,6 +591,15 @@ export const STAFF_ROSTER: readonly StaffSeed[] = [
   { id: 'dasong', nameKey: 'staff.dasong', speed: 1, craft: 1, stamina: 4, trainStat: 'stamina' },
 ];
 
+// ==== 解锁伙计候选（S-22。出处: gdd「解锁」表 UNL-01/02。STAFF_ROSTER と同形式の StaffSeed ＋
+// 対应解锁 id。trainStat は得意属性（柳镖头=体/苏御厨=艺 — STAFF_ROSTER と同一方針の実装判断）====
+export const UNLOCK_STAFF: readonly (StaffSeed & {
+  readonly unlockId: (typeof META_SAVE.UNLOCK_IDS)[number];
+})[] = [
+  { unlockId: 'UNL-01', id: 'liubiaotou', nameKey: 'staff.liubiaotou', speed: 2, craft: 1, stamina: 4, trainStat: 'stamina' },
+  { unlockId: 'UNL-02', id: 'suyuchu', nameKey: 'staff.suyuchu', speed: 1, craft: 4, stamina: 1, trainStat: 'craft' },
+];
+
 export const STAFF = {
   /** 跑堂移动速度基准（px/s。横穿大厅约 3 秒） */
   MOVE_SPEED_PX_PER_S: 220,
@@ -746,6 +760,44 @@ export const AMBITION_UI = {
   HINT_FONT_SIZE: '18px',
   /** 志向图标（IMG-22～24。按钮と hint 文の間の空き帯に收める — ボタン中央 y からのオフセット） */
   ICON_OFFSET_Y: -84,
+} as const;
+
+// ==== 初始伙计选择レイアウト（S-22。志向确认后の相位。解锁候选 2 ＋ 默认编成 5 ＋ 确定按钮）====
+export const STAFF_SELECT_UI = {
+  TITLE_Y: 130,
+  TITLE_FONT_SIZE: '28px',
+  HINT_Y: 188,
+  HINT_FONT_SIZE: '18px',
+  /** 默认编成 5 名（1 行。MORNING.AVATARS と同一間隔 — 惯れからくる误操作の抑止） */
+  ROSTER: [
+    { x: 160, y: 380 },
+    { x: 400, y: 380 },
+    { x: 640, y: 380 },
+    { x: 880, y: 380 },
+    { x: 1120, y: 380 },
+  ],
+  /** 解锁候选 2 名（UNL-01/02。未解锁は锁定表示 — tap 判定区ごと不登録） */
+  CANDIDATES: [
+    { x: 480, y: 600 },
+    { x: 800, y: 600 },
+  ],
+  CARD_WIDTH: 150,
+  CARD_HEIGHT: 150,
+  /** 卡内: 立绘は上段（中央 y − AVATAR_OFFSET_Y）、名前・初期值は下段 */
+  AVATAR_OFFSET_Y: -38,
+  NAME_OFFSET_Y: 14,
+  STATS_OFFSET_Y: 44,
+  /** 名前・初期值の字号 */
+  NAME_FONT_SIZE: '20px',
+  STATS_FONT_SIZE: '15px',
+  /** 锁定表示（未解锁候補 — 判定区なし・低 alpha・灰枠） */
+  LOCKED_FILL_ALPHA: 0.35,
+  LOCKED_TEXT_ALPHA: 0.55,
+  LOCKED_LABEL_OFFSET_Y: 0,
+  /** 选择中候选の强调（枠色・幅は GAMEPLAY.SELECTED_* を流用 — 表示側で参照） */
+  CONFIRM_BUTTON: { x: 1120, y: 600 },
+  CONFIRM_BUTTON_WIDTH: 180,
+  CONFIRM_BUTTON_HEIGHT: 64,
 } as const;
 
 // ==== 画面布局（S-02: 6 桌/出餐口/柜台の固定构图。GAME_WIDTH×GAME_HEIGHT 基准 —
@@ -971,6 +1023,10 @@ export const GAMEPLAY_ZONES = {
   // 终战（S-19: 开战前选择。「雇镖师援助」は银子不足/雇入济み時に判定区ごと不登録＝不活性）
   AID_HIRE: 'game.battle.aid',
   FIGHT_CONFIRM: 'game.battle.fight',
+  // 初始伙计选择（S-22。锁定中の候補は判定区ごと不登録＝不活性）
+  STAFF_SELECT_CANDIDATE: (candidateId: string): string => `game.staffSelect.candidate.${candidateId}`,
+  STAFF_SELECT_STAFF: (staffId: string): string => `game.staffSelect.staff.${staffId}`,
+  STAFF_SELECT_CONFIRM: 'game.staffSelect.confirm',
 } as const;
 
 // ==== 终战夜面板（S-19。夜パネル（NIGHT.PANEL_X/Y）内に重ねる — レイアウトはオフセットで导出）====

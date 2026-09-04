@@ -29,8 +29,10 @@ import {
   NIGHT,
   POST_CAPACITY,
   SPRITE_DISPLAY,
+  STAFF_SELECT_UI,
   STAGE_FX,
   UI,
+  UNLOCK_STAFF,
 } from '../config';
 import type { InputRouter } from '../systems/input/InputRouter';
 import { AMBITION_PACKS } from '../systems/ambition';
@@ -53,6 +55,7 @@ import {
   type AmbitionId,
   type PostId,
   type RunState,
+  type StaffMember,
   type TapEventName,
   type TextProvider,
 } from '../types';
@@ -153,6 +156,9 @@ export class GameplayView {
       // 不変のため、戦力表示＋援助按钮の不活性を反映させるには鍵への組込みが必須
       // （CR-CODE iter1 finding 2）
       run.finalBattle ? `${run.finalBattle.status}:${run.finalBattle.aidHired}` : '-',
+      // 初始伙计选择（S-22）: 选择中候補の变更（tap だけでは run.staff が变わらない）でも
+      // 再構築させる（枠の强调・置換先の判定区の有無が pendingCandidateId に依存）
+      run.staffSelect ? `SS:${run.staffSelect.pendingCandidateId ?? '-'}` : '-',
       run.staff.map((member) => member.post).join(','),
       run.customers.map((customer) => `${customer.id}:${customer.stage}`).join(','),
       run.kitchen.ready.map((dish) => dish.customerId).join(','),
@@ -183,6 +189,9 @@ export class GameplayView {
     switch (run.phase) {
       case 'ambition':
         this.buildAmbition(run, container);
+        return;
+      case 'staffSelect':
+        this.buildStaffSelect(run, container);
         return;
       case 'morning':
         this.buildMorning(run, container);
@@ -257,6 +266,179 @@ export class GameplayView {
         payload: { ambitionId: pack.id },
       });
     });
+  }
+
+  /**
+   * 初始伙计选择（S-22 — 志向确认直后の相位。gdd「解锁」表 UNL-01/02）。
+   * 上段 = 默认编成 5 名（置換先）、下段 = 解锁候補 2 名（未解锁は锁定表示・判定区なし）。
+   * 選択導出は全部 RunState.staffSelect — 本 view は受け描くだけ（ui-code 规范）。
+   */
+  private buildStaffSelect(run: RunState, container: Phaser.GameObjects.Container): void {
+    const state = run.staffSelect;
+    container.add(addCoverBackground(this.scene, backgroundKeyForPhase('ambition')));
+    container.add(
+      this.label(
+        GAME_WIDTH / 2,
+        STAFF_SELECT_UI.TITLE_Y,
+        this.textProvider(TEXT_KEYS.STAFF_SELECT_TITLE),
+        STAFF_SELECT_UI.TITLE_FONT_SIZE,
+      ),
+    );
+    container.add(
+      this.label(
+        GAME_WIDTH / 2,
+        STAFF_SELECT_UI.HINT_Y,
+        this.textProvider(TEXT_KEYS.STAFF_SELECT_HINT),
+        STAFF_SELECT_UI.HINT_FONT_SIZE,
+      ),
+    );
+
+    // 默认编成 5 名（选择中候補があるときのみ置換先としてタップ可 — 打てない操作の判定区は作らない）
+    const replaceable = state !== null && state.pendingCandidateId !== null;
+    run.staff.forEach((member, index) => {
+      const position = pointAt(STAFF_SELECT_UI.ROSTER, index);
+      container.add(this.staffCard(position, member, UI.PANEL_FILL_ALPHA, false, 1));
+      if (replaceable) {
+        this.registerZone(
+          GAMEPLAY_ZONES.STAFF_SELECT_STAFF(member.id),
+          position,
+          STAFF_SELECT_UI.CARD_WIDTH,
+          STAFF_SELECT_UI.CARD_HEIGHT,
+          {
+            event: TAP_EVENTS.STAFF_SELECT_REPLACE,
+            priority: INPUT_PRIORITY.TABLE_ORDER,
+            payload: { staffId: member.id },
+          },
+        );
+      }
+    });
+
+    // 解锁候補 2 名（UNL-01/02 — config.UNLOCK_STAFF。未解锁は低 alpha ＋「未解锁」表示で锁定）
+    UNLOCK_STAFF.forEach((seed, index) => {
+      const position = pointAt(STAFF_SELECT_UI.CANDIDATES, index);
+      const unlocked = state?.unlockedCandidateIds.includes(seed.id) ?? false;
+      const pending = state?.pendingCandidateId === seed.id;
+      const candidateMember: StaffMember = { ...seed, post: 'standby', fatigue: false };
+      container.add(
+        this.staffCard(
+          position,
+          candidateMember,
+          unlocked ? UI.PANEL_FILL_ALPHA : STAFF_SELECT_UI.LOCKED_FILL_ALPHA,
+          pending,
+          unlocked ? 1 : STAFF_SELECT_UI.LOCKED_TEXT_ALPHA,
+        ),
+      );
+      if (!unlocked) {
+        container.add(
+          this.label(
+            position.x,
+            position.y + STAFF_SELECT_UI.LOCKED_LABEL_OFFSET_Y,
+            this.textProvider(TEXT_KEYS.STAFF_SELECT_LOCKED),
+            STAFF_SELECT_UI.NAME_FONT_SIZE,
+          ).setAlpha(STAFF_SELECT_UI.LOCKED_TEXT_ALPHA),
+        );
+        return; // 未解锁は判定区ごと不登録（選択不能 — systems 側の二重ガードと対になる）
+      }
+      this.registerZone(
+        GAMEPLAY_ZONES.STAFF_SELECT_CANDIDATE(seed.id),
+        position,
+        STAFF_SELECT_UI.CARD_WIDTH,
+        STAFF_SELECT_UI.CARD_HEIGHT,
+        {
+          event: TAP_EVENTS.STAFF_SELECT_CANDIDATE,
+          priority: INPUT_PRIORITY.TABLE_ORDER,
+          payload: { candidateId: seed.id },
+        },
+      );
+    });
+
+    // 确定按钮（未置換のままでも可 — 默认编成で晨间开局）
+    const confirmButton = STAFF_SELECT_UI.CONFIRM_BUTTON;
+    container.add(
+      this.scene.add
+        .rectangle(
+          confirmButton.x,
+          confirmButton.y,
+          STAFF_SELECT_UI.CONFIRM_BUTTON_WIDTH,
+          STAFF_SELECT_UI.CONFIRM_BUTTON_HEIGHT,
+          UI.PANEL_ACCENT,
+          UI.PANEL_FILL_ALPHA,
+        )
+        .setStrokeStyle(UI.PANEL_STROKE_WIDTH, UI.PANEL_STROKE),
+    );
+    container.add(
+      this.label(
+        confirmButton.x,
+        confirmButton.y,
+        this.textProvider(TEXT_KEYS.BUTTON_STAFF_SELECT_CONFIRM),
+        STAFF_SELECT_UI.NAME_FONT_SIZE,
+      ),
+    );
+    this.registerZone(
+      GAMEPLAY_ZONES.STAFF_SELECT_CONFIRM,
+      confirmButton,
+      STAFF_SELECT_UI.CONFIRM_BUTTON_WIDTH,
+      STAFF_SELECT_UI.CONFIRM_BUTTON_HEIGHT,
+      { event: TAP_EVENTS.STAFF_SELECT_CONFIRM, priority: INPUT_PRIORITY.TABLE_ORDER },
+    );
+  }
+
+  /** 伙计カード（S-22 選択画面共通。立绘＝上段・名前／三属性初期值＝下段。staffSelect 専用） */
+  private staffCard(
+    position: { readonly x: number; readonly y: number },
+    member: StaffMember,
+    fillAlpha: number,
+    pending: boolean,
+    alpha: number,
+  ): Phaser.GameObjects.Container {
+    const card = this.scene.add.container(position.x, position.y);
+    card.add(
+      this.scene.add
+        .rectangle(
+          0,
+          0,
+          STAFF_SELECT_UI.CARD_WIDTH,
+          STAFF_SELECT_UI.CARD_HEIGHT,
+          UI.PANEL_FILL,
+          fillAlpha,
+        )
+        .setStrokeStyle(
+          pending ? GAMEPLAY.SELECTED_STROKE_WIDTH : UI.PANEL_STROKE_WIDTH,
+          pending ? GAMEPLAY.SELECTED_STROKE : UI.PANEL_STROKE,
+        ),
+    );
+    const spriteKey = staffSpriteKey(member.id);
+    if (spriteKey !== null) {
+      card.add(
+        addScaledSprite(
+          this.scene,
+          spriteKey,
+          0,
+          STAFF_SELECT_UI.AVATAR_OFFSET_Y,
+          SPRITE_DISPLAY.STAFF_AVATAR_HEIGHT,
+        ),
+      );
+    }
+    card.add(
+      this.label(
+        0,
+        STAFF_SELECT_UI.NAME_OFFSET_Y,
+        this.textProvider(member.nameKey),
+        STAFF_SELECT_UI.NAME_FONT_SIZE,
+      ),
+    );
+    card.add(
+      this.label(
+        0,
+        STAFF_SELECT_UI.STATS_OFFSET_Y,
+        `${this.textProvider(TEXT_KEYS.STAFF_STAT_SPEED)}${member.speed} ` +
+          `${this.textProvider(TEXT_KEYS.STAFF_STAT_CRAFT)}${member.craft} ` +
+          `${this.textProvider(TEXT_KEYS.STAFF_STAT_STAMINA)}${member.stamina}`,
+        STAFF_SELECT_UI.STATS_FONT_SIZE,
+      ),
+    );
+    card.setAlpha(alpha);
+    return card;
   }
 
   private buildMorning(run: RunState, container: Phaser.GameObjects.Container): void {

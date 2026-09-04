@@ -48,6 +48,18 @@ export const TEXT_KEYS = {
   STAFF_WENQU: 'staff.wenqu',
   STAFF_XIAODIE: 'staff.xiaodie',
   STAFF_DASONG: 'staff.dasong',
+  // 解锁伙计名（S-22: gdd「解锁」表 UNL-01/02）
+  STAFF_LIUBIAOTOU: 'staff.liubiaotou',
+  STAFF_SUYUCHU: 'staff.suyuchu',
+  // 初始伙计选择（S-22。志向确认后の相位 — 解锁候補の置換 or そのまま晨间へ）
+  STAFF_SELECT_TITLE: 'staffSelect.title',
+  STAFF_SELECT_HINT: 'staffSelect.hint',
+  STAFF_SELECT_LOCKED: 'staffSelect.locked',
+  BUTTON_STAFF_SELECT_CONFIRM: 'staffSelect.button.confirm',
+  // 伙计三属性の略称（S-22 選択カードの初期值表示。gdd「伙计初始值」表の列名）
+  STAFF_STAT_SPEED: 'staff.stat.speed',
+  STAFF_STAT_CRAFT: 'staff.stat.craft',
+  STAFF_STAT_STAMINA: 'staff.stat.stamina',
   // 成长阶段別台词（S-07: 台词按成长阶段切换）
   STAFF_LINE_STAGE_1: 'staff.line.stage1',
   STAFF_LINE_STAGE_2: 'staff.line.stage2',

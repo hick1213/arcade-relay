@@ -22,6 +22,18 @@ import * as customerFlow from './customerFlow';
 import { chooseOption, drawCard } from './eventCard';
 import { createBattleState, enterBattle, fight, hireAid } from './finalBattle';
 import { intervalSecondsForDay } from './customerFlow';
+import {
+  beginStaffSelect,
+  confirmStaffSelect,
+  replaceStaffMember,
+  selectCandidate,
+  unlockedCandidateIds,
+} from './staffSelect';
+import type { UnlockId } from './meta/metaTypes';
+
+// 初始伙计选择（S-22）の确定入口は Scene/tests からも runEngine 経由で呼ぶ
+//（Systems への入口を runEngine に集約 — GameScene 薄薄規約の接線方針と同じ）
+export { confirmStaffSelect } from './staffSelect';
 
 /** 志向确定后的晨间开局状態（S-04: 银子/声望 = GDD 志向别初始值） */
 function createRunForPack(pack: AmbitionPack): RunState {
@@ -33,6 +45,8 @@ function createRunForPack(pack: AmbitionPack): RunState {
     reputation: pack.reputationStart,
     xiaPoints: 0,
     ambition: pack.id,
+    // 初始伙计选择状态（S-22。'staffSelect' 相位のみ非 null — 晨间以降・復帰後は null）
+    staffSelect: null,
     staff: STAFF_ROSTER.map((seed) => ({ ...seed, post: 'standby' as const, fatigue: false })),
     customers: [],
     kitchen: { tickets: [], ready: [] },
@@ -55,18 +69,41 @@ function createRunForPack(pack: AmbitionPack): RunState {
 /**
  * 新周目の初期状態 = 志向选择（S-04）。財/侠/名が確定するまでの仮リソースは
  * DEFAULT_ID（config.AMBITION.DEFAULT_ID — Systems 層の破綻がないための安全夹）で埋める。
+ * unlocks（S-22）: SaveData.unlocks を渡すと解锁済み候補が初始伙计选择に出る
+ * （省略时 = 全未解锁 — 锁定表示のみ。テスト等の互換用既定值）。
  */
-export function createInitialRun(): RunState {
+export function createInitialRun(
+  unlocks: Readonly<Record<UnlockId, boolean>> = createDefaultUnlocks(),
+): RunState {
   const base = createRunForPack(getAmbitionPack(AMBITION.DEFAULT_ID));
-  return { ...base, phase: 'ambition' };
+  // staffSelect は 'ambition' 相位中も解锁済み候補 id の搬运役として非 null
+  // （confirmAmbition が参照 → 'staffSelect' 相位へ引き継ぐ。pendingCandidateId は未使用）
+  return {
+    ...base,
+    phase: 'ambition',
+    staffSelect: {
+      unlockedCandidateIds: unlockedCandidateIds(unlocks),
+      pendingCandidateId: null,
+    },
+  };
 }
 
-/** 志向确认（S-04 acceptance）: 選択志向の GDD 初期值で晨间开局 */
+/** 全 false の unlocks（createInitialRun 既定值。metaSchema.createDefaultSaveData と同形） */
+function createDefaultUnlocks(): Record<UnlockId, boolean> {
+  return { 'UNL-01': false, 'UNL-02': false };
+}
+
+/**
+ * 志向确认（S-04 acceptance）: 選択志向の GDD 初期值で初始伙计选择（S-22）へ。
+ * 确认ボタンで 'morning' へ抜ける（confirmStaffSelect）まで开局资源は確定済みだが
+ * 编成は置換可能 — gdd「解锁」表「可替换编成中任意 1 名默认伙计开局」。
+ */
 export function confirmAmbition(run: RunState, ambitionId: AmbitionId): RunState {
   if (run.phase !== 'ambition') {
     return run;
   }
-  return createRunForPack(getAmbitionPack(ambitionId));
+  const unlockedIds = run.staffSelect?.unlockedCandidateIds ?? [];
+  return beginStaffSelect(createRunForPack(getAmbitionPack(ambitionId)), unlockedIds);
 }
 
 /**
@@ -124,6 +161,13 @@ function dispatchTap(run: RunState, hit: TapHit): RunState {
   switch (hit.event) {
     case TAP_EVENTS.AMBITION_CONFIRM:
       return confirmAmbition(run, String(hit.payload.ambitionId) as AmbitionId);
+    // ==== 初始伙计选择（S-22）====
+    case TAP_EVENTS.STAFF_SELECT_CANDIDATE:
+      return selectCandidate(run, String(hit.payload.candidateId));
+    case TAP_EVENTS.STAFF_SELECT_REPLACE:
+      return replaceStaffMember(run, String(hit.payload.staffId));
+    case TAP_EVENTS.STAFF_SELECT_CONFIRM:
+      return confirmStaffSelect(run);
     case TAP_EVENTS.ASSIGN_SLOT:
       return selectPost(run, String(hit.payload.postId) as PostId);
     case TAP_EVENTS.STAFF:

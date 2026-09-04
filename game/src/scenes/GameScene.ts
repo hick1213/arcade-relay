@@ -49,7 +49,8 @@ export class GameScene extends Phaser.Scene {
         ? createBattleRetryRun(retrySnapshot)
         : snapshot !== null
           ? createResumeRun(snapshot)
-          : createInitialRun();
+          : // 解锁済み候補（UNL-01/02）を初始伙计选择へ反映（S-22 — gdd「解锁」表）
+            createInitialRun(loadSaveData().data.unlocks);
     this.runResultPersisted = false;
 
     // 点击输入唯一入口（S-01 InputRouter — tech-stack 规范 4 / conventions 规则 7）
@@ -81,6 +82,9 @@ export class GameScene extends Phaser.Scene {
     this.view = new GameplayView(this, textProvider, this.router);
 
     this.router.on(TAP_EVENTS.AMBITION_CONFIRM, (hit) => this.applyTap(hit));
+    this.router.on(TAP_EVENTS.STAFF_SELECT_CANDIDATE, (hit) => this.applyTap(hit));
+    this.router.on(TAP_EVENTS.STAFF_SELECT_REPLACE, (hit) => this.applyTap(hit));
+    this.router.on(TAP_EVENTS.STAFF_SELECT_CONFIRM, (hit) => this.applyTap(hit));
     this.router.on(TAP_EVENTS.ASSIGN_SLOT, (hit) => this.applyTap(hit));
     this.router.on(TAP_EVENTS.STAFF, (hit) => this.applyTap(hit));
     this.router.on(TAP_EVENTS.OPEN_DOOR, (hit) => this.applyTap(hit));
@@ -104,8 +108,8 @@ export class GameScene extends Phaser.Scene {
   }
 
   update(_time: number, delta: number): void {
-    // 志向选择相位は player 操作のみで進む（delta 计时の対象外 — gdd「一日相位控制器」）
-    if (this.run.phase === 'ambition') {
+    // 志向选择・初始伙计选择相位は player 操作のみで進む（delta 计时の対象外 — gdd「一日相位控制器」）
+    if (this.run.phase === 'ambition' || this.run.phase === 'staffSelect') {
       return;
     }
     // 暂停面板开启中: 全部相位推进停止（gdd: 面板开启时计时暂停、其他点击被屏蔽）

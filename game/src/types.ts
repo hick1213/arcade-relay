@@ -12,6 +12,13 @@
 export const TAP_EVENTS = {
   /** 志向选择（S-04: 財/侠/名 3 按钮。payload.ambitionId） */
   AMBITION_CONFIRM: 'onAmbitionConfirmTap',
+  // ==== 初始伙计选择（S-22。解锁伙计（UNL-01/02）で默认伙计 1 名を置き換える — gdd「解锁」表）====
+  /** 解锁候补カード（payload.candidateId。未解锁は判定区ごと不登録 — 锁定表示のみ） */
+  STAFF_SELECT_CANDIDATE: 'onStaffSelectCandidateTap',
+  /** 置換先の默认伙计（payload.staffId。选择中候补なしは不発） */
+  STAFF_SELECT_REPLACE: 'onStaffSelectReplaceTap',
+  /** 选择确定（未置換のままでも可 — 默认编成で晨间开局） */
+  STAFF_SELECT_CONFIRM: 'onStaffSelectConfirmTap',
   /** 晨间「开门营业」 */
   OPEN_DOOR: 'onOpenDoorTap',
   /** 晨间岗位图标（两次点击制的第一步） */
@@ -184,8 +191,9 @@ export type {
 /**
  * 一日相位（gdd「一日相位控制器」: 晨→日→夜の场景内状态机）。
  * 'ambition' = 新周目开局の志向选择（S-04）。确认后晨间へ迁移し、以後は gdd の 3 相位循环。
+ * 'staffSelect' = 志向确认直后の初始伙计选择（S-22。解锁伙计の置換 or そのまま晨间へ）。
  */
-export type Phase = 'ambition' | 'morning' | 'day' | 'night';
+export type Phase = 'ambition' | 'staffSelect' | 'morning' | 'day' | 'night';
 
 /** 岗位（gdd「岗位分配系统」: 跑堂/掌柜/采购/修练 ＋ 待命） */
 export type PostId = 'waiter' | 'manager' | 'purchaser' | 'training';
@@ -358,6 +366,18 @@ export interface EventCardData {
   readonly options: readonly EventCardOptionData[];
 }
 
+/**
+ * 初始伙计选择状态（S-22。RunState.staffSelect — 'ambition'／'staffSelect' 相位で非 null。
+ * 'ambition' 中は解锁済み候補 id の搬运役（pendingCandidateId は未使用）。晨间以降は null）。
+ * 解锁判定の真值 = SaveData.unlocks（meta/unlocks.ts）; run は开局時点の解锁済み候補 id のみ保持。
+ */
+export interface StaffSelectState {
+  /** 解锁済み候補（UNL-01/02 の伙计 id。未解锁候補は UI 側で锁定表示のみ） */
+  readonly unlockedCandidateIds: readonly string[];
+  /** 选择中の候補（确定は置換先指定で行う。null = 未选择。再点击で解除） */
+  readonly pendingCandidateId: string | null;
+}
+
 /** 周目内全体状态（runEngine の单一持有。不可变更新 — conventions「类型设计」） */
 export interface RunState {
   readonly day: number;
@@ -367,6 +387,8 @@ export interface RunState {
   readonly reputation: number;
   readonly xiaPoints: number;
   readonly ambition: AmbitionId;
+  /** 初始伙计选择状态（S-22。'staffSelect' 相位のみ非 null — 確定/復帰後は null） */
+  readonly staffSelect: StaffSelectState | null;
   readonly staff: readonly StaffMember[];
   readonly customers: readonly CustomerState[];
   readonly kitchen: KitchenState;

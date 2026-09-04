@@ -126,6 +126,18 @@ export const EN_TABLE: Readonly<Record<string, string>> = {
   [TEXT_KEYS.STAFF_WENQU]: 'Wen-Qu',
   [TEXT_KEYS.STAFF_XIAODIE]: 'Xiao-Die',
   [TEXT_KEYS.STAFF_DASONG]: 'Da-Song',
+  // Unlockable staff (S-22: gdd unlock table UNL-01/02)
+  [TEXT_KEYS.STAFF_LIUBIAOTOU]: 'Liu the Escort',
+  [TEXT_KEYS.STAFF_SUYUCHU]: 'Su the Chef',
+  // Initial staff selection (S-22)
+  [TEXT_KEYS.STAFF_SELECT_TITLE]: 'Choose Starting Staff',
+  [TEXT_KEYS.STAFF_SELECT_HINT]: 'Tap an unlocked hire, then tap the default staff to replace (1 each)',
+  [TEXT_KEYS.STAFF_SELECT_LOCKED]: 'Locked',
+  [TEXT_KEYS.BUTTON_STAFF_SELECT_CONFIRM]: 'Open the Inn',
+  // Staff stat abbreviations (gdd staff table column names)
+  [TEXT_KEYS.STAFF_STAT_SPEED]: 'SPD',
+  [TEXT_KEYS.STAFF_STAT_CRAFT]: 'CRT',
+  [TEXT_KEYS.STAFF_STAT_STAMINA]: 'STA',
   // Event cards (vertical slice 3 — #1/#5/#8; S-17 expands to 15)
   [TEXT_KEYS.CARD_1_TITLE]: 'Escort Lodging',
   [TEXT_KEYS.CARD_1_OPT1]: 'Gift silver for the road (Silver −15 / Renown +6)',

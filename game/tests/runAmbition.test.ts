@@ -11,6 +11,7 @@ import { describe, expect, it } from 'vitest';
 import { AMBITION } from '../src/config';
 import {
   confirmAmbition,
+  confirmStaffSelect,
   createInitialRun,
   createResumeRun,
   createRunSnapshot,
@@ -21,14 +22,21 @@ describe('S-04 志向选择', () => {
     expect(createInitialRun().phase).toBe('ambition');
   });
 
-  it('財/侠/名それぞれの GDD 初期值で晨间开局する', () => {
+  it('財/侠/名それぞれの GDD 初期值で晨间开局する（S-22 から志向确认後は初始伙计选择を挟む）', () => {
     const expectations = {
       wealth: AMBITION.START.wealth,
       xia: AMBITION.START.xia,
       fame: AMBITION.START.fame,
     } as const;
     for (const [id, start] of Object.entries(expectations)) {
-      const run = confirmAmbition(createInitialRun(), id as keyof typeof expectations);
+      const selected = confirmAmbition(createInitialRun(), id as keyof typeof expectations);
+      // S-22: 志向确认直後は初始伙计选择相位（开局资源は確定済み）
+      expect(selected.phase).toBe('staffSelect');
+      expect(selected.ambition).toBe(id);
+      expect(selected.silver).toBe(start.silver);
+      expect(selected.reputation).toBe(start.reputation);
+      expect(selected.day).toBe(1);
+      const run = confirmStaffSelect(selected);
       expect(run.phase).toBe('morning');
       expect(run.ambition).toBe(id);
       expect(run.silver).toBe(start.silver);
@@ -38,8 +46,8 @@ describe('S-04 志向选择', () => {
   });
 
   it('確定後の再確定・他相位での確定は無視される（べき等ガード）', () => {
-    const morning = confirmAmbition(createInitialRun(), 'xia');
-    expect(confirmAmbition(morning, 'fame').ambition).toBe('xia');
+    const selected = confirmAmbition(createInitialRun(), 'xia');
+    expect(confirmAmbition(selected, 'fame').ambition).toBe('xia');
   });
 });
 

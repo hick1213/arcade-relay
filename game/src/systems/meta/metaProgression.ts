@@ -10,6 +10,7 @@
 import { META_SAVE, SCORE } from '../../config';
 import type { AmbitionId, RunEndSummary } from '../../types';
 import { judgeAchievements, mergeAchievements } from './achievements';
+import { judgeUnlocks, mergeUnlocks } from './unlocks';
 import type { SaveData } from './metaTypes';
 
 /** 周目终结时 metaProgression 的输入（RunEndSummary ＋ 结局/统计源。S-20/S-23 接线时扩展） */
@@ -84,6 +85,9 @@ export const applyRunResult = (save: SaveData, result: RunResult): SaveData => {
       endingsSeen,
     ),
   );
+  // 解锁判定（S-22 — gdd「解锁」表。UNL-01 = endings_seen 计数 ≥1 / UNL-02 = ≥2。
+  // 更新后的 endings_seen を判定源にするため、本次周目で初めて条件を満たした瞬間も取りこぼさない）
+  const unlocks = mergeUnlocks(save.unlocks, judgeUnlocks(endingsSeen));
   return {
     ...save,
     best_score: Math.max(save.best_score, score),
@@ -95,6 +99,7 @@ export const applyRunResult = (save: SaveData, result: RunResult): SaveData => {
     },
     endings_seen: endingsSeen,
     achievements,
+    unlocks,
     // run 快照清除（gdd「存档数据方针」。续玩保存 = S-23 — 本 story 不写入 run）
     run: null,
     // recovered 是会话内标志（损坏恢复通知只在恢复当次显示）— persist 快照恒 false
