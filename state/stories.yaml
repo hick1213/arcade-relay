@@ -242,6 +242,7 @@ stories:
     phase: build
     status: done
     acceptance: "BGM-01（Title/Menu/晨/日/夜）与 BGM-02（终战）循环播放、8 个 SFX 接到对应事件（复用变调用 detune/rate）; Menu 音量滑块变更实时作用于 sound.volume 且重启后恢复（写入 SaveData.settings）; 音频在首次用户输入后才开始播放（autoplay 应对）"
+    # note: CR-CODE unresolved — 参见 state/reviews/s-27.md
   - id: S-28
     title: "打磨: 差分强化与演出细节"
     pillar: P-02
