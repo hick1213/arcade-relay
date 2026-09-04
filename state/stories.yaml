@@ -208,7 +208,7 @@ stories:
     pillar: P-03
     assignee: gameplay-engineer
     phase: build
-    status: review
+    status: done # CR-CODE iter1 CONCERNS → findings 全件处理済み（手動「结束周目」経路の结局判定 gate=终战胜利 / judgeEnding fallback を决胜规则に一致）。reviews/s-20.md 参照
     acceptance: "达成度=min(silver/300,1.2)、xia/32（不封顶）、min(rep/80,1.2），argmax 取结局; 复数线同为封顶值时以开局志向线优先; 无一线 ≥1.0 时仍取最高并标注「险成」; 总评分用未封顶原值; 用单测覆盖封顶决胜与险成分支"
   - id: S-21
     title: "成就判定（ACH-01～06）"
