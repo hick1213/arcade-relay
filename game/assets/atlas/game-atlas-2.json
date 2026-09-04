@@ -1,0 +1,63 @@
+{
+ "frames": {
+  "sprite-dish-02-buns": {
+   "frame": {
+    "x": 2,
+    "y": 2,
+    "w": 865,
+    "h": 913
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 80,
+    "y": 41,
+    "w": 865,
+    "h": 913
+   },
+   "sourceSize": {
+    "w": 1024,
+    "h": 1024
+   },
+   "pivot": {
+    "x": 0.5,
+    "y": 0.5
+   }
+  },
+  "sprite-dish-06-broth": {
+   "frame": {
+    "x": 871,
+    "y": 2,
+    "w": 896,
+    "h": 852
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 69,
+    "y": 82,
+    "w": 896,
+    "h": 852
+   },
+   "sourceSize": {
+    "w": 1024,
+    "h": 1024
+   },
+   "pivot": {
+    "x": 0.5,
+    "y": 0.5
+   }
+  }
+ },
+ "meta": {
+  "app": "http://github.com/odrick/free-tex-packer-core",
+  "version": "0.3.4",
+  "image": "game-atlas-2.png",
+  "format": "RGBA8888",
+  "size": {
+   "w": 2048,
+   "h": 1024
+  },
+  "scale": 1
+ }
+}

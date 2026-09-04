@@ -1,0 +1,255 @@
+{
+ "frames": {
+  "ui-event-card-frame": {
+   "frame": {
+    "x": 2,
+    "y": 2,
+    "w": 1024,
+    "h": 1520
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 1024,
+    "h": 1520
+   },
+   "sourceSize": {
+    "w": 1024,
+    "h": 1536
+   },
+   "pivot": {
+    "x": 0.5,
+    "y": 0.5
+   }
+  },
+  "ui-title-emblem": {
+   "frame": {
+    "x": 1030,
+    "y": 2,
+    "w": 1517,
+    "h": 1008
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 19,
+    "y": 0,
+    "w": 1517,
+    "h": 1008
+   },
+   "sourceSize": {
+    "w": 1536,
+    "h": 1024
+   },
+   "pivot": {
+    "x": 0.5,
+    "y": 0.5
+   }
+  },
+  "ui-common-sheet": {
+   "frame": {
+    "x": 2,
+    "y": 1526,
+    "w": 1489,
+    "h": 977
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 28,
+    "y": 23,
+    "w": 1489,
+    "h": 977
+   },
+   "sourceSize": {
+    "w": 1536,
+    "h": 1024
+   },
+   "pivot": {
+    "x": 0.5,
+    "y": 0.5
+   }
+  },
+  "sprite-guest-escort": {
+   "frame": {
+    "x": 1495,
+    "y": 1014,
+    "w": 738,
+    "h": 1015
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 224,
+    "y": 0,
+    "w": 738,
+    "h": 1015
+   },
+   "sourceSize": {
+    "w": 1024,
+    "h": 1024
+   },
+   "pivot": {
+    "x": 0.5,
+    "y": 0.5
+   }
+  },
+  "sprite-staff-liu-biao-tou": {
+   "frame": {
+    "x": 2,
+    "y": 2507,
+    "w": 767,
+    "h": 1011
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 211,
+    "y": 1,
+    "w": 767,
+    "h": 1011
+   },
+   "sourceSize": {
+    "w": 1024,
+    "h": 1024
+   },
+   "pivot": {
+    "x": 0.5,
+    "y": 0.5
+   }
+  },
+  "sprite-rival-warlord": {
+   "frame": {
+    "x": 773,
+    "y": 2507,
+    "w": 700,
+    "h": 1004
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 129,
+    "y": 10,
+    "w": 700,
+    "h": 1004
+   },
+   "sourceSize": {
+    "w": 1024,
+    "h": 1024
+   },
+   "pivot": {
+    "x": 0.5,
+    "y": 0.5
+   }
+  },
+  "sprite-staff-a-fu": {
+   "frame": {
+    "x": 1477,
+    "y": 2507,
+    "w": 758,
+    "h": 1004
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 204,
+    "y": 8,
+    "w": 758,
+    "h": 1004
+   },
+   "sourceSize": {
+    "w": 1024,
+    "h": 1024
+   },
+   "pivot": {
+    "x": 0.5,
+    "y": 0.5
+   }
+  },
+  "sprite-staff-da-song": {
+   "frame": {
+    "x": 2551,
+    "y": 2,
+    "w": 800,
+    "h": 1002
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 7,
+    "w": 800,
+    "h": 1002
+   },
+   "sourceSize": {
+    "w": 1024,
+    "h": 1024
+   },
+   "pivot": {
+    "x": 0.5,
+    "y": 0.5
+   }
+  },
+  "sprite-staff-tie-niu": {
+   "frame": {
+    "x": 2239,
+    "y": 1014,
+    "w": 873,
+    "h": 1000
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 65,
+    "y": 13,
+    "w": 873,
+    "h": 1000
+   },
+   "sourceSize": {
+    "w": 1024,
+    "h": 1024
+   },
+   "pivot": {
+    "x": 0.5,
+    "y": 0.5
+   }
+  },
+  "sprite-staff-su-yu-chu": {
+   "frame": {
+    "x": 2239,
+    "y": 2018,
+    "w": 679,
+    "h": 998
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 203,
+    "y": 13,
+    "w": 679,
+    "h": 998
+   },
+   "sourceSize": {
+    "w": 1024,
+    "h": 1024
+   },
+   "pivot": {
+    "x": 0.5,
+    "y": 0.5
+   }
+  }
+ },
+ "meta": {
+  "app": "http://github.com/odrick/free-tex-packer-core",
+  "version": "0.3.4",
+  "image": "game-atlas-0.png",
+  "format": "RGBA8888",
+  "size": {
+   "w": 4096,
+   "h": 4096
+  },
+  "scale": 1
+ }
+}

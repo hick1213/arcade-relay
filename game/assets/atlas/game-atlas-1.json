@@ -1,0 +1,303 @@
+{
+ "frames": {
+  "sprite-guest-commoner": {
+   "frame": {
+    "x": 2,
+    "y": 2,
+    "w": 743,
+    "h": 996
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 185,
+    "y": 14,
+    "w": 743,
+    "h": 996
+   },
+   "sourceSize": {
+    "w": 1024,
+    "h": 1024
+   },
+   "pivot": {
+    "x": 0.5,
+    "y": 0.5
+   }
+  },
+  "sprite-guest-gourmet": {
+   "frame": {
+    "x": 749,
+    "y": 2,
+    "w": 755,
+    "h": 994
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 197,
+    "y": 14,
+    "w": 755,
+    "h": 994
+   },
+   "sourceSize": {
+    "w": 1024,
+    "h": 1024
+   },
+   "pivot": {
+    "x": 0.5,
+    "y": 0.5
+   }
+  },
+  "sprite-dish-05-fish": {
+   "frame": {
+    "x": 2,
+    "y": 1002,
+    "w": 990,
+    "h": 848
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 22,
+    "y": 136,
+    "w": 990,
+    "h": 848
+   },
+   "sourceSize": {
+    "w": 1024,
+    "h": 1024
+   },
+   "pivot": {
+    "x": 0.5,
+    "y": 0.5
+   }
+  },
+  "sprite-staff-wen-qu": {
+   "frame": {
+    "x": 1508,
+    "y": 2,
+    "w": 793,
+    "h": 987
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 169,
+    "y": 17,
+    "w": 793,
+    "h": 987
+   },
+   "sourceSize": {
+    "w": 1024,
+    "h": 1024
+   },
+   "pivot": {
+    "x": 0.5,
+    "y": 0.5
+   }
+  },
+  "ui-ambition-wealth": {
+   "frame": {
+    "x": 2,
+    "y": 1854,
+    "w": 986,
+    "h": 869
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 19,
+    "y": 19,
+    "w": 986,
+    "h": 869
+   },
+   "sourceSize": {
+    "w": 1024,
+    "h": 1024
+   },
+   "pivot": {
+    "x": 0.5,
+    "y": 0.5
+   }
+  },
+  "sprite-staff-xiao-die": {
+   "frame": {
+    "x": 1508,
+    "y": 993,
+    "w": 744,
+    "h": 979
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 218,
+    "y": 13,
+    "w": 744,
+    "h": 979
+   },
+   "sourceSize": {
+    "w": 1024,
+    "h": 1024
+   },
+   "pivot": {
+    "x": 0.5,
+    "y": 0.5
+   }
+  },
+  "sprite-dish-04-tofu": {
+   "frame": {
+    "x": 2305,
+    "y": 2,
+    "w": 978,
+    "h": 833
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 22,
+    "y": 109,
+    "w": 978,
+    "h": 833
+   },
+   "sourceSize": {
+    "w": 1024,
+    "h": 1024
+   },
+   "pivot": {
+    "x": 0.5,
+    "y": 0.5
+   }
+  },
+  "ui-ambition-xia": {
+   "frame": {
+    "x": 2305,
+    "y": 839,
+    "w": 918,
+    "h": 944
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 55,
+    "y": 19,
+    "w": 918,
+    "h": 944
+   },
+   "sourceSize": {
+    "w": 1024,
+    "h": 1024
+   },
+   "pivot": {
+    "x": 0.5,
+    "y": 0.5
+   }
+  },
+  "ui-ambition-renown": {
+   "frame": {
+    "x": 2256,
+    "y": 1787,
+    "w": 935,
+    "h": 869
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 46,
+    "y": 19,
+    "w": 935,
+    "h": 869
+   },
+   "sourceSize": {
+    "w": 1024,
+    "h": 1024
+   },
+   "pivot": {
+    "x": 0.5,
+    "y": 0.5
+   }
+  },
+  "sprite-table-round": {
+   "frame": {
+    "x": 2,
+    "y": 2727,
+    "w": 925,
+    "h": 913
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 49,
+    "y": 55,
+    "w": 925,
+    "h": 913
+   },
+   "sourceSize": {
+    "w": 1024,
+    "h": 1024
+   },
+   "pivot": {
+    "x": 0.5,
+    "y": 0.5
+   }
+  },
+  "sprite-dish-03-chicken": {
+   "frame": {
+    "x": 931,
+    "y": 2727,
+    "w": 915,
+    "h": 854
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 59,
+    "y": 110,
+    "w": 915,
+    "h": 854
+   },
+   "sourceSize": {
+    "w": 1024,
+    "h": 1024
+   },
+   "pivot": {
+    "x": 0.5,
+    "y": 0.5
+   }
+  },
+  "sprite-dish-01-noodles": {
+   "frame": {
+    "x": 1850,
+    "y": 2660,
+    "w": 868,
+    "h": 914
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 102,
+    "y": 31,
+    "w": 868,
+    "h": 914
+   },
+   "sourceSize": {
+    "w": 1024,
+    "h": 1024
+   },
+   "pivot": {
+    "x": 0.5,
+    "y": 0.5
+   }
+  }
+ },
+ "meta": {
+  "app": "http://github.com/odrick/free-tex-packer-core",
+  "version": "0.3.4",
+  "image": "game-atlas-1.png",
+  "format": "RGBA8888",
+  "size": {
+   "w": 4096,
+   "h": 4096
+  },
+  "scale": 1
+ }
+}

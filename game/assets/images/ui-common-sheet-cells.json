@@ -1,0 +1,73 @@
+{
+ "image": "assets/images/ui-common-sheet.png",
+ "size": [
+  1536,
+  1024
+ ],
+ "split_method": "connected-component bboxes (measured, not fixed grid \u2014 fixed grid infeasible, see design/assets.md \u751f\u6210\u5b9e\u7ee9)",
+ "cells": [
+  {
+   "name": "button-normal",
+   "bbox": [
+    82,
+    90,
+    437,
+    433
+   ]
+  },
+  {
+   "name": "button-pressed",
+   "bbox": [
+    558,
+    98,
+    895,
+    433
+   ]
+  },
+  {
+   "name": "panel-parchment",
+   "bbox": [
+    956,
+    36,
+    1511,
+    559
+   ]
+  },
+  {
+   "name": "ledger",
+   "bbox": [
+    32,
+    562,
+    415,
+    947
+   ]
+  },
+  {
+   "name": "ingot",
+   "bbox": [
+    482,
+    666,
+    827,
+    887
+   ]
+  },
+  {
+   "name": "scroll",
+   "bbox": [
+    878,
+    602,
+    1131,
+    911
+   ]
+  },
+  {
+   "name": "sword-chip",
+   "bbox": [
+    1222,
+    638,
+    1471,
+    937
+   ]
+  }
+ ]
+}
