@@ -222,8 +222,9 @@ stories:
     pillar: P-03
     assignee: ui-engineer
     phase: build
-    status: review
+    status: done
     acceptance: "结局图鉴面板（3 格 + ACH-04 进度）、成就一览（ACH-01～06 达成态）、统计面板（最高分/周目数/银子声望峰值/累计服务客数）均从 SaveData 渲染且与存档值一致; 未解锁/未达成项有可视锁定态"
+    note: "CR-CODE iter1 全 findings 已处理（config 字号接线/魔法数字常量化/锁定格占位文案/列数开发期检查）。typecheck exit 0"
   - id: S-27
     title: "音频接线与音量实效"
     pillar: P-04

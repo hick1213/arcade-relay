@@ -28,6 +28,9 @@ const STAT_ROW_KEYS = [
   MENU_TEXT_KEYS.MENU_STATS_SERVED,
 ] as const;
 
+/** 本面板の节 Column 数（SECTION_COLUMN_X_OFFSETS 的既定長。開発期に不一致を即座に検出するため） */
+const SECTION_COUNT = 3;
+
 /** 结局格 3 枚の label key（下标 = META_SAVE.ENDING_INDEX の並び: 财/侠/名 — S-25 の结局名を再利用） */
 const ENDING_SLOT_LABEL_KEYS = [
   RESULT_TEXT_KEYS.RESULT_ENDING_WEALTH_TITLE,
@@ -75,17 +78,27 @@ export class MenuStatsPanel {
       )
       .setOrigin(0.5);
 
+    // 列数不一致は静默的に中央堆叠させず、開發期に即座に失敗させる（CR-CODE iteration 1 指摘対応）
     const columnX = MENU.SECTION_COLUMN_X_OFFSETS.map((offset) => centerX + offset);
+    if (MENU.SECTION_COLUMN_X_OFFSETS.length !== SECTION_COUNT) {
+      throw new Error(
+        `[MenuStatsPanel] SECTION_COLUMN_X_OFFSETS must define exactly ${SECTION_COUNT} columns (actual: ${MENU.SECTION_COLUMN_X_OFFSETS.length})`,
+      );
+    }
+    const galleryX = columnX[0]!;
+    const achievementsX = columnX[1]!;
+    const statsX = columnX[2]!;
+
     const sectionHeaders = [MENU_TEXT_KEYS.MENU_PANEL_GALLERY_TITLE, MENU_TEXT_KEYS.MENU_PANEL_ACHIEVEMENTS_TITLE, MENU_TEXT_KEYS.MENU_PANEL_STATS_TITLE].map(
       (key, index) =>
         scene.add
-          .text(columnX[index] ?? centerX, MENU.SECTION_HEADER_Y, textProvider(key), this.sectionHeaderStyle())
+          .text(columnX[index]!, MENU.SECTION_HEADER_Y, textProvider(key), this.sectionHeaderStyle())
           .setOrigin(0.5),
     );
 
-    const galleryVisuals = this.createGallery(scene, columnX[0] ?? centerX, textProvider, save);
-    const achievementRows = this.createAchievementRows(scene, columnX[1] ?? centerX, textProvider, save);
-    const statRows = this.createStatRows(scene, columnX[2] ?? centerX, textProvider, save);
+    const galleryVisuals = this.createGallery(scene, galleryX, textProvider, save);
+    const achievementRows = this.createAchievementRows(scene, achievementsX, textProvider, save);
+    const statRows = this.createStatRows(scene, statsX, textProvider, save);
 
     const closeButton = createUiButton(
       scene,
@@ -143,10 +156,13 @@ export class MenuStatsPanel {
         .text(
           slotX,
           MENU.SLOT_Y + MENU.SLOT_LABEL_OFFSET_Y,
-          textProvider(ENDING_SLOT_LABEL_KEYS[index] ?? ''),
-          this.rowStyle(unlocked),
+          // 未解锁格は结局名を伏せる（ネタバレ防止。解锁後のみ真实结局名を表示）
+          textProvider(unlocked ? ENDING_SLOT_LABEL_KEYS[index] ?? '' : MENU_TEXT_KEYS.MENU_PANEL_SLOT_LOCKED),
+          this.rowStyle(unlocked, MENU.SLOT_LABEL_FONT_SIZE),
         )
-        .setOrigin(0.5);
+        .setOrigin(0.5)
+        // 折返し幅 = 格中心間隔（隣接格 label の重叠防止）
+        .setWordWrapWidth(MENU.SLOT_GAP);
       visuals.push(slot, label);
     }
 
@@ -169,10 +185,10 @@ export class MenuStatsPanel {
     ).setOrigin(0, 0.5);
     const progressValue = scene.add
       .text(
-        columnX + MENU.ACH04_BAR_WIDTH / 2 + 14,
+        columnX + MENU.ACH04_BAR_WIDTH / 2 + MENU.ACH04_VALUE_X_GAP,
         MENU.ACH04_BAR_Y,
         `${endingsSeen} / ${META_SAVE.ENDINGS_COUNT}`,
-        this.rowStyle(progressComplete),
+        this.rowStyle(progressComplete, MENU.ACH04_VALUE_FONT_SIZE),
       )
       .setOrigin(0, 0.5);
     visuals.push(progressLabel, barTrack, barFill, progressValue);
@@ -294,12 +310,12 @@ export class MenuStatsPanel {
     };
   }
 
-  /** 行/格 label 共通样式（achieved=true → 金文字 / false → 褐色の可视锁定态） */
-  private rowStyle(achieved: boolean): Phaser.Types.GameObjects.Text.TextStyle {
+  /** 行/格 label 共通样式（achieved=true → 金文字 / false → 褐色の可视锁定态。fontSize は既定 ROW_FONT_SIZE を呼び出し側で上書き可） */
+  private rowStyle(achieved: boolean, fontSize: string = MENU.ROW_FONT_SIZE): Phaser.Types.GameObjects.Text.TextStyle {
     return {
       fontFamily: UI.HUD_FONT_FAMILY,
       resolution: UI.TEXT_RESOLUTION,
-      fontSize: MENU.ROW_FONT_SIZE,
+      fontSize,
       color: achieved ? MENU.UNLOCKED_TEXT_COLOR : MENU.LOCKED_TEXT_COLOR,
       stroke: UI.HUD_STROKE_COLOR,
       strokeThickness: UI.HUD_STROKE_WIDTH,

@@ -459,7 +459,8 @@ export const MENU = {
   ZONE_LANGUAGE_TOGGLE: 'menu.language.toggle',
 
   // ==== S-26: 图鉴/成就/统计 3 节「游戏外显示」完整版モーダル（设置面板は既有 PANEL_* を継続使用。
-  // 座標は GAME_WIDTH/HEIGHT 基準分辨率の絶対値、配色は art-bible 调色板の UI.PANEL_* 系のみ）====
+  // 座標は GAME_WIDTH/HEIGHT 基準分辨率の絶対値。配色は UI.PANEL_* 系の参照に加え、
+  // ロック态のみ art-bible 调色板由来の直書き値（SLOT_FILL_LOCKED / LOCKED_TEXT_COLOR）====
   FULL_PANEL_WIDTH: 880,
   FULL_PANEL_HEIGHT: 480,
   FULL_PANEL_TITLE_OFFSET_Y: 44,
@@ -490,6 +491,8 @@ export const MENU = {
   ACH04_BAR_WIDTH: 200,
   ACH04_BAR_HEIGHT: 14,
   ACH04_VALUE_FONT_SIZE: '15px',
+  /** ACH-04 进度条右端 → 「n / 3」数值文字の左端までの隙間 */
+  ACH04_VALUE_X_GAP: 14,
   // 成就一览（6 行）/ 统计（5 行）共通の行レイアウト
   ROW_START_Y: 244,
   ROW_GAP: 40,
