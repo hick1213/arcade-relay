@@ -19,6 +19,10 @@ type HudChipKey = 'silver' | 'reputation' | 'day';
 interface HudChip {
   readonly valueText: Phaser.GameObjects.Text;
   readonly baseColor: string;
+  /** Δ 弹出数字の再利用インスタンス（CR-CODE fix: 每回 Text 新規生成は resolution 2 光栅化的 GC 圧力源） */
+  readonly popup: Phaser.GameObjects.Text;
+  /** popup を動かす tween のハンドル（表示キャッシュ。連続 flash 時は差し替え） */
+  popupTween: Phaser.Tweens.Tween | null;
 }
 
 export class Hud {
@@ -78,22 +82,30 @@ export class Hud {
       yoyo: true,
       ease: 'Quad.easeOut',
     });
-    const popup = this.scene.add
-      .text(
-        chip.valueText.x - chip.valueText.displayWidth / 2,
-        chip.valueText.y - UI.HUD_CHIP_HEIGHT / 2 - UI.HUD_POPUP_OFFSET_Y,
-        `${delta > 0 ? '+' : ''}${delta}`,
-        this.popupStyle(),
-      )
-      .setOrigin(0.5);
-    this.container.add(popup);
-    this.scene.tweens.add({
+    this.runPopup(chip, delta);
+  }
+
+  /**
+   * Δ 数字弹出 — chip 毎に 1 個の Text を再利用（CR-CODE it.1 fix）。
+   * 每回の新規生成＋destroy は resolution 2 光栅化の反复割付で GC 圧力になるため廃止。
+   * 連続 flash 時は進行中 tween を差し替えて最初から再生する。
+   */
+  private runPopup(chip: HudChip, delta: number): void {
+    const popup = chip.popup;
+    popup.setText(`${delta > 0 ? '+' : ''}${delta}`);
+    popup.setPosition(
+      chip.valueText.x - chip.valueText.displayWidth / 2,
+      chip.valueText.y - UI.HUD_CHIP_HEIGHT / 2 - UI.HUD_POPUP_OFFSET_Y,
+    );
+    popup.setAlpha(1).setVisible(true);
+    chip.popupTween?.remove();
+    chip.popupTween = this.scene.tweens.add({
       targets: popup,
       y: popup.y - UI.HUD_POPUP_RISE_PX,
       alpha: 0,
       duration: UI.HUD_POPUP_MS,
       ease: 'Quad.easeOut',
-      onComplete: () => popup.destroy(),
+      onComplete: () => popup.setVisible(false),
     });
   }
 
@@ -114,8 +126,13 @@ export class Hud {
     const valueText = this.scene.add
       .text(x + UI.HUD_CHIP_WIDTH - UI.HUD_CHIP_PADDING, y + UI.HUD_CHIP_HEIGHT / 2, '', this.valueStyle())
       .setOrigin(1, 0.5);
-    this.container.add([panel, label, valueText]);
-    return { valueText, baseColor: UI.HUD_VALUE_COLOR };
+    // Δ 弹出数字は chip 毎に 1 個を事前生成し flash 時に再利用（GC 圧力対策 — runPopup 参照）
+    const popup = this.scene.add
+      .text(x + UI.HUD_CHIP_WIDTH / 2, y + UI.HUD_CHIP_HEIGHT / 2, '', this.popupStyle())
+      .setOrigin(0.5)
+      .setVisible(false);
+    this.container.add([panel, label, valueText, popup]);
+    return { valueText, baseColor: UI.HUD_VALUE_COLOR, popup, popupTween: null };
   }
 
   /** 右上「帐本」按钮（≥ BUTTON_MIN_SIZE_PX）。判定区经 InputRouter、最高优先档 */
