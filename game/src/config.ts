@@ -525,6 +525,20 @@ export const DAY_CYCLE = {
   FINAL_BATTLE_DAY: 20,
 } as const;
 
+// ==== 终战（S-19 finalBattle。出处: gdd「数值表」「胜负条件」— 常量名 = GDD 数值表原样）====
+/** 终战回合数（gdd: BATTLE_ROUNDS。演出约 40s） */
+export const BATTLE_ROUNDS = 3;
+/** 先取胜所需回合数（gdd「胜负条件」: 先取 2 胜者胜） */
+export const BATTLE_ROUNDS_TO_WIN = 2;
+/** 单回合战力随机波动（gdd: BATTLE_VARIANCE。敌我同率 — gdd 算式 1±0.15。有悬念但不逆转养成差距） */
+export const BATTLE_VARIANCE = 0.15;
+/** 终战大敌战力（gdd: ENEMY_POWER） */
+export const ENEMY_POWER = 32;
+/** 雇镖师援助费用（gdd: BATTLE_AID_COST。P-03 财线以银子补战力的通道） */
+export const BATTLE_AID_COST = 100;
+/** 雇镖师援助战力（gdd: AID_POWER） */
+export const BATTLE_AID_POWER = 8;
+
 // ==== 志向（S-04 志向选择接线前は DEFAULT_ID で开局。出处: gdd「数值表」SILVER_START/REP_START/
 // AMBITION_BIAS。志向选择 UI と 3 志向の开局分岐は story S-04 で接线 — 判断事項）====
 export const AMBITION = {
@@ -926,6 +940,24 @@ export const GAMEPLAY_ZONES = {
   DRAW_CARD: 'game.night.draw',
   CARD_OPTION: (index: number): string => `game.night.option.${index}`,
   DAYBREAK: 'game.night.daybreak',
+  // 终战（S-19: 开战前选择。「雇镖师援助」は银子不足/雇入济み時に判定区ごと不登録＝不活性）
+  AID_HIRE: 'game.battle.aid',
+  FIGHT_CONFIRM: 'game.battle.fight',
+} as const;
+
+// ==== 终战夜面板（S-19。夜パネル（NIGHT.PANEL_X/Y）内に重ねる — レイアウトはオフセットで导出）====
+export const BATTLE_UI = {
+  /** 战力表示行（player/enemy 2 行。摘要行と同型の左右配置） */
+  POWER_LINE_START_OFFSET_Y: -130,
+  POWER_LINE_GAP: 42,
+  POWER_FONT_SIZE: '19px',
+  /** 援助の费用/战力表示行（值側は config の BATTLE_AID_COST/BATTLE_AID_POWER を补间） */
+  AID_INFO_OFFSET_Y: -30,
+  AID_INFO_FONT_SIZE: '15px',
+  AID_BUTTON_OFFSET_Y: 90,
+  FIGHT_BUTTON_OFFSET_Y: 200,
+  /** 援助不可（银子不足/雇入济み）时の按钮不活性表示（判定区ごと未登録 — 点击不発） */
+  DISABLED_ALPHA: 0.4,
 } as const;
 
 // ==== 音频接线（S-27 — BGM 循环与 SFX 复用变调。design/assets.md「音频」节）====
