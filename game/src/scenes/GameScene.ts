@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { InputRouter } from '../systems/input/InputRouter';
-import { advanceRun, createInitialRun, handleTapEvent } from '../systems/runEngine';
-import { TAP_EVENTS, type HudState, type RunEndSummary, type RunState, type TapEventName, type TapHit, type TextProvider } from '../types';
+import { advanceRun, createBattleRetryRun, createInitialRun, handleTapEvent } from '../systems/runEngine';
+import { TAP_EVENTS, type FinalBattleSnapshot, type HudState, type RunEndSummary, type RunState, type TapEventName, type TapHit, type TextProvider } from '../types';
 import { buildRunEndSummary } from '../systems/economy';
 import { applyRunResult, createRunResult } from '../systems/meta/metaProgression';
 import { loadSaveData, saveSaveData } from '../persistence/SaveAdapter';
@@ -35,10 +35,19 @@ export class GameScene extends Phaser.Scene {
 
   create(): void {
     // 场景重建＝状态全リセット（重开时计时器/客人/岗位表/弃牌堆の泄漏なし — S-15 acceptance）。
-    // Menu「继续周目」経由（resume: true）は run 快照から当日晨间へ復帰（S-04 快照の読み出し側）
-    const sceneData = this.scene.settings.data as { readonly resume?: boolean } | undefined;
+    // Menu「继续周目」経由（resume: true）は run 快照から当日晨间へ復帰（S-04 快照の読み出し側）。
+    // Result「重试当日」経由（retryFinalBattle）は第 20 日夜開戦前快照へ復帰（S-19）。
+    const sceneData = this.scene.settings.data as
+      | { readonly resume?: boolean; readonly retryFinalBattle?: FinalBattleSnapshot | null }
+      | undefined;
     const snapshot = sceneData?.resume === true ? loadSaveData().data.run : null;
-    this.run = snapshot !== null ? createResumeRun(snapshot) : createInitialRun();
+    const retrySnapshot = sceneData?.retryFinalBattle ?? null;
+    this.run =
+      retrySnapshot !== null
+        ? createBattleRetryRun(retrySnapshot)
+        : snapshot !== null
+          ? createResumeRun(snapshot)
+          : createInitialRun();
     this.runResultPersisted = false;
 
     // 点击输入唯一入口（S-01 InputRouter — tech-stack 规范 4 / conventions 规则 7）
@@ -68,6 +77,8 @@ export class GameScene extends Phaser.Scene {
     this.router.on(TAP_EVENTS.EVENT_CARD_DRAW, (hit) => this.applyTap(hit));
     this.router.on(TAP_EVENTS.EVENT_CARD_OPTION, (hit) => this.applyTap(hit));
     this.router.on(TAP_EVENTS.DAYBREAK, (hit) => this.applyTap(hit));
+    this.router.on(TAP_EVENTS.FIGHT_CONFIRM, (hit) => this.applyTap(hit));
+    this.router.on(TAP_EVENTS.AID_HIRE, (hit) => this.applyTap(hit));
 
     this.view.render(this.run);
     this.hud.update(this.toHudState());
@@ -142,7 +153,9 @@ export class GameScene extends Phaser.Scene {
     // 新纪录标记（S-25）の基準値 — applyRunResult による best_score 更新の前に取得
     const bestScoreBefore = loadSaveData().data.best_score;
     this.persistRunResult(summary);
-    this.scene.start('Result', { ...summary, bestScoreBefore });
+    // 第 20 日夜開戦前快照を同梱（S-19: finalBattleLoss の「重试当日」復帰源。他 kind は null）
+    const preBattleSnapshot = this.run.finalBattle?.preSnapshot ?? null;
+    this.scene.start('Result', { ...summary, bestScoreBefore, preBattleSnapshot });
   }
 
   /**

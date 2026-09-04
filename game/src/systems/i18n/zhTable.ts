@@ -31,6 +31,7 @@ export const ZH_TABLE: Readonly<Record<string, string>> = {
   [RESULT_TEXT_KEYS.RESULT_SCORE_POWER]: '伙计实力贡献',
   [RESULT_TEXT_KEYS.RESULT_SCORE_BONUS]: '结局加成',
   [RESULT_TEXT_KEYS.RESULT_RETRY]: '再来一周目',
+  [RESULT_TEXT_KEYS.RESULT_RETRY_DAY]: '重试当日',
   [RESULT_TEXT_KEYS.RESULT_TO_MENU]: '回到菜单',
   // Result 结局演出完整版（S-25: 结局文/败局专属文案/新纪录标记 — 一行为短文，显示侧换行幅度内）
   [RESULT_TEXT_KEYS.RESULT_TITLE_BANKRUPTCY]: '账本合上 — 客栈倒闭',
@@ -112,6 +113,13 @@ export const ZH_TABLE: Readonly<Record<string, string>> = {
   [TEXT_KEYS.BUTTON_DAYBREAK]: '天明',
   [TEXT_KEYS.BUTTON_FIGHT]: '迎战',
   [TEXT_KEYS.FINAL_BATTLE_NOTICE]: '第 20 夜 — 江湖大敌来袭！',
+  // 终战（S-19: 開戦前選択。援助の费用/战力数值は表示側が config.BATTLE_AID_* を补间）
+  [TEXT_KEYS.BATTLE_TITLE]: '终战之夜',
+  [TEXT_KEYS.BATTLE_PLAYER_POWER]: '客栈战力',
+  [TEXT_KEYS.BATTLE_ENEMY_POWER]: '大敌战力',
+  [TEXT_KEYS.BATTLE_AID_INFO]: '雇镖师援助（费用 / 战力）',
+  [TEXT_KEYS.BUTTON_AID_HIRE]: '雇镖师援助',
+  [TEXT_KEYS.BUTTON_FIGHT_START]: '开战',
   // 伙计名（gdd「伙计初始值」5 名）
   [TEXT_KEYS.STAFF_AFU]: '阿福',
   [TEXT_KEYS.STAFF_TIENIU]: '铁牛',

@@ -102,6 +102,10 @@ export function collectAudioCues(
       // 终战「开战」确认（S-19 接线後に有効化される要求 — 先行登记）
       cues.push(cue(ASSET_KEYS.audio.sfxBattleGong));
       break;
+    case TAP_EVENTS.AID_HIRE:
+      // 终战「雇镖师援助」= 银子支払い（SFX-05 复用。锣 = FIGHT_CONFIRM 側 — S-19 接线）
+      cues.push(cue(ASSET_KEYS.audio.sfxCoinCollect));
+      break;
     default:
       break;
   }

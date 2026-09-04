@@ -187,8 +187,15 @@ stories:
     pillar: P-02
     assignee: gameplay-engineer
     phase: build
-    status: in-progress
+    status: review
     acceptance: "第 20 日夜「迎战」→3 回合自动战力对撞（playerPower/3×(1±BATTLE_VARIANCE) vs ENEMY_POWER/3×(1±0.15)、先取 2 胜）; 「雇镖师援助」（−BATTLE_AID_COST=100 两/+8）可用且银子不足时禁用; 战败后 ResultScene「重试当日」恢复第 20 日夜开战前快照（银子/声望/侠点/伙计状态一致）; 战胜进入结局判定"
+    # note: systems/finalBattle.ts（纯逻辑、random 注入式）+ runEngine 接线（FIGHT_CONFIRM/AID_HIRE/
+    # 「迎战」→ nightStage='battle'）+ createBattleRetryRun（快照復帰）。開戦前快照は FinalBattleState.
+    # preSnapshot が权威（in-memory scene data で Result⇄Game を往復 — 永続化は S-23 の run 快照契約）。
+    # 終戦敗「回到菜单」時のみ ResultScene 側で applyRunResult→persist（run := null — gdd 存档数据方针）。
+    # 判断事項: (1) 单回合 roll の同值は玩家侧胜 (2) 「开战」は自动 3 回合即决（演出带 timing は UI 层
+    # 打磨 — rounds 数据は FinalBattleState.rounds に保持済み） (3) 战胜時の ended=runComplete は
+    # S-20 结局判定接线まで占位経路（endingBonus=0）。tests/finalBattle.test.ts 16 件 PASS。
   - id: S-20
     title: "结局判定系统"
     pillar: P-03

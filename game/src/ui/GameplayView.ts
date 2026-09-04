@@ -13,8 +13,12 @@ import Phaser from 'phaser';
 import {
   AMBITION_UI,
   ASSET_KEYS,
+  BATTLE_AID_COST,
+  BATTLE_AID_POWER,
+  BATTLE_UI,
   CUSTOMER,
   DAY_CYCLE,
+  ENEMY_POWER,
   GAMEPLAY,
   GAMEPLAY_ZONES,
   GAME_LAYOUT,
@@ -30,6 +34,7 @@ import {
 } from '../config';
 import type { InputRouter } from '../systems/input/InputRouter';
 import { AMBITION_PACKS } from '../systems/ambition';
+import { canHireAid, playerPowerOf } from '../systems/finalBattle';
 import { EVENT_CARD_POOL } from '../systems/eventCardData';
 import { getLanguage } from '../systems/i18n';
 import { growthStage } from '../systems/training';
@@ -680,6 +685,73 @@ export class GameplayView {
         priority: INPUT_PRIORITY.EVENT_CARD_OPTION,
       });
     }
+
+    // 终战開戦前選択（S-19 — 第 20 日夜「迎战」後。表示値は systems/finalBattle から導出）
+    if (run.nightStage === 'battle' && run.finalBattle !== null) {
+      this.buildBattlePanel(run, container);
+    }
+  }
+
+  /** 终战開戦前パネル（S-19。战力/援助可否は systems 導出値のみ — UI 側で状態を持有しない） */
+  private buildBattlePanel(run: RunState, container: Phaser.GameObjects.Container): void {
+    container.add(
+      this.label(NIGHT.PANEL_X, NIGHT.PANEL_Y + NIGHT.CARD_TITLE_OFFSET_Y, this.textProvider(TEXT_KEYS.BATTLE_TITLE), NIGHT.TITLE_FONT_SIZE),
+    );
+    // 战力表示（player = staffPowerTotal ＋援助加成 / enemy = config.ENEMY_POWER）
+    const powerLines: ReadonlyArray<readonly [string, string]> = [
+      [TEXT_KEYS.BATTLE_PLAYER_POWER, String(playerPowerOf(run))],
+      [TEXT_KEYS.BATTLE_ENEMY_POWER, String(ENEMY_POWER)],
+    ];
+    powerLines.forEach(([key, value], index) => {
+      const y = NIGHT.PANEL_Y + BATTLE_UI.POWER_LINE_START_OFFSET_Y + index * BATTLE_UI.POWER_LINE_GAP;
+      container.add(this.label(NIGHT.PANEL_X - 180, y, this.textProvider(key), BATTLE_UI.POWER_FONT_SIZE));
+      container.add(this.label(NIGHT.PANEL_X + 180, y, value, BATTLE_UI.POWER_FONT_SIZE));
+    });
+    // 援助の费用/战力（数值は config 直参照 — 文案は i18n key。単位を含まない数式表示）
+    container.add(
+      this.label(
+        NIGHT.PANEL_X,
+        NIGHT.PANEL_Y + BATTLE_UI.AID_INFO_OFFSET_Y,
+        `${this.textProvider(TEXT_KEYS.BATTLE_AID_INFO)}  -${BATTLE_AID_COST} / +${BATTLE_AID_POWER}`,
+        BATTLE_UI.AID_INFO_FONT_SIZE,
+      ),
+    );
+
+    // 「雇镖师援助」— 银子不足/雇入济みは判定区ごと未登録＝点击不発＋不活性表示（S-19 acceptance）
+    const aidEnabled = canHireAid(run);
+    const aidButton = { x: NIGHT.PANEL_X, y: NIGHT.PANEL_Y + BATTLE_UI.AID_BUTTON_OFFSET_Y };
+    container.add(
+      this.scene.add
+        .rectangle(aidButton.x, aidButton.y, MORNING.BUTTON_WIDTH, MORNING.BUTTON_HEIGHT, UI.PANEL_ACCENT, UI.PANEL_FILL_ALPHA)
+        .setStrokeStyle(UI.PANEL_STROKE_WIDTH, UI.PANEL_STROKE)
+        .setAlpha(aidEnabled ? 1 : BATTLE_UI.DISABLED_ALPHA),
+    );
+    container.add(
+      this.label(aidButton.x, aidButton.y, this.textProvider(TEXT_KEYS.BUTTON_AID_HIRE), UI.PAUSE_BUTTON_FONT_SIZE).setAlpha(
+        aidEnabled ? 1 : BATTLE_UI.DISABLED_ALPHA,
+      ),
+    );
+    if (aidEnabled) {
+      this.registerZone(GAMEPLAY_ZONES.AID_HIRE, aidButton, MORNING.BUTTON_WIDTH, MORNING.BUTTON_HEIGHT, {
+        event: TAP_EVENTS.AID_HIRE,
+        priority: INPUT_PRIORITY.EVENT_CARD_OPTION,
+      });
+    }
+
+    // 「开战」→ 3 回合自动对撞（systems/finalBattle.fight — 胜败で Result へ自动迁移）
+    const fightButton = { x: NIGHT.PANEL_X, y: NIGHT.PANEL_Y + BATTLE_UI.FIGHT_BUTTON_OFFSET_Y };
+    container.add(
+      this.scene.add
+        .rectangle(fightButton.x, fightButton.y, MORNING.BUTTON_WIDTH, MORNING.BUTTON_HEIGHT, UI.PANEL_ACCENT, UI.PANEL_FILL_ALPHA)
+        .setStrokeStyle(UI.PANEL_STROKE_WIDTH, UI.PANEL_STROKE),
+    );
+    container.add(
+      this.label(fightButton.x, fightButton.y, this.textProvider(TEXT_KEYS.BUTTON_FIGHT_START), UI.PAUSE_BUTTON_FONT_SIZE),
+    );
+    this.registerZone(GAMEPLAY_ZONES.FIGHT_CONFIRM, fightButton, MORNING.BUTTON_WIDTH, MORNING.BUTTON_HEIGHT, {
+      event: TAP_EVENTS.FIGHT_CONFIRM,
+      priority: INPUT_PRIORITY.EVENT_CARD_OPTION,
+    });
   }
 
   // ==== 每フレームの動的更新 ====

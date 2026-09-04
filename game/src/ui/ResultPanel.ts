@@ -178,12 +178,17 @@ export class ResultPanel {
       this.createBreakdownLine(centerX, centerY, index, textProvider(row.labelKey), formatBreakdown(row)),
     );
 
+    // 「再来一周目」。终战败のみ「重试当日」（S-19 — 開戦前快照からの復帰ボタン）
+    const retryLabel =
+      summary.kind === 'finalBattleLoss'
+        ? RESULT_TEXT_KEYS.RESULT_RETRY_DAY
+        : RESULT_TEXT_KEYS.RESULT_RETRY;
     const retry = this.createButton(
       centerX - RESULT.BUTTON_WIDTH / 2 - RESULT.BUTTON_GAP / 2,
       centerY + RESULT.BUTTONS_OFFSET_Y,
       RESULT.ZONE_RETRY,
       TAP_EVENTS.RESULT_RETRY,
-      textProvider(RESULT_TEXT_KEYS.RESULT_RETRY),
+      textProvider(retryLabel),
     );
     const toMenu = this.createButton(
       centerX + RESULT.BUTTON_WIDTH / 2 + RESULT.BUTTON_GAP / 2,

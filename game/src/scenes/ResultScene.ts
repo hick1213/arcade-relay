@@ -2,7 +2,8 @@ import Phaser from 'phaser';
 import { ASSET_KEYS, RESULT_FALLBACK_SUMMARY } from '../config';
 import { InputRouter } from '../systems/input/InputRouter';
 import { createTextProvider } from '../systems/i18n';
-import { loadSaveData } from '../persistence/SaveAdapter';
+import { loadSaveData, saveSaveData } from '../persistence/SaveAdapter';
+import { applyRunResult, createRunResult } from '../systems/meta/metaProgression';
 import type { RunEndSummary, TextProvider } from '../types';
 import { audioDirector } from '../ui/AudioDirector';
 import { ResultPanel } from '../ui/ResultPanel';
@@ -18,8 +19,9 @@ import { ResultPanel } from '../ui/ResultPanel';
  * - 「回到菜单」→ MenuScene。
  * - 迁移载荷 RunEndSummary 由迁移方（GameScene.goToResult — Systems 层の破产/终战/结局判定）
  *   传入; 缺省时以 RESULT_FALLBACK_SUMMARY 占位（UI 不生成周目数值）。
- *   applyRunResult→persist の接线は GameScene（S-14/S-19）职责 — 本场景は演出用 SFX の
- *   再生（接线層の音频 output）のみを行い、存档 I/O は触碰しない（読み取りは音量の取得のみ）。
+ *   applyRunResult→persist の接线は GameScene（S-14/S-19）职责。本场景は演出用 SFX の再生
+ *   （接线層の音频 output）と、终战败「回到菜单」時の周目终结 persist（S-19 — I/O は
+ *   persistence 层経由の純 reducer 呼び出しのみ）を行う（読み取りは音量の取得）。
  */
 export class ResultScene extends Phaser.Scene {
   private router!: InputRouter;
@@ -55,13 +57,39 @@ export class ResultScene extends Phaser.Scene {
     }
 
     new ResultPanel(this, textProvider, this.router, summary, {
-      onRetry: () => this.scene.start('Game'),
-      onToMenu: () => this.scene.start('Menu'),
+      // 终战败（S-19）: 「重试当日」→ 開戦前快照を GameScene へ渡して第 20 日夜から再開。
+      // 他 kind は「再来一周目」→ 志向选择（payload なし = 新周目）。
+      onRetry: () =>
+        this.scene.start(
+          'Game',
+          summary.preBattleSnapshot ? { retryFinalBattle: summary.preBattleSnapshot } : undefined,
+        ),
+      // 终战败で「回到菜单」を選んだ时点で周目终结 — applyRunResult → persist 1 次
+      // （run := null。gdd「存档数据方针」: Menu に「继续周目」を残さない — S-19 接线）。
+      // 他 kind は GameScene.persistRunResult 済みのため二重適用しない。
+      onToMenu: () => {
+        this.abandonFinalBattleLoss(summary);
+        this.scene.start('Menu');
+      },
       // 破产演出「账本合上」の瞬间 → SFX-07（音量は AudioDirector の表示キャッシュ =
       // SaveData.settings。persistence 層経由の取得）
       onLedgerClosed: () => audioDirector.playSfx(ASSET_KEYS.audio.sfxAbacusLedger),
       // 终战败演出の開始瞬间 → SFX-08
       onDefeatSting: () => audioDirector.playSfx(ASSET_KEYS.audio.sfxBattleGong),
     });
+  }
+
+  /**
+   * 终战败の放置（「回到菜单」選択時 — S-19）: applyRunResult → 立即 persist 1 次
+   * （run := null — Menu「继续周目」が死周目を复活させないため。gdd「存档数据方针」）。
+   * applyRunResult→persist の接线は GameScene（S-14）と本场景（S-19）の职责。純 reducer 呼び出し
+   * のみで I/O は persistence 层経由。终战败以外は GameScene 済みのため何もしない。
+   */
+  private abandonFinalBattleLoss(summary: RunEndSummary): void {
+    if (summary.kind !== 'finalBattleLoss') {
+      return;
+    }
+    const loaded = loadSaveData();
+    saveSaveData(applyRunResult(loaded.data, createRunResult(summary)));
   }
 }

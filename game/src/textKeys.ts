@@ -35,6 +35,13 @@ export const TEXT_KEYS = {
   BUTTON_DAYBREAK: 'night.button.daybreak',
   BUTTON_FIGHT: 'night.button.fight',
   FINAL_BATTLE_NOTICE: 'night.finalBattleNotice',
+  // 终战（S-19: 開戦前選択パネル。援助の费用/战力数值は表示側が config の BATTLE_AID_* を补间）
+  BATTLE_TITLE: 'night.battle.title',
+  BATTLE_PLAYER_POWER: 'night.battle.playerPower',
+  BATTLE_ENEMY_POWER: 'night.battle.enemyPower',
+  BATTLE_AID_INFO: 'night.battle.aidInfo',
+  BUTTON_AID_HIRE: 'night.battle.button.aid',
+  BUTTON_FIGHT_START: 'night.battle.button.fight',
   // 伙计名（gdd「伙计初始值」5 名）
   STAFF_AFU: 'staff.afu',
   STAFF_TIENIU: 'staff.tieniu',
@@ -177,6 +184,8 @@ export const RESULT_TEXT_KEYS = {
   RESULT_SCORE_POWER: 'result.score.power',
   RESULT_SCORE_BONUS: 'result.score.bonus',
   RESULT_RETRY: 'result.retry',
+  // 终战败专用の「再来一周目」ラベル置換（S-19: 重试当日 — 開戦前快照からの復帰）
+  RESULT_RETRY_DAY: 'result.retryDay',
   RESULT_TO_MENU: 'result.toMenu',
   // ==== S-25: Result 结局演出完整版（结局文/败局专属文案/新纪录标记）====
   RESULT_TITLE_BANKRUPTCY: 'result.title.bankruptcy',

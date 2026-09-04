@@ -3,8 +3,15 @@
  * GameScene は本モジュールの createInitialRun / advanceRun / handleTapEvent だけを呼ぶ
  * （Scene 轻薄 — tech-stack 规范 3）。状态は不可变更新、纯逻辑のみ（Phaser 非依赖）。
  */
-import { AMBITION, MS_PER_SECOND, STAFF_ROSTER } from '../config';
-import type { AmbitionId, PostId, RunState, RunSnapshot, TapHit } from '../types';
+import { AMBITION, DAY_CYCLE, MS_PER_SECOND, STAFF_ROSTER } from '../config';
+import type {
+  AmbitionId,
+  FinalBattleSnapshot,
+  PostId,
+  RunState,
+  RunSnapshot,
+  TapHit,
+} from '../types';
 import { TAP_EVENTS } from '../types';
 import { getAmbitionPack, isAmbitionId, type AmbitionPack } from './ambition';
 import { selectPost, toggleAssignment } from './assignment';
@@ -13,6 +20,7 @@ import * as dayCycle from './dayCycle';
 import * as economy from './economy';
 import * as customerFlow from './customerFlow';
 import { chooseOption, drawCard } from './eventCard';
+import { createBattleState, enterBattle, fight, hireAid } from './finalBattle';
 import { intervalSecondsForDay } from './customerFlow';
 
 /** 志向确定后的晨间开局状態（S-04: 银子/声望 = GDD 志向别初始值） */
@@ -39,6 +47,7 @@ function createRunForPack(pack: AmbitionPack): RunState {
     nightFatigueIds: [],
     customerSeq: 0,
     finalBattleNight: false,
+    finalBattle: null,
     ended: null,
   };
 }
@@ -133,6 +142,10 @@ function dispatchTap(run: RunState, hit: TapHit): RunState {
       return chooseOption(run, Number(hit.payload.optionIndex));
     case TAP_EVENTS.DAYBREAK:
       return daybreakTap(run);
+    case TAP_EVENTS.FIGHT_CONFIRM:
+      return fightFinalBattle(run);
+    case TAP_EVENTS.AID_HIRE:
+      return hireFinalBattleAid(run);
     default:
       return run;
   }
@@ -151,17 +164,34 @@ function openDoor(run: RunState): RunState {
 }
 
 /**
- * 夜间「天明」→ 翌日晨间。第 20 日夜は「迎战」: 終戦演出の模擬は story S-19（build）で
- * 接线 — prototype では runComplete として Result へ迁移する暫定経路（判断事項）。
+ * 夜间「天明」→ 翌日晨间。第 20 日夜は「迎战」→ 终战開戦前選択へ（S-19。
+ * gdd「一日相位控制器」: 第 20 日夜触发终战事件。開戦前快照は finalBattle.preSnapshot に
+ * 生成 — 终战败「重试当日」の恢复源）。prototype の暫定 runComplete 経路は置換。
  */
 function daybreakTap(run: RunState): RunState {
   if (run.phase !== 'night' || run.nightStage !== 'result') {
     return run; // 结果反馈を読み終えるまで推进しない（S-09 acceptance）
   }
   if (run.finalBattleNight) {
-    return { ...run, ended: economy.buildRunEndSummary(run, 'runComplete') };
+    return enterBattle(run);
   }
   return dayCycle.daybreak(run);
+}
+
+/** 终战「开战」（S-19。prelude 以外／终战状態なしは不発） */
+function fightFinalBattle(run: RunState): RunState {
+  if (run.finalBattle === null || run.nightStage !== 'battle') {
+    return run;
+  }
+  return fight(run);
+}
+
+/** 终战「雇镖师援助」（S-19。银子不足/雇入济みは finalBattle.hireAid 内で不発） */
+function hireFinalBattleAid(run: RunState): RunState {
+  if (run.finalBattle === null || run.nightStage !== 'battle') {
+    return run;
+  }
+  return hireAid(run);
 }
 
 /** 破产判定（夜结算後と收钱/事件 Δ 後に成立 — S-08 acceptance） */
@@ -170,4 +200,27 @@ function checkBankruptcy(run: RunState): RunState {
     return run;
   }
   return { ...run, ended: economy.buildRunEndSummary(run, 'bankruptcy') };
+}
+
+/**
+ * 终战败「重试当日」（S-19。gdd「重新开始」）: 第 20 日夜開戦前快照から復帰する。
+ * 银子/声望/侠点/伙计状态（岗位・疲劳込み）を快照値へ戻し（援助费用支払い済みの状態も
+ * 快照値で上書き＝実質返金）、nightStage='battle' の開戦前選択から再開する。
+ * 不正な快照值は createResumeRun 同型の夹み込みで既定値へ（破損扱いは persistence 层が担当）。
+ */
+export function createBattleRetryRun(snapshot: FinalBattleSnapshot): RunState {
+  const ambition = isAmbitionId(snapshot.ambition) ? snapshot.ambition : AMBITION.DEFAULT_ID;
+  const base = createRunForPack(getAmbitionPack(ambition));
+  const restored: RunState = {
+    ...base,
+    day: DAY_CYCLE.FINAL_BATTLE_DAY,
+    phase: 'night',
+    nightStage: 'battle',
+    silver: typeof snapshot.silver === 'number' ? snapshot.silver : base.silver,
+    reputation: typeof snapshot.reputation === 'number' ? snapshot.reputation : base.reputation,
+    xiaPoints: typeof snapshot.xiaPoints === 'number' ? snapshot.xiaPoints : base.xiaPoints,
+    staff: Array.isArray(snapshot.staff) && snapshot.staff.length > 0 ? snapshot.staff : base.staff,
+    finalBattleNight: true,
+  };
+  return { ...restored, finalBattle: createBattleState(restored) };
 }

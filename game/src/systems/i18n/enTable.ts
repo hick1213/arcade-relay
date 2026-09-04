@@ -30,6 +30,7 @@ export const EN_TABLE: Readonly<Record<string, string>> = {
   [RESULT_TEXT_KEYS.RESULT_SCORE_POWER]: 'Staff Power Contribution',
   [RESULT_TEXT_KEYS.RESULT_SCORE_BONUS]: 'Ending Bonus',
   [RESULT_TEXT_KEYS.RESULT_RETRY]: 'New Run',
+  [RESULT_TEXT_KEYS.RESULT_RETRY_DAY]: 'Retry the Day',
   [RESULT_TEXT_KEYS.RESULT_TO_MENU]: 'Back to Menu',
   // Result ending presentation (S-25: ending texts / per-defeat copy / new record badge)
   [RESULT_TEXT_KEYS.RESULT_TITLE_BANKRUPTCY]: 'Ledger Closed — Bankrupt',
@@ -111,6 +112,13 @@ export const EN_TABLE: Readonly<Record<string, string>> = {
   [TEXT_KEYS.BUTTON_DAYBREAK]: 'Daybreak',
   [TEXT_KEYS.BUTTON_FIGHT]: 'Fight',
   [TEXT_KEYS.FINAL_BATTLE_NOTICE]: 'Night 20 — a great rival approaches!',
+  // Final battle (S-19: pre-battle choice. Aid cost/power values interpolated from config.BATTLE_AID_*)
+  [TEXT_KEYS.BATTLE_TITLE]: 'Night of the Final Battle',
+  [TEXT_KEYS.BATTLE_PLAYER_POWER]: 'Inn Power',
+  [TEXT_KEYS.BATTLE_ENEMY_POWER]: 'Enemy Power',
+  [TEXT_KEYS.BATTLE_AID_INFO]: 'Hire an Escort (cost / power)',
+  [TEXT_KEYS.BUTTON_AID_HIRE]: 'Hire Escort',
+  [TEXT_KEYS.BUTTON_FIGHT_START]: 'Begin the Battle',
   // Staff names (gdd roster)
   [TEXT_KEYS.STAFF_AFU]: 'A-Fu',
   [TEXT_KEYS.STAFF_TIENIU]: 'Tie-Niu',
