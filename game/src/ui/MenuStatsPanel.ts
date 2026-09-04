@@ -1,28 +1,49 @@
 /**
- * MenuStatsPanel — 「图鉴・统计」模态面板（S-13 游戏外显示 = Menu 必需要素 2）。
+ * MenuStatsPanel — 「图鉴・成就・统计」3 节モーダル面板（S-26 = Menu 必需要素 2 游戏外显示完整版）。
  *
- * - 显示 SaveData 的元进度: 最高总评分 / 周目数 / 银子・声望峰值 / 累计服务客数 / 结局图鉴。
- *   真值 = SaveData（接线层在 MenuScene create 时读取），本组件只接收并绘制。
- * - 开启中经 InputRouter.setBlockingLayer 屏蔽基础按钮（conventions 规则 7），
- *   关闭按钮判定区仅开启期间注册。
+ * - 左节「结局图鉴」: 3 格（财/侠/名 — endings_seen 下标 = config.META_SAVE.ENDING_INDEX）
+ *   ＋ ACH-04 进度条（图鉴完成 n/3）。
+ * - 中节「成就」: ACH-01～06 达成态一览（真值 = SaveData.achievements）。
+ * - 右节「统计」: 最高总评分 / 周目数 / 银子峰值 / 声望峰值 / 累计服务客数。
+ * - 全部値は接线层（MenuScene create）が読んだ SaveData から描画するだけで、
+ *   本组件は進行状態を持たない（ui-code: UI は受け取って描くのみ）。
+ * - 未解锁/未达成項は暗褐＋中間褐色文字の可视锁定态（调色板: art-bible）で描き分け。
+ * - 开启中经 InputRouter.setBlockingLayer 屏蔽基础按钮（conventions 规则 7）。
  */
 import Phaser from 'phaser';
-import { ASSET_KEYS, GAME_HEIGHT, GAME_WIDTH, MENU, UI } from '../config';
+import { ASSET_KEYS, GAME_HEIGHT, GAME_WIDTH, MENU, META_SAVE, UI } from '../config';
 import type { InputRouter } from '../systems/input/InputRouter';
-import type { SaveData, TextProvider } from '../types';
+import type { AchievementId, SaveData, TextProvider } from '../types';
 import { TAP_EVENTS } from '../types';
-import { MENU_TEXT_KEYS } from './hudStrings';
+import { MENU_TEXT_KEYS, RESULT_TEXT_KEYS } from './hudStrings';
 import { ensureUiPlaceholderTextures } from './placeholderTextures';
 import { createUiButton, playPressFeedback } from './UiButton';
 
-const STAT_LINE_KEYS = [
+/** 统计 5 行（label key。値は SaveData から推导 — S-13 の行キーを再利用） */
+const STAT_ROW_KEYS = [
   MENU_TEXT_KEYS.MENU_STATS_BEST,
   MENU_TEXT_KEYS.MENU_STATS_RUNS,
   MENU_TEXT_KEYS.MENU_STATS_SILVER_PEAK,
   MENU_TEXT_KEYS.MENU_STATS_REP_PEAK,
   MENU_TEXT_KEYS.MENU_STATS_SERVED,
-  MENU_TEXT_KEYS.MENU_STATS_ENDINGS,
 ] as const;
+
+/** 结局格 3 枚の label key（下标 = META_SAVE.ENDING_INDEX の並び: 财/侠/名 — S-25 の结局名を再利用） */
+const ENDING_SLOT_LABEL_KEYS = [
+  RESULT_TEXT_KEYS.RESULT_ENDING_WEALTH_TITLE,
+  RESULT_TEXT_KEYS.RESULT_ENDING_XIA_TITLE,
+  RESULT_TEXT_KEYS.RESULT_ENDING_FAME_TITLE,
+] as const;
+
+/** 成就 6 行の表示名（ACH-01～03 は结局名と同一定義 — 第二定義を禁止） */
+const ACHIEVEMENT_LABEL_KEYS: Readonly<Record<AchievementId, string>> = {
+  'ACH-01': RESULT_TEXT_KEYS.RESULT_ENDING_WEALTH_TITLE,
+  'ACH-02': RESULT_TEXT_KEYS.RESULT_ENDING_XIA_TITLE,
+  'ACH-03': RESULT_TEXT_KEYS.RESULT_ENDING_FAME_TITLE,
+  'ACH-04': MENU_TEXT_KEYS.MENU_PANEL_ACH04_LABEL,
+  'ACH-05': MENU_TEXT_KEYS.MENU_PANEL_ACH05_LABEL,
+  'ACH-06': MENU_TEXT_KEYS.MENU_PANEL_ACH06_LABEL,
+};
 
 export class MenuStatsPanel {
   readonly container: Phaser.GameObjects.Container;
@@ -44,41 +65,32 @@ export class MenuStatsPanel {
     const blocker = scene.add
       .rectangle(0, 0, GAME_WIDTH, GAME_HEIGHT, UI.BLOCKER_COLOR, UI.BLOCKER_ALPHA)
       .setOrigin(0, 0);
-    const panel = scene.add.image(centerX, centerY, ASSET_KEYS.uiPlaceholder.menuPanel);
+    const panel = scene.add.image(centerX, centerY, ASSET_KEYS.uiPlaceholder.menuFullPanel);
     const title = scene.add
       .text(
         centerX,
-        centerY - MENU.PANEL_HEIGHT / 2 + MENU.PANEL_TITLE_OFFSET_Y,
+        centerY - MENU.FULL_PANEL_HEIGHT / 2 + MENU.FULL_PANEL_TITLE_OFFSET_Y,
         textProvider(MENU_TEXT_KEYS.MENU_STATS_TITLE),
         this.titleStyle(),
       )
       .setOrigin(0.5);
 
-    const endingsSeen = save.endings_seen.filter((seen) => seen).length;
-    const values: readonly string[] = [
-      `${save.best_score}`,
-      `${save.stats.finished_runs}`,
-      `${save.stats.silver_peak}`,
-      `${save.stats.rep_peak}`,
-      `${save.stats.served_total}`,
-      `${endingsSeen} / ${save.endings_seen.length}`,
-    ];
+    const columnX = MENU.SECTION_COLUMN_X_OFFSETS.map((offset) => centerX + offset);
+    const sectionHeaders = [MENU_TEXT_KEYS.MENU_PANEL_GALLERY_TITLE, MENU_TEXT_KEYS.MENU_PANEL_ACHIEVEMENTS_TITLE, MENU_TEXT_KEYS.MENU_PANEL_STATS_TITLE].map(
+      (key, index) =>
+        scene.add
+          .text(columnX[index] ?? centerX, MENU.SECTION_HEADER_Y, textProvider(key), this.sectionHeaderStyle())
+          .setOrigin(0.5),
+    );
 
-    const lines = STAT_LINE_KEYS.map((key, index) => {
-      const y = MENU.PANEL_LINE_START_Y + index * MENU.PANEL_LINE_GAP;
-      const labelText = scene.add
-        .text(centerX + MENU.PANEL_LINE_LABEL_X_OFFSET, y, textProvider(key), this.lineStyle())
-        .setOrigin(0, 0.5);
-      const valueText = scene.add
-        .text(centerX + MENU.PANEL_LINE_VALUE_X_OFFSET, y, values[index] ?? '', this.lineStyle())
-        .setOrigin(1, 0.5);
-      return [labelText, valueText] as const;
-    });
+    const galleryVisuals = this.createGallery(scene, columnX[0] ?? centerX, textProvider, save);
+    const achievementRows = this.createAchievementRows(scene, columnX[1] ?? centerX, textProvider, save);
+    const statRows = this.createStatRows(scene, columnX[2] ?? centerX, textProvider, save);
 
     const closeButton = createUiButton(
       scene,
       centerX,
-      MENU.PANEL_CLOSE_BUTTON_Y,
+      MENU.FULL_PANEL_CLOSE_Y,
       ASSET_KEYS.uiPlaceholder.menuButton,
       textProvider(MENU_TEXT_KEYS.MENU_CLOSE),
       this.buttonStyle(),
@@ -86,7 +98,7 @@ export class MenuStatsPanel {
     this.closeVisuals = closeButton.visuals;
     this.closeBounds = {
       x: centerX - MENU.PANEL_CLOSE_BUTTON_WIDTH / 2,
-      y: MENU.PANEL_CLOSE_BUTTON_Y - MENU.PANEL_CLOSE_BUTTON_HEIGHT / 2,
+      y: MENU.FULL_PANEL_CLOSE_Y - MENU.PANEL_CLOSE_BUTTON_HEIGHT / 2,
       width: MENU.PANEL_CLOSE_BUTTON_WIDTH,
       height: MENU.PANEL_CLOSE_BUTTON_HEIGHT,
     };
@@ -95,11 +107,136 @@ export class MenuStatsPanel {
       blocker,
       panel,
       title,
-      ...lines.flat(),
+      ...sectionHeaders,
+      ...galleryVisuals,
+      ...achievementRows,
+      ...statRows,
       ...closeButton.visuals,
     ]);
 
     router.on(TAP_EVENTS.MENU_CLOSE_PANEL, this.handleCloseTap);
+  }
+
+  /** 结局图鉴 3 格（可视锁定态: 未达成为暗褐格）＋ ACH-04 进度条（图鉴完成 n/3） */
+  private createGallery(
+    scene: Phaser.Scene,
+    columnX: number,
+    textProvider: TextProvider,
+    save: SaveData,
+  ): readonly Phaser.GameObjects.GameObject[] {
+    const visuals: Phaser.GameObjects.GameObject[] = [];
+
+    for (let index = 0; index < META_SAVE.ENDINGS_COUNT; index += 1) {
+      const slotX = columnX + (index - (META_SAVE.ENDINGS_COUNT - 1) / 2) * MENU.SLOT_GAP;
+      const unlocked = save.endings_seen[index] === true;
+      const slot = scene.add
+        .rectangle(
+          slotX,
+          MENU.SLOT_Y,
+          MENU.SLOT_WIDTH,
+          MENU.SLOT_HEIGHT,
+          unlocked ? MENU.SLOT_FILL_UNLOCKED : MENU.SLOT_FILL_LOCKED,
+          MENU.SLOT_FILL_ALPHA,
+        )
+        .setStrokeStyle(MENU.SLOT_STROKE_WIDTH, MENU.SLOT_STROKE);
+      const label = scene.add
+        .text(
+          slotX,
+          MENU.SLOT_Y + MENU.SLOT_LABEL_OFFSET_Y,
+          textProvider(ENDING_SLOT_LABEL_KEYS[index] ?? ''),
+          this.rowStyle(unlocked),
+        )
+        .setOrigin(0.5);
+      visuals.push(slot, label);
+    }
+
+    // ACH-04 进度（图鉴完成 n/3 — gdd「成就」表の进度显示）
+    const endingsSeen = save.endings_seen.filter((seen) => seen).length;
+    const progressLabel = scene.add
+      .text(columnX, MENU.ACH04_LABEL_Y, textProvider(MENU_TEXT_KEYS.MENU_PANEL_ACH04_LABEL), this.ach04LabelStyle())
+      .setOrigin(0.5);
+    const progressComplete = endingsSeen >= META_SAVE.ENDINGS_COUNT;
+    const barTrack = scene.add
+      .rectangle(columnX, MENU.ACH04_BAR_Y, MENU.ACH04_BAR_WIDTH, MENU.ACH04_BAR_HEIGHT, MENU.SLOT_FILL_LOCKED, MENU.SLOT_FILL_ALPHA)
+      .setStrokeStyle(MENU.SLOT_STROKE_WIDTH, MENU.SLOT_STROKE);
+    const barFill = scene.add.rectangle(
+      columnX - MENU.ACH04_BAR_WIDTH / 2,
+      MENU.ACH04_BAR_Y,
+      MENU.ACH04_BAR_WIDTH * (endingsSeen / META_SAVE.ENDINGS_COUNT),
+      MENU.ACH04_BAR_HEIGHT,
+      MENU.SLOT_FILL_UNLOCKED,
+      MENU.SLOT_FILL_ALPHA,
+    ).setOrigin(0, 0.5);
+    const progressValue = scene.add
+      .text(
+        columnX + MENU.ACH04_BAR_WIDTH / 2 + 14,
+        MENU.ACH04_BAR_Y,
+        `${endingsSeen} / ${META_SAVE.ENDINGS_COUNT}`,
+        this.rowStyle(progressComplete),
+      )
+      .setOrigin(0, 0.5);
+    visuals.push(progressLabel, barTrack, barFill, progressValue);
+
+    return visuals;
+  }
+
+  /** 成就一览 6 行（ACH-01～06。达成=金色「达成」/ 未达成=褐「未达成」の可视锁定态） */
+  private createAchievementRows(
+    scene: Phaser.Scene,
+    columnX: number,
+    textProvider: TextProvider,
+    save: SaveData,
+  ): readonly Phaser.GameObjects.GameObject[] {
+    const visuals: Phaser.GameObjects.GameObject[] = [];
+
+    META_SAVE.ACHIEVEMENT_IDS.forEach((id, index) => {
+      const achieved = save.achievements[id] === true;
+      const y = MENU.ROW_START_Y + index * MENU.ROW_GAP;
+      const name = scene.add
+        .text(columnX + MENU.ACH_NAME_X_OFFSET, y, `${id} ${textProvider(ACHIEVEMENT_LABEL_KEYS[id] ?? '')}`, this.rowStyle(achieved))
+        .setOrigin(0, 0.5);
+      const state = scene.add
+        .text(
+          columnX + MENU.ACH_STATE_X_OFFSET,
+          y,
+          textProvider(achieved ? MENU_TEXT_KEYS.MENU_PANEL_ACH_DONE : MENU_TEXT_KEYS.MENU_PANEL_ACH_LOCKED),
+          this.rowStyle(achieved),
+        )
+        .setOrigin(1, 0.5);
+      visuals.push(name, state);
+    });
+
+    return visuals;
+  }
+
+  /** 统计 5 行（全て SaveData から推导 — UI 側に状态コピーを持たない） */
+  private createStatRows(
+    scene: Phaser.Scene,
+    columnX: number,
+    textProvider: TextProvider,
+    save: SaveData,
+  ): readonly Phaser.GameObjects.GameObject[] {
+    const visuals: Phaser.GameObjects.GameObject[] = [];
+    const values: readonly string[] = [
+      `${save.best_score}`,
+      `${save.stats.finished_runs}`,
+      `${save.stats.silver_peak}`,
+      `${save.stats.rep_peak}`,
+      `${save.stats.served_total}`,
+    ];
+
+    STAT_ROW_KEYS.forEach((key, index) => {
+      const y = MENU.ROW_START_Y + index * MENU.ROW_GAP;
+      const label = scene.add
+        .text(columnX + MENU.STATS_LABEL_X_OFFSET, y, textProvider(key), this.rowStyle(true))
+        .setOrigin(0, 0.5);
+      const value = scene.add
+        .text(columnX + MENU.STATS_VALUE_X_OFFSET, y, values[index] ?? '', this.rowStyle(true))
+        .setOrigin(1, 0.5);
+      visuals.push(label, value);
+    });
+
+    return visuals;
   }
 
   open(): void {
@@ -137,7 +274,7 @@ export class MenuStatsPanel {
     return {
       fontFamily: UI.HUD_FONT_FAMILY,
       resolution: UI.TEXT_RESOLUTION,
-      fontSize: MENU.PANEL_TITLE_FONT_SIZE,
+      fontSize: MENU.FULL_PANEL_TITLE_FONT_SIZE,
       fontStyle: 'bold',
       color: UI.HUD_TEXT_COLOR,
       stroke: UI.HUD_STROKE_COLOR,
@@ -145,11 +282,35 @@ export class MenuStatsPanel {
     };
   }
 
-  private lineStyle(): Phaser.Types.GameObjects.Text.TextStyle {
+  private sectionHeaderStyle(): Phaser.Types.GameObjects.Text.TextStyle {
     return {
       fontFamily: UI.HUD_FONT_FAMILY,
       resolution: UI.TEXT_RESOLUTION,
-      fontSize: MENU.PANEL_LINE_FONT_SIZE,
+      fontSize: MENU.SECTION_HEADER_FONT_SIZE,
+      fontStyle: 'bold',
+      color: UI.HUD_TEXT_COLOR,
+      stroke: UI.HUD_STROKE_COLOR,
+      strokeThickness: UI.HUD_STROKE_WIDTH,
+    };
+  }
+
+  /** 行/格 label 共通样式（achieved=true → 金文字 / false → 褐色の可视锁定态） */
+  private rowStyle(achieved: boolean): Phaser.Types.GameObjects.Text.TextStyle {
+    return {
+      fontFamily: UI.HUD_FONT_FAMILY,
+      resolution: UI.TEXT_RESOLUTION,
+      fontSize: MENU.ROW_FONT_SIZE,
+      color: achieved ? MENU.UNLOCKED_TEXT_COLOR : MENU.LOCKED_TEXT_COLOR,
+      stroke: UI.HUD_STROKE_COLOR,
+      strokeThickness: UI.HUD_STROKE_WIDTH,
+    };
+  }
+
+  private ach04LabelStyle(): Phaser.Types.GameObjects.Text.TextStyle {
+    return {
+      fontFamily: UI.HUD_FONT_FAMILY,
+      resolution: UI.TEXT_RESOLUTION,
+      fontSize: MENU.ACH04_LABEL_FONT_SIZE,
       color: UI.HUD_TEXT_COLOR,
       stroke: UI.HUD_STROKE_COLOR,
       strokeThickness: UI.HUD_STROKE_WIDTH,

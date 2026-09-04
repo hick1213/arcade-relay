@@ -91,6 +91,13 @@ export const ensureUiPlaceholderTextures = (scene: Phaser.Scene): void => {
   );
   ensureTexture(
     scene,
+    ASSET_KEYS.uiPlaceholder.menuFullPanel,
+    MENU.FULL_PANEL_WIDTH,
+    MENU.FULL_PANEL_HEIGHT,
+    drawPanelBase,
+  );
+  ensureTexture(
+    scene,
     ASSET_KEYS.uiPlaceholder.titleEmblem,
     TITLE.EMBLEM_SIZE,
     TITLE.EMBLEM_SIZE,

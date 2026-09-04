@@ -73,6 +73,16 @@ export const ZH_TABLE: Readonly<Record<string, string>> = {
     '全部操作为单击。晨间: 点岗位图标→点伙计头像完成指派，再点「开门营业」。' +
     '日间: 依次点亮点单桌→出餐口→银两气泡接客。夜间: 翻事件卡选一项后点「天明」。' +
     '游玩中点右上「帐本」可随时暂停或回到菜单。',
+  // 游戏外面板完整版（S-26: 图鉴/成就/统计 3 节）
+  [MENU_TEXT_KEYS.MENU_PANEL_GALLERY_TITLE]: '结局图鉴',
+  [MENU_TEXT_KEYS.MENU_PANEL_ACHIEVEMENTS_TITLE]: '成就',
+  [MENU_TEXT_KEYS.MENU_PANEL_STATS_TITLE]: '统计',
+  [MENU_TEXT_KEYS.MENU_PANEL_ACH04_LABEL]: '图鉴完成',
+  [MENU_TEXT_KEYS.MENU_PANEL_ACH05_LABEL]: '声望巅峰',
+  [MENU_TEXT_KEYS.MENU_PANEL_ACH06_LABEL]: '属性上限',
+  [MENU_TEXT_KEYS.MENU_PANEL_ACH_DONE]: '达成',
+  [MENU_TEXT_KEYS.MENU_PANEL_ACH_LOCKED]: '未达成',
+  [MENU_TEXT_KEYS.MENU_PANEL_SLOT_LOCKED]: '未解锁',
   // 晨间（S-05 排班）
   [TEXT_KEYS.MORNING_TITLE]: '晨间排班',
   [TEXT_KEYS.MORNING_HINT_SELECT_POST]: '点击岗位图标，选择要分配的岗位',

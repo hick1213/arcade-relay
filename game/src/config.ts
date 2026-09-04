@@ -117,6 +117,7 @@ export const ASSET_KEYS = {
     pauseButton: 'ui/pause-button',
     menuButton: 'ui/menu-button', // S-13 Menu 纵向按钮列（MENU.BUTTON_WIDTH x HEIGHT）
     menuPanel: 'ui/menu-panel', // S-13 图鉴统计/设置模态面板（MENU.PANEL_WIDTH x HEIGHT）
+    menuFullPanel: 'ui/menu-full-panel', // S-26 图鉴/成就/统计 3 节モーダル（MENU.FULL_PANEL_WIDTH x HEIGHT）
     resultPanel: 'ui/result-panel', // S-15 Result 总评分面板（RESULT.PANEL_WIDTH x HEIGHT）
     titleEmblem: 'ui/title-emblem', // S-12 Title emblem 占位（TITLE.EMBLEM_SIZE 正方形）
   },
@@ -456,6 +457,48 @@ export const MENU = {
   ZONE_BGM_SLIDER: 'menu.slider.bgm',
   ZONE_SFX_SLIDER: 'menu.slider.sfx',
   ZONE_LANGUAGE_TOGGLE: 'menu.language.toggle',
+
+  // ==== S-26: 图鉴/成就/统计 3 节「游戏外显示」完整版モーダル（设置面板は既有 PANEL_* を継続使用。
+  // 座標は GAME_WIDTH/HEIGHT 基準分辨率の絶対値、配色は art-bible 调色板の UI.PANEL_* 系のみ）====
+  FULL_PANEL_WIDTH: 880,
+  FULL_PANEL_HEIGHT: 480,
+  FULL_PANEL_TITLE_OFFSET_Y: 44,
+  FULL_PANEL_TITLE_FONT_SIZE: '26px',
+  // 3 节の列中心（GAME_WIDTH/2 からの offset。左=结局图鉴 / 中=成就 / 右=统计）
+  SECTION_COLUMN_X_OFFSETS: [-280, 0, 280] as readonly number[],
+  SECTION_HEADER_Y: 208,
+  SECTION_HEADER_FONT_SIZE: '20px',
+  // 结局图鉴 3 格（SLOT_GAP = 格中心間隔）
+  SLOT_WIDTH: 80,
+  SLOT_HEIGHT: 92,
+  SLOT_GAP: 96,
+  SLOT_Y: 268,
+  SLOT_LABEL_OFFSET_Y: 62,
+  SLOT_LABEL_FONT_SIZE: '14px',
+  // 解锁/锁定态配色（调色板: unlocked=金 accent 系 / locked=暗褐 + 中间褐文字）
+  SLOT_FILL_UNLOCKED: UI.PANEL_ACCENT,
+  SLOT_FILL_LOCKED: 0x3c2410,
+  SLOT_FILL_ALPHA: 0.92,
+  SLOT_STROKE: UI.PANEL_STROKE,
+  SLOT_STROKE_WIDTH: 2,
+  LOCKED_TEXT_COLOR: '#A76E3C',
+  UNLOCKED_TEXT_COLOR: UI.HUD_TEXT_COLOR,
+  // ACH-04 进度（图鉴完成 n/3。进度条=track+fill 2 矩形）
+  ACH04_LABEL_Y: 376,
+  ACH04_LABEL_FONT_SIZE: '16px',
+  ACH04_BAR_Y: 398,
+  ACH04_BAR_WIDTH: 200,
+  ACH04_BAR_HEIGHT: 14,
+  ACH04_VALUE_FONT_SIZE: '15px',
+  // 成就一览（6 行）/ 统计（5 行）共通の行レイアウト
+  ROW_START_Y: 244,
+  ROW_GAP: 40,
+  ROW_FONT_SIZE: '17px',
+  ACH_NAME_X_OFFSET: -120,
+  ACH_STATE_X_OFFSET: 120,
+  STATS_LABEL_X_OFFSET: -130,
+  STATS_VALUE_X_OFFSET: 130,
+  FULL_PANEL_CLOSE_Y: 556,
 } as const;
 
 /** HUD 初期表示値（志向确定前的占位。S-04/S-08 接线后由 Systems 层真值置换） */

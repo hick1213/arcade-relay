@@ -139,4 +139,15 @@ export const MENU_TEXT_KEYS = {
   MENU_LANGUAGE_LABEL: 'menu.settings.language',
   MENU_HINT_TITLE: 'menu.settings.hint.title',
   MENU_HINT_BODY: 'menu.settings.hint.body',
+  // ==== S-26: 游戏外面板完整版（图鉴/成就/统计 3 节。结局名 ACH-01～03 は
+  // RESULT_TEXT_KEYS.RESULT_ENDING_*_TITLE を再利用 — 第二定義を禁止）====
+  MENU_PANEL_GALLERY_TITLE: 'menu.panel.galleryTitle',
+  MENU_PANEL_ACHIEVEMENTS_TITLE: 'menu.panel.achievementsTitle',
+  MENU_PANEL_STATS_TITLE: 'menu.panel.statsTitle',
+  MENU_PANEL_ACH04_LABEL: 'menu.panel.ach04Label',
+  MENU_PANEL_ACH05_LABEL: 'menu.panel.ach05Label',
+  MENU_PANEL_ACH06_LABEL: 'menu.panel.ach06Label',
+  MENU_PANEL_ACH_DONE: 'menu.panel.achDone',
+  MENU_PANEL_ACH_LOCKED: 'menu.panel.achLocked',
+  MENU_PANEL_SLOT_LOCKED: 'menu.panel.slotLocked',
 } as const;

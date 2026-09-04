@@ -72,6 +72,16 @@ export const EN_TABLE: Readonly<Record<string, string>> = {
     'Everything is a single tap. Morning: tap a post icon, then tap a staff portrait to assign; tap "Open Doors". ' +
     'Day: tap tables with order bubbles, the serve window, then silver bubbles. Night: draw an event card, pick one, then "Daybreak". ' +
     'Tap the "Ledger" button at the top right to pause or return to the menu at any time.',
+  // Meta panel full build (S-26: gallery / achievements / stats sections)
+  [MENU_TEXT_KEYS.MENU_PANEL_GALLERY_TITLE]: 'Ending Gallery',
+  [MENU_TEXT_KEYS.MENU_PANEL_ACHIEVEMENTS_TITLE]: 'Achievements',
+  [MENU_TEXT_KEYS.MENU_PANEL_STATS_TITLE]: 'Stats',
+  [MENU_TEXT_KEYS.MENU_PANEL_ACH04_LABEL]: 'Gallery Complete',
+  [MENU_TEXT_KEYS.MENU_PANEL_ACH05_LABEL]: 'Renown Peak',
+  [MENU_TEXT_KEYS.MENU_PANEL_ACH06_LABEL]: 'Stat Mastery',
+  [MENU_TEXT_KEYS.MENU_PANEL_ACH_DONE]: 'Done',
+  [MENU_TEXT_KEYS.MENU_PANEL_ACH_LOCKED]: 'Locked',
+  [MENU_TEXT_KEYS.MENU_PANEL_SLOT_LOCKED]: 'Locked',
   // Morning (S-05)
   [TEXT_KEYS.MORNING_TITLE]: 'Morning Assignments',
   [TEXT_KEYS.MORNING_HINT_SELECT_POST]: 'Tap a post icon to choose a post',
