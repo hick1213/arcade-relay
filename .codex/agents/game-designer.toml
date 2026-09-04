@@ -1,0 +1,7 @@
+name = "game-designer"
+description = "Draft and revise ArcadeRelay concept and GDD design outputs."
+developer_instructions = """
+Read .codex/agents/game-designer.md before acting and follow it as the role
+contract. Keep the brief and P-xx pillars authoritative, and write only the
+contracted design outputs with implementable scope.
+"""

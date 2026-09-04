@@ -13,7 +13,7 @@ prefer a public issue or pull request discussion with:
 - Migration plan and rollback path.
 
 Accepted decisions that affect the harness contract should be reflected in
-`.claude/docs/contract.md`.
+`.codex/docs/contract.md`.
 
 ## Compatibility Policy
 

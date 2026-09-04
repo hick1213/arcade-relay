@@ -5,7 +5,7 @@
 ### 依赖图并行（retro-e2 方案C — 方案A+B 的下一阶段）
 **What:** 在 stories.yaml 中声明 `depends_on: [S-xx]`，将独立 story 跨 assignee 最多并行 N 路（已实现的 assignee 2 lane 的一般化）。
 **Why:** 方案A+B（assignee lane 并行 + 验证批处理化）已于 2026-07-21 实现。要进一步缩短需要依赖图。
-**Context:** 设计方案见 `.claude/docs/retro-e2.md` 并行化节的方案C。worktree 分离在 Unity 中不推荐（Library 复制成本 + 单实例锁）。同一树内并行需要把竞争审查（同一文件编辑检测）机械化到 Setup 中。
+**Context:** 设计方案见 `.codex/docs/retro-e2.md` 并行化节的方案C。worktree 分离在 Unity 中不推荐（Library 复制成本 + 单实例锁）。同一树内并行需要把竞争审查（同一文件编辑检测）机械化到 Setup 中。
 **Effort:** L
 **Priority:** P3
 **Depends on:** E3 run 中方案A+B 的实测（lane 竞争率、batch-verify 失败率）
@@ -13,7 +13,7 @@
 ### Unity 职能 skill 群（Timeline / Animator / VFX / UI 装饰）
 **What:** 为 Unity 的各功能（Timeline, Animator, Particle/VFX Graph, UI 装饰/tween）分别制作专门 skill，并在 Build Phase 的对应 story 中启动。
 **Why:** 用户反馈「距离 AA 水准还很远。特别是特效、UI、UX 方面。最好为 Unity 的各功能制作 skill 并分别委托」。通用的 gameplay/ui-engineer 的表现手段储备太浅。
-**Context:** skill 候选与分工方案见 `.claude/docs/retro-e2.md` 的 craft-skill 节。
+**Context:** skill 候选与分工方案见 `.codex/docs/retro-e2.md` 的 craft-skill 节。
 **Effort:** XL
 **Priority:** P2
 **Depends on:** None
@@ -56,7 +56,7 @@
 ## Completed
 
 ### W-3: 资产类别与 contract §8 的机械同步（原 GEN_SCHEMA assetKind）
-**What:** 实态调查的结果是 assetKind 早已不在 GEN_SCHEMA 中，真正的漂移面是 full-build.js 的 MODEL_WORDS 词汇判定。改为在 Replan 提示词中强制附加资产类别标签（[MDL]/[ANM]/[IMG]/[SFX]/[BGM]），以标签优先、词汇 fallback 的方式分派，并由 `.claude/tests/workflows/contract-sync.test.mjs` 机械验证 contract §8 的 ID 类别、状态词汇与脚本复述的同步。2D 引擎中被判定为 3D 的 story 从两个批次都脱落的情况也纳入 [BLOCKER] 累积。
+**What:** 实态调查的结果是 assetKind 早已不在 GEN_SCHEMA 中，真正的漂移面是 full-build.js 的 MODEL_WORDS 词汇判定。改为在 Replan 提示词中强制附加资产类别标签（[MDL]/[ANM]/[IMG]/[SFX]/[BGM]），以标签优先、词汇 fallback 的方式分派，并由 `.codex/tests/workflows/contract-sync.test.mjs` 机械验证 contract §8 的 ID 类别、状态词汇与脚本复述的同步。2D 引擎中被判定为 3D 的 story 从两个批次都脱落的情况也纳入 [BLOCKER] 累积。
 **Completed:** v0.4.1.0 (2026-07-30)
 
 ### Workflow resume 的重复应用防护（adversarial M-8b）
@@ -69,5 +69,5 @@
 
 ### Build Phase 的并行化（retro-e2 方案A+B）
 **What:** 将 prototype.js / full-build.js 的 story 实现改为 assignee 2 lane（gameplay/ui）并行，并把引擎验证集中到 lane 合流后的批处理验证区间（串行、带 story 单位切分）。
-**Why:** 用户反馈「Build Phase 非常耗时」。E2 实测 Build ≈ 6h / Phase 3 ≈ 9h+9h 的主因是 story 串行 × 每个 story 的 Unity 验证（3～8 分钟）。预期缩短 5～6 成。已通过 DSL stub 测试（.claude/tests/workflows/、15 件）机械验证 batchVerify 的全部分支与 lane 分配。
+**Why:** 用户反馈「Build Phase 非常耗时」。E2 实测 Build ≈ 6h / Phase 3 ≈ 9h+9h 的主因是 story 串行 × 每个 story 的 Unity 验证（3～8 分钟）。预期缩短 5～6 成。已通过 DSL stub 测试（.codex/tests/workflows/、15 件）机械验证 batchVerify 的全部分支与 lane 分配。
 **Completed:** v0.3.0.0 (2026-07-21)

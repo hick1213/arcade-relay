@@ -1,6 +1,6 @@
 # Contributing to ArcadeRelay
 
-Thanks for helping improve ArcadeRelay. This project is a Claude Code harness,
+Thanks for helping improve ArcadeRelay. This project is a Codex harness,
 so changes often affect prompt contracts, generated outputs, and autonomous
 workflow behavior. Keep changes narrow and verify the path you touched.
 
@@ -17,7 +17,7 @@ workflow behavior. Keep changes narrow and verify the path you touched.
 
 1. Check existing issues and pull requests.
 2. For behavior changes, open an issue first unless the fix is small and obvious.
-3. Read `.claude/docs/contract.md`; it is the source of truth for names, IDs,
+3. Read `.codex/docs/contract.md`; it is the source of truth for names, IDs,
    paths, commands, and stage values.
 4. Keep `/forge` and `forge-*` command names stable unless a maintainer approves
    a compatibility-breaking migration.
@@ -44,20 +44,20 @@ npm run build
 
 For unity (marker: `game/ProjectSettings/ProjectVersion.txt`) or unreal
 (marker: `game/ForgeGame.uproject`) games, use the verification commands from
-the "验证命令" section of the matching `.claude/docs/tech-stack-unity.md`
-or `.claude/docs/tech-stack-unreal.md`.
+the "验证命令" section of the matching `.codex/docs/tech-stack-unity.md`
+or `.codex/docs/tech-stack-unreal.md`.
 
 If those commands are unavailable because no game has been generated yet, state
 that clearly in the pull request.
 
-For harness workflow changes (`.claude/workflows/*.js`), run the DSL stub test
+For harness workflow changes (`.codex/workflows/*.js`), run the DSL stub test
 suite in addition to the syntax check:
 
 ```bash
-node --check .claude/workflows/concept-design.js
-node --check .claude/workflows/prototype.js
-node --check .claude/workflows/full-build.js
-node --test '.claude/tests/workflows/**/*.test.mjs'
+node --check .codex/workflows/concept-design.js
+node --check .codex/workflows/prototype.js
+node --check .codex/workflows/full-build.js
+node --test '.codex/tests/workflows/**/*.test.mjs'
 ```
 
 (`node --check` validates only its first file argument, so check each script
@@ -67,7 +67,7 @@ with its own command.)
 
 - Preserve file-backed state semantics: `state/` is the source of truth during a
   harness run.
-- Update `.claude/docs/contract.md` before changing any canonical name, path,
+- Update `.codex/docs/contract.md` before changing any canonical name, path,
   stage value, agent name, skill name, or workflow filename.
 - Keep generated asset provenance in the engine's manifest:
   `game/assets/MANIFEST.jsonl` (phaser) or `game/_generated/MANIFEST.jsonl`

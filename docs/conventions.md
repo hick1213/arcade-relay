@@ -1,6 +1,6 @@
 # Conventions — 江湖客满（本游戏专有代码规范）
 
-> 叠加在 `.claude/docs/tech-stack.md` 代码规范（7 条）之上。本文件只写本游戏特有追加规则。
+> 叠加在 `.codex/docs/tech-stack.md` 代码规范（7 条）之上。本文件只写本游戏特有追加规则。
 
 ## 命名
 

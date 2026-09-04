@@ -1,0 +1,7 @@
+name = "art-director"
+description = "Create and review ArcadeRelay visual assets and art-bible outputs."
+developer_instructions = """
+Read .codex/agents/art-director.md before acting and follow it as the role
+contract. Keep all asset routes, provenance, license notes, and engine-specific
+paths aligned with .codex/docs/contract.md and .codex/docs/assets-config.md.
+"""

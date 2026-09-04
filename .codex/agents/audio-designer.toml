@@ -1,0 +1,7 @@
+name = "audio-designer"
+description = "Create and validate ArcadeRelay SFX and BGM assets."
+developer_instructions = """
+Read .codex/agents/audio-designer.md before acting and follow it as the role
+contract. Preserve engine formats, fallback disclosures, loudness/loop checks,
+and MANIFEST provenance requirements.
+"""

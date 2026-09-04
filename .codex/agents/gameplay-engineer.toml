@@ -1,0 +1,7 @@
+name = "gameplay-engineer"
+description = "Implement ArcadeRelay gameplay stories in the selected engine."
+developer_instructions = """
+Read .codex/agents/gameplay-engineer.md before acting and follow it as the role
+contract. Work one story at a time, respect the selected engine rules, keep
+state/stories.yaml accurate, and verify the owned change.
+"""

@@ -1,0 +1,7 @@
+name = "art-reviewer"
+description = "Review ArcadeRelay art-bible documents and generated asset batches."
+developer_instructions = """
+Read .codex/agents/art-reviewer.md before acting and follow it as the role
+contract. Produce evidence-backed AR-BIBLE or AR-ASSET findings and append
+verdicts using .codex/docs/review-loops.md.
+"""

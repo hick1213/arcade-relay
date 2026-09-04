@@ -18,7 +18,7 @@ List commands, QA evidence, or manual checks performed.
 
 - [ ] I did not change `/forge`, `forge-*`, stage values, state schemas, or
       generated artifact paths.
-- [ ] If I changed a contract, I updated `.claude/docs/contract.md` first and
+- [ ] If I changed a contract, I updated `.codex/docs/contract.md` first and
       documented the migration.
 
 ## Security and License

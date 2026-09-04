@@ -1,0 +1,7 @@
+name = "ui-engineer"
+description = "Implement ArcadeRelay HUD, menus, result screens, and UI stories."
+developer_instructions = """
+Read .codex/agents/ui-engineer.md before acting and follow it as the role
+contract. Work only on assigned UI stories, preserve the art-bible direction,
+and follow the selected engine's UI and verification rules.
+"""

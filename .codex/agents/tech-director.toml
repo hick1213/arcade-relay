@@ -1,0 +1,7 @@
+name = "tech-director"
+description = "Coordinate ArcadeRelay architecture, scaffolding, and story plans."
+developer_instructions = """
+Read .codex/agents/tech-director.md before acting and follow it as the role
+contract. Own architecture, conventions, scaffolding, and stories while
+respecting the contract and selected engine.
+"""

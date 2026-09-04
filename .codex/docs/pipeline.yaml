@@ -1,0 +1,85 @@
+# ArcadeRelay 流水线定义
+# /forge-status 与 hooks/session-start.sh 读取的「当前位置与下一步」信息源。
+# stage 值与产出物路径必须与 contract.md §1/§6 一致。
+# artifacts 的 engine 字段: 若有记载则仅在该 engine（contract.md §11 / state/engine.txt）
+# 时必需。未记载则所有 engine 通用。engine.txt 不存在时按 phaser 评估。
+
+pipeline:
+  - stage: brief
+    title: "头脑风暴"
+    command: /forge-brainstorm
+    mode: interactive          # 唯一的交互阶段
+    artifacts:
+      - path: design/brief.md
+        required: true
+    next: concept
+
+  - stage: concept
+    title: "策划与设计（Phase 1、自主）"
+    command: /forge-concept
+    mode: autonomous
+    workflow: .codex/workflows/concept-design.js
+    checkpoint: A              # 由人类批准完成的策划＋设计
+    artifacts:
+      - path: design/concept.md
+        required: true
+      - path: design/gdd.md
+        required: true
+      - path: design/art-bible.md
+        required: true
+      - path: design/art-bible.json
+        required: true
+      - path: design/assets.md
+        required: true
+    next: prototype
+
+  - stage: prototype
+    title: "原型（Phase 2、自主）"
+    command: /forge-prototype
+    mode: autonomous
+    workflow: .codex/workflows/prototype.js
+    checkpoint: B              # 展示可玩的垂直切片，收集一次反馈
+    artifacts:
+      - path: docs/architecture.md
+        required: true
+      - path: docs/conventions.md
+        required: true
+      - path: state/stories.yaml
+        required: true
+      - path: game/package.json
+        required: true
+        engine: phaser
+      - path: game/ProjectSettings/ProjectVersion.txt
+        required: true
+        engine: unity
+      - path: game/ForgeGame.uproject
+        required: true
+        engine: unreal
+      - path: qa/report.md
+        required: true
+    next: build
+
+  - stage: build
+    title: "正式实现与打磨（Phase 3、自主）"
+    command: /forge-build
+    mode: autonomous
+    workflow: .codex/workflows/full-build.js
+    checkpoint: C              # 成品交付
+    artifacts:
+      - path: qa/report.md
+        required: true
+      - path: game/assets/MANIFEST.jsonl
+        required: true
+        engine: phaser
+      - path: game/_generated/MANIFEST.jsonl
+        required: true
+        engine: unity
+      - path: game/_generated/MANIFEST.jsonl
+        required: true
+        engine: unreal
+    next: done
+
+  - stage: done
+    title: "完成"
+    command: null
+    next: null

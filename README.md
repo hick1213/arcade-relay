@@ -1,6 +1,6 @@
 # ArcadeRelay
 
-ArcadeRelay is an experimental open source Claude Code harness, made by Fable 5,
+ArcadeRelay is an experimental open source Codex project harness, made by Fable 5,
 for producing small, playable games through a structured multi-agent pipeline.
 
 The public project name is ArcadeRelay. The command namespace remains `/forge`
@@ -51,7 +51,7 @@ The pipeline is intentionally checkpointed:
 ## Current Status
 
 ArcadeRelay is early-stage infrastructure. The repository contains only the
-Claude Code harness: agent prompts, skills, workflow definitions, hooks, rules,
+Codex harness: project instructions, skills, custom subagents, workflow definitions, hooks, rules,
 and docs. Generated output (`design/`, `docs/architecture.md`,
 `docs/conventions.md`, `game/`, `qa/`, `state/`) is created by the harness at
 run time and is not tracked in this template repository. Sample games produced
@@ -59,7 +59,7 @@ by evaluation runs are archived separately.
 
 ## Requirements
 
-- Claude Code with local skill and workflow support.
+- Codex CLI or IDE extension with trusted project configuration support.
 - Node.js when running the workflow DSL stub tests (see Verification below) and
   when running or validating a generated phaser `game/` project.
 - ImageMagick (`magick` CLI) during harness runs for QA-PLAY visual-evidence
@@ -78,26 +78,26 @@ cp .env.example .env
 Fill only the provider keys you want to use. Missing keys trigger local degraded
 routes where available.
 
-Run the harness from Claude Code:
+Run the harness from Codex:
 
 ```text
-/forge
+$forge
 ```
 
 Useful commands:
 
 ```text
-/forge          # preflight, brainstorm, and autonomous phases
-/forge-status   # read-only status and next action
+$forge          # preflight, brainstorm, and autonomous phases
+$forge-status   # read-only status and next action
 ```
 
 Resume individual phases:
 
 ```text
-/forge-brainstorm
-/forge-concept
-/forge-prototype
-/forge-build
+$forge-brainstorm
+$forge-concept
+$forge-prototype
+$forge-build
 ```
 
 Review intensity is controlled by `state/review-mode.txt`:
@@ -110,13 +110,13 @@ Review intensity is controlled by `state/review-mode.txt`:
 
 | Path | Purpose |
 | --- | --- |
-| `.claude/agents/` | Specialized producer and reviewer agent prompts |
-| `.claude/skills/forge*/` | Claude Code command entry points |
-| `.claude/workflows/` | Autonomous phase orchestration scripts |
-| `.claude/tests/workflows/` | Workflow DSL stub tests (run with `node --test`) |
-| `.claude/docs/contract.md` | Naming, IDs, paths, engines, and command contract |
-| `.claude/docs/tech-stack*.md` | Per-engine stack rules (phaser / unity / unreal) |
-| `.claude/docs/pipeline.yaml` | Pipeline stages consumed by status and hooks |
+| `.codex/agents/` | Specialized producer and reviewer agent prompts |
+| `.agents/skills/forge*/` | Codex project skill entry points |
+| `.codex/workflows/` | Autonomous phase orchestration scripts |
+| `.codex/tests/workflows/` | Workflow DSL stub tests (run with `node --test`) |
+| `.codex/docs/contract.md` | Naming, IDs, paths, engines, and command contract |
+| `.codex/docs/tech-stack*.md` | Per-engine stack rules (phaser / unity / unreal) |
+| `.codex/docs/pipeline.yaml` | Pipeline stages consumed by status and hooks |
 | `design/` | Generated brief, concept, GDD, art bible, and asset plan |
 | `docs/` | Generated game architecture plus repo-level project docs |
 | `game/` | Generated self-contained game project (engine-specific layout) |
@@ -145,11 +145,11 @@ For repository-only changes:
 git diff --check
 ```
 
-For harness workflow changes (`.claude/workflows/*.js`), also run the workflow
+For harness workflow changes (`.codex/workflows/*.js`), also run the workflow
 DSL stub tests:
 
 ```bash
-node --test '.claude/tests/workflows/**/*.test.mjs'
+node --test '.codex/tests/workflows/**/*.test.mjs'
 ```
 
 For generated game changes, run the checks for the engine recorded in
@@ -164,7 +164,7 @@ npm run build
 
 On unity (marker: `game/ProjectSettings/ProjectVersion.txt`) or unreal (marker:
 `game/ForgeGame.uproject`), run the commands from the "验证命令" section of
-`.claude/docs/tech-stack-unity.md` or `.claude/docs/tech-stack-unreal.md`
+`.codex/docs/tech-stack-unity.md` or `.codex/docs/tech-stack-unreal.md`
 (batchmode build plus EditMode/PlayMode tests, or BuildCookRun plus Automation
 tests).
 

@@ -1,0 +1,15 @@
+# Project-scoped Codex configuration for ArcadeRelay.
+# Keep credentials, providers, and machine-local notification commands in the
+# user's ~/.codex/config.toml; project config is intentionally portable.
+
+approval_policy = "on-request"
+sandbox_mode = "workspace-write"
+web_search = "cached"
+
+[features]
+hooks = true
+multi_agent = true
+
+[agents]
+enabled = true
+max_concurrent_threads_per_session = 8

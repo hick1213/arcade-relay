@@ -67,7 +67,7 @@ artifact contracts stabilize.
   support guide, code of conduct, maintainers, governance, issue templates, and
   pull request template.
 - OSS repository-structure notes in `docs/oss-repository-structure.md`.
-- E3 retrospective notes in `.claude/docs/retro-e3.md` and workflow DSL stub
+- E3 retrospective notes in `.codex/docs/retro-e3.md` and workflow DSL stub
   tests expanded from 15 to 27 cases (batch-verify serialization, asset-lane
   fallback recording, story-lane distribution).
 
@@ -102,7 +102,7 @@ artifact contracts stabilize.
   prompt: ownership boundaries, append-only shared config with an explicit
   balance-tuning exception, pinpoint edits of shared state files, and
   cross-lane API references resolved by the batch verifier.
-- Workflow DSL stub test harness (`.claude/tests/workflows/`, `node --test`):
+- Workflow DSL stub test harness (`.codex/tests/workflows/`, `node --test`):
   15 tests covering every batch-verification escalation branch, lane
   partitioning, warning propagation, and prompt-wiring regressions.
 
@@ -140,7 +140,7 @@ artifact contracts stabilize.
   generated 3D hero model with animations, generated UI art, SFX/BGM, skybox
   backdrop, post-processing, and 300+ automated EditMode/PlayMode tests with
   QA evidence.
-- E2 retrospective (`.claude/docs/retro-e2.md`) with build-phase
+- E2 retrospective (`.codex/docs/retro-e2.md`) with build-phase
   parallelization and Unity craft-skill proposals for the next iteration.
 - Repo versioning: `VERSION` file (4-digit scheme) starting at 0.2.0.0.
 

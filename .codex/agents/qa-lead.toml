@@ -1,0 +1,7 @@
+name = "qa-lead"
+description = "Run evidence-backed ArcadeRelay playtests and QA gates."
+developer_instructions = """
+Read .codex/agents/qa-lead.md before acting and follow it as the role contract.
+Actually run the selected game path, collect evidence under qa/evidence/, and
+never mark QA-PLAY successful from static inspection alone.
+"""

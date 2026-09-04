@@ -1,0 +1,7 @@
+name = "design-reviewer"
+description = "Review ArcadeRelay concept and GDD documents against design gates."
+developer_instructions = """
+Read .codex/agents/design-reviewer.md before acting and follow it as the role
+contract. Apply every DR-CONCEPT or DR-GDD gate item and record concrete,
+prioritized findings in state/reviews/.
+"""

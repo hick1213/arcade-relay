@@ -1,6 +1,6 @@
 # Architecture — 江湖客满
 
-> engine=phaser（Phaser 3 + TypeScript strict + Vite）。权威规范: `.claude/docs/tech-stack.md`。
+> engine=phaser（Phaser 3 + TypeScript strict + Vite）。权威规范: `.codex/docs/tech-stack.md`。
 > 本文件定义场景构成、系统边界、数据流。数值初始值一律以 `design/gdd.md`「数值表」为准，抄写进 `game/src/config.ts`。
 
 ## 1. 场景构成（contract §11 必需场景集合）

@@ -7,7 +7,7 @@ ArcadeRelay is currently maintained by:
 ## Maintainer Responsibilities
 
 - Keep the harness contract coherent.
-- Review changes to `.claude/docs/contract.md`, skills, workflows, and agents.
+- Review changes to `.codex/docs/contract.md`, skills, workflows, and agents.
 - Triage issues and security reports.
 - Decide release readiness and publish release notes.
 - Ensure generated asset and license guidance stays accurate.
