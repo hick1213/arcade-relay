@@ -167,7 +167,7 @@ stories:
     pillar: P-02
     assignee: gameplay-engineer
     phase: build
-    status: review
+    status: done
     acceptance: "手艺=当日店内手艺最高者掌勺、制菜 ×(1−min(CRAFT_KITCHEN_CAP, CRAFT_KITCHEN_FACTOR×手艺)); 体力=疲劳倍率 1+(FATIGUE_PENALTY−1)×(1−STAMINA_RESIST×体力); 事件卡施加的疲劳次日生效且单测覆盖三属性公式边界（封顶/免疫）"
     # note: 三属性算式一元化到 systems/dayEffects.ts（speedMultiplier/craftReduction/fatigueMultiplier —
     # kitchen.prepTimeMs・customerFlow.actionDurationMs 参照）。CRAFT_KITCHEN_* は既存
@@ -176,6 +176,12 @@ stories:
     # roll/対象は注入式纯函数）→ RunState.nightFatigueIds 记录 → dayCycle.daybreak で当夜適用分のみ
     # 翌日に持ち越し・前日分は回復（次日生效）。体力减免项は 1 で封顶（免疫境界）。
     # tests/dayEffects.test.ts 15 件（三属性公式境界 封顶/免疫 + 次日生效・回復）全 PASS。
+    # CR-CODE iter1: finding 1（chooseOption mayFatigue 接线无测试）→ tests/eventCard.test.ts に
+    # vi.spyOn(Math, 'random') による确定性测试 4 件追加（roll 成立/不成立・対象選択均一 random・
+    # mayFatigue 以外は Math.random 不呼出）— 详 state/reviews/s-18.md。finding 3（customerFlow 长行）
+    # 已折行。未处理 1 件（上报 Checkpoint）: finding 2「疲劳の玩家可见表现面」（UI 标记 story の要否は
+    # tech-director 判定事项 — acceptance に UI を含まず、UI 层は ui-engineer 范围のため本 story では
+    # 実装せず。現状の表現面 = 疲劳次日の动作耗时差分（P-02 载体）＋事件卡 resultText 文案）。
   - id: S-19
     title: "终战系统与重试当日"
     pillar: P-02
@@ -248,7 +254,7 @@ stories:
     pillar: P-02
     assignee: ui-engineer
     phase: build
-    status: todo
+    status: in-progress
     acceptance: "各伙计的 3 档成长阶段有肉眼可辨的独立表现组合（tint/表情/速度/台词至少 3 项中 2 项变化）; 出菜金光/黑烟、残影等 gdd 差分表条目按阶段呈现; 全部效果为程序化、无新增资产文件"
   - id: S-29
     title: "教学期引导（第 1–3 日）"

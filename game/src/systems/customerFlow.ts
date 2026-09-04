@@ -191,7 +191,9 @@ function totalDishesFor(customer: CustomerState): number {
 
 /** 动作耗时 ×速度倍率（speedMultiplier）、疲劳时 ×体力减免后の倍率（fatigueMultiplier — S-18） */
 function actionDurationMs(baseSeconds: number, member: StaffMember): number {
-  return baseSeconds * speedMultiplier(member.speed) * fatigueMultiplier(member.stamina, member.fatigue) * MS_PER_SECOND;
+  return (
+    baseSeconds * speedMultiplier(member.speed) * fatigueMultiplier(member.stamina, member.fatigue) * MS_PER_SECOND
+  );
 }
 
 function moveDurationMs(from: Point, to: Point): number {

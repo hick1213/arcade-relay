@@ -11,7 +11,7 @@
  *
  * 运行: cd game && npm test（vitest run）
  */
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { AMBITION, EVENT } from '../src/config';
 import { chooseOption, drawCard } from '../src/systems/eventCard';
 import { EVENT_CARD_POOL } from '../src/systems/eventCardData';
@@ -167,5 +167,49 @@ describe('S-17 抽卡と弃牌堆（每夜 1 张・尽きたら重洗）', () =>
       run = { ...run, nightStage: 'summary' };
     }
     expect(seen.size).toBe(15);
+  });
+});
+
+describe('S-18 chooseOption mayFatigue 接线（roll < EVENT.FATIGUE_CHANCE → 伙计 1 名に疲劳标记）', () => {
+  // 注: spy は各テスト内で生成する（describe スコープ共有 + afterEach mockRestore だと
+  // vitest 4 では以降のテストで spy が無効化される — 元実装に戻り once 指定が無視される）
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('roll 成立（0 < FATIGUE_CHANCE）て対象選択 0 → staff[0]（afu）が疲劳・nightFatigueIds に记录', () => {
+    // chooseOption 内の Math.random 呼出順序: (1) 疲劳 roll (2) 対象選択（staff 均一 random）
+    vi.spyOn(Math, 'random').mockReturnValue(0);
+    const run = withCard(nightRun('wealth'), 11); // 卡 #11 选项 1 = mayFatigue
+    const next = chooseOption(run, 0);
+    expect(next.staff[0]).toMatchObject({ id: 'afu', fatigue: true });
+    expect(next.staff.slice(1).every((member) => !member.fatigue)).toBe(true);
+    expect(next.nightFatigueIds).toContain('afu');
+  });
+
+  it('roll 不成立（0.5 ≥ FATIGUE_CHANCE）→ 疲劳は付かず nightFatigueIds は空のまま', () => {
+    vi.spyOn(Math, 'random').mockReturnValue(0.5);
+    const run = withCard(nightRun('wealth'), 11);
+    const next = chooseOption(run, 0);
+    expect(next.staff.every((member) => !member.fatigue)).toBe(true);
+    expect(next.nightFatigueIds).toEqual([]);
+  });
+
+  it('対象選択は staff 全员から均一 random（2 回目の roll=0.5 → floor(0.5×5)=2 → wenqu）', () => {
+    vi.spyOn(Math, 'random').mockReturnValueOnce(0).mockReturnValueOnce(0.5);
+    const run = withCard(nightRun('wealth'), 12); // 卡 #12 选项 2 = mayFatigue
+    const next = chooseOption(run, 1);
+    expect(next.staff.find((member) => member.id === 'wenqu')?.fatigue).toBe(true);
+    expect(next.staff.filter((member) => member.fatigue)).toHaveLength(1);
+    expect(next.nightFatigueIds).toEqual(['wenqu']);
+  });
+
+  it('mayFatigue 以外の选项では Math.random を呼ばない（roll は mayFatigue 选项のみ）', () => {
+    const randomSpy = vi.spyOn(Math, 'random');
+    const run = withCard(nightRun('wealth'), 11); // 卡 #11 选项 2 = mayFatigue なし
+    const next = chooseOption(run, 1);
+    expect(next.staff.every((member) => !member.fatigue)).toBe(true);
+    expect(next.nightFatigueIds).toEqual([]);
+    expect(randomSpy).not.toHaveBeenCalled();
   });
 });
