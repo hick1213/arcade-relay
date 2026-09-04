@@ -215,7 +215,7 @@ stories:
     pillar: P-03
     assignee: gameplay-engineer
     phase: build
-    status: todo
+    status: review # systems/meta/achievements.ts（judge/merge/diff 纯函数）を applyRunResult が呼び出し。ACH-06 源=RunEndSummary.maxStaffStat（economy.buildRunEndSummary 两分岐で計上、败局でも ACH-05/06 判定）。达成反馈=SFX-05 achievement 变调（GameScene.persistRunResult / ResultScene.abandonFinalBattleLoss 接线）＋Menu 成就面板标记（既存）。tests/achievements.test.ts 11 件 PASS、typecheck exit 0
     acceptance: "applyRunResult 内判定 ACH-01～06（3 结局各 1、图鉴完成、单周目声望 ≥80、单属性 ≥STAFF_STAT_MAX）并写入 SaveData.achievements; 已达成不重复触发; 达成时有可感知反馈（SFX/面板标记任一）"
   - id: S-22
     title: "解锁（UNL-01/02）与初始伙计选择"

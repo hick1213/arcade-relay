@@ -35,6 +35,14 @@ export function staffPowerTotal(run: RunState): number {
   return run.staff.reduce((sum, member) => sum + member.speed + member.craft + member.stamina, 0);
 }
 
+/** 全伙计单属性の最大值（S-21 ACH-06 判定源 — gdd「成就」表。败局でも計上） */
+export function maxStaffStat(run: RunState): number {
+  return run.staff.reduce(
+    (max, member) => Math.max(max, member.speed, member.craft, member.stamina),
+    0,
+  );
+}
+
 /**
  * 周目终结摘要（ResultScene 迁移载荷）。
  * - runComplete: S-20 结局判定（judgeEnding — 达成度 argmax、封顶同值は志向决胜）→
@@ -57,6 +65,7 @@ export function buildRunEndSummary(run: RunState, kind: RunEndKind): RunEndSumma
       silver: run.silver,
       reputation: run.reputation,
       staffPower: staffPowerTotal(run),
+      maxStaffStat: maxStaffStat(run),
       endingBonus: RESULT.ENDING_BONUS_PLACEHOLDER,
       ending: null,
     };
@@ -67,6 +76,7 @@ export function buildRunEndSummary(run: RunState, kind: RunEndKind): RunEndSumma
     silver: run.silver,
     reputation: run.reputation,
     staffPower: staffPowerTotal(run),
+    maxStaffStat: maxStaffStat(run),
     endingBonus: ENDING.BONUS,
     ending: judgment.ending,
     closeCall: judgment.closeCall,

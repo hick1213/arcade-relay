@@ -26,6 +26,11 @@ export const META_SAVE = {
   ENDING_INDEX: { wealth: 0, xia: 1, fame: 2 } as const,
   /** 成就 id（gdd「成就」表。判定接线 = S-21） */
   ACHIEVEMENT_IDS: ['ACH-01', 'ACH-02', 'ACH-03', 'ACH-04', 'ACH-05', 'ACH-06'],
+  /**
+   * ACH-05 阈值: 单周目声望 ≥ 80（gdd「成就」表。调整范围 70–90，与 REP_GOAL 联动调整）。
+   * ACH-06 的属性上限不在此 — 复用 STAFF.STAT_MAX（同一数值的两个用途共源 — 调参只动 STAFF）
+   */
+  ACH05_REPUTATION: 80,
   /** 解锁 id（gdd「解锁」表。解放接线 = S-22） */
   UNLOCK_IDS: ['UNL-01', 'UNL-02'],
   /** 界面语言（gdd「设置」— i18n 全量 = S-24） */
@@ -998,6 +1003,7 @@ export const AUDIO = {
     postAssign: { detune: -200, rate: 1, volumeScale: 0.9 }, // 晨间岗位指派确认（两次点击的第二击。变调/音量差区分场景）
     cardConfirm: { detune: 300, rate: 1.35, volumeScale: 0.85 }, // 事件卡选项确定 = SFX-07 尾段纸页音
     bankruptcy: { detune: -400, rate: 0.6, volumeScale: 1 }, // 破产败局 = SFX-06 低速变调
+    achievement: { detune: 600, rate: 1.15, volumeScale: 1 }, // 成就达成 = SFX-05 升调（S-21 达成反馈）
   },
   /** SFX 实效输出上限（sfx_volume × volumeScale 的 clamp 值 — >1 会 clip） */
   SFX_VOLUME_MAX: 1,

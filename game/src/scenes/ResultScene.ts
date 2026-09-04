@@ -4,6 +4,7 @@ import { InputRouter } from '../systems/input/InputRouter';
 import { createTextProvider } from '../systems/i18n';
 import { loadSaveData, saveSaveData } from '../persistence/SaveAdapter';
 import { applyRunResult, createRunResult } from '../systems/meta/metaProgression';
+import { diffAchievements } from '../systems/meta/achievements';
 import type { RunEndSummary, TextProvider } from '../types';
 import { audioDirector } from '../ui/AudioDirector';
 import { ResultPanel } from '../ui/ResultPanel';
@@ -90,6 +91,12 @@ export class ResultScene extends Phaser.Scene {
       return;
     }
     const loaded = loadSaveData();
-    saveSaveData(applyRunResult(loaded.data, createRunResult(summary)));
+    const updated = applyRunResult(loaded.data, createRunResult(summary));
+    saveSaveData(updated);
+    // 成就达成反馈（S-21）: 终战败路径でも ACH-05/06 は成立し得る（结局不依存の判定式）。
+    // 新达成があれば SFX-05 升调变体で 1 回再生（Menu「成就」面板の达成标记 = 常时表示）
+    if (diffAchievements(loaded.data.achievements, updated.achievements).length > 0) {
+      audioDirector.playSfx(ASSET_KEYS.audio.sfxCoinCollect, 'achievement');
+    }
   }
 }

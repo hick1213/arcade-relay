@@ -1,9 +1,11 @@
 import Phaser from 'phaser';
+import { ASSET_KEYS } from '../config';
 import { InputRouter } from '../systems/input/InputRouter';
 import { advanceRun, createBattleRetryRun, createInitialRun, handleTapEvent } from '../systems/runEngine';
 import { TAP_EVENTS, type FinalBattleSnapshot, type HudState, type RunEndSummary, type RunState, type TapEventName, type TapHit, type TextProvider } from '../types';
 import { buildRunEndSummary } from '../systems/economy';
 import { applyRunResult, createRunResult } from '../systems/meta/metaProgression';
+import { diffAchievements } from '../systems/meta/achievements';
 import { loadSaveData, saveSaveData } from '../persistence/SaveAdapter';
 import { createRunSnapshot, createResumeRun } from '../systems/runEngine';
 import { createTextProvider } from '../systems/i18n';
@@ -206,6 +208,12 @@ export class GameScene extends Phaser.Scene {
     }
     this.runResultPersisted = true;
     const loaded = loadSaveData();
-    saveSaveData(applyRunResult(loaded.data, createRunResult(summary)));
+    const updated = applyRunResult(loaded.data, createRunResult(summary));
+    saveSaveData(updated);
+    // 成就达成反馈（S-21）: 新达成があれば SFX-05 升调变体で 1 回再生
+    // （Menu「成就」面板の达成标记 = 已存の常时表示。ここは达成瞬间の可感知反馈）
+    if (diffAchievements(loaded.data.achievements, updated.achievements).length > 0) {
+      audioDirector.playSfx(ASSET_KEYS.audio.sfxCoinCollect, 'achievement');
+    }
   }
 }

@@ -133,6 +133,12 @@ export interface RunEndSummary {
   readonly reputation: number;
   /** 全伙计三属性合计（staffPowerTotal） */
   readonly staffPower: number;
+  /**
+   * 全伙计单属性の最大值（S-21 ACH-06 判定源 — buildRunEndSummary が run.staff から填める。
+   * 败局含む全 kind で付与。RESULT_FALLBACK_SUMMARY 等の占位は省略可 — applyRunResult は
+   * 省略时 0 扱い＝ACH-06 不発）
+   */
+  readonly maxStaffStat?: number;
   /** 结局加成（财/侠/名结局 = 200 — S-20 结局判定接线前为占位 0） */
   readonly endingBonus: number;
   /**
