@@ -860,6 +860,60 @@ export const GAMEPLAY = {
   SERVE_LABEL_OFFSET_Y: 40,
 } as const;
 
+// ==== S-28 成长差分强化（程序化演出パラメータ — gdd「伙计初始值」差分表。新規资产なし）====
+export const STAGE_FX = {
+  /**
+   * 伙计別の成长阶段色调（plate 蒙层色 — GAMEPLAY.STAGE_TINTS の伙计別版。
+   * gdd 差分表: 5 名各自の ramp（低位=沈、高阶=明るい暖色へ）。未登记 id は
+   * GAMEPLAY.STAGE_TINTS にフォールバック（unlock 伙计 IMG-09/10）。
+   */
+  TINTS_BY_STAFF: {
+    afu: [0x963a16, 0xb45a24, 0xd4813a],
+    tieniu: [0x5a2a14, 0x8a3c1c, 0xc06a2c],
+    wenqu: [0x4a3a58, 0x6a5478, 0x9a7f9e],
+    xiaodie: [0x3a5a2e, 0x55793e, 0x7fa055],
+    dasong: [0x2e3a4a, 0x3f5468, 0x5a7386],
+  } as Readonly<Record<string, readonly [number, number, number]>>,
+  /** 跑堂移動ボブ（移動中の上下弾み — 阶段が上がるほど弾み大・頻度大 = 目視できる速度差） */
+  BOB_AMP_PX: [2, 4, 6],
+  BOB_FREQ_HZ: [1.6, 2.2, 3.0],
+  /** 小蝶の低位「同手同脚」ぐらつき（sprite 回転角 — 度。他の伙计/高阶段は 0） */
+  WADDLE_DEG: 7,
+  /** 阿福の高阶「残影」（跑堂移動中に立绘 ghost を等間隔で残す） */
+  TRAIL_INTERVAL_MS: 90,
+  TRAIL_ALPHA: 0.35,
+  TRAIL_FADE_MS: 260,
+  /** 铁牛の低位「制菜冒黑烟」（制菜 ticket 進行中、掌勺が成长阶段 0 のとき柜台上に立ち上る） */
+  SMOKE_INTERVAL_MS: 200,
+  SMOKE_RADIUS: 7,
+  SMOKE_COLOR: 0x2a2138,
+  SMOKE_ALPHA: 0.5,
+  SMOKE_RISE_PX: 46,
+  SMOKE_DRIFT_X: 10,
+  SMOKE_FADE_MS: 900,
+  SMOKE_END_SCALE: 1.6,
+  /** 铁牛（掌勺）の高阶「出菜带金光」（出餐口 rack の出来上がり菜に金色パルス） */
+  GLOW_RADIUS: 26,
+  GLOW_COLOR: 0xf0c182,
+  GLOW_ALPHA: 0.4,
+  GLOW_PULSE_MS: 700,
+  GLOW_PULSE_SCALE: 1.25,
+  /** 表情贴片（ Graphics 描画 — 眼 2 点＋口弧。阶段: 0=しょんぼり/1=真顔/2=笑顔） */
+  EXPRESSION: {
+    /** 立绘表示高さに対する顔中心の位置（立绘上端からの比率） */
+    HEAD_FROM_TOP_RATIO: 0.18,
+    EYE_DX: 4,
+    EYE_RADIUS: 2,
+    MOUTH_RADIUS: 4,
+    MOUTH_SMILE_DY: 5,
+    MOUTH_FROWN_DY: 11,
+    /** 口弧の端の切り欠き（radian — 弧を描きすぎて完全半円にならないようの余白） */
+    MOUTH_ARC_INSET: 0.35,
+    LINE_WIDTH: 2,
+    COLOR: 0x281d10,
+  },
+} as const;
+
 // ==== 玩法点击判定区（InputRouter 登録。优先级は INPUT_PRIORITY の既定档を使用）====
 export const GAMEPLAY_ZONES = {
   AMBITION: (ambitionId: string): string => `game.ambition.${ambitionId}`,
