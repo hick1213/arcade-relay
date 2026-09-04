@@ -167,8 +167,15 @@ stories:
     pillar: P-02
     assignee: gameplay-engineer
     phase: build
-    status: todo
+    status: review
     acceptance: "手艺=当日店内手艺最高者掌勺、制菜 ×(1−min(CRAFT_KITCHEN_CAP, CRAFT_KITCHEN_FACTOR×手艺)); 体力=疲劳倍率 1+(FATIGUE_PENALTY−1)×(1−STAMINA_RESIST×体力); 事件卡施加的疲劳次日生效且单测覆盖三属性公式边界（封顶/免疫）"
+    # note: 三属性算式一元化到 systems/dayEffects.ts（speedMultiplier/craftReduction/fatigueMultiplier —
+    # kitchen.prepTimeMs・customerFlow.actionDurationMs 参照）。CRAFT_KITCHEN_* は既存
+    # config.KITCHEN.CRAFT_FACTOR/CRAFT_CAP（gdd 値 0.10/0.60 同一 — 键名は S-06 実装時の命名）。
+    # 疲劳は eventCard.applyEventFatigue（roll < EVENT.FATIGUE_CHANCE=0.2 → 伙计 1 名に标记、
+    # roll/対象は注入式纯函数）→ RunState.nightFatigueIds 记录 → dayCycle.daybreak で当夜適用分のみ
+    # 翌日に持ち越し・前日分は回復（次日生效）。体力减免项は 1 で封顶（免疫境界）。
+    # tests/dayEffects.test.ts 15 件（三属性公式境界 封顶/免疫 + 次日生效・回復）全 PASS。
   - id: S-19
     title: "终战系统与重试当日"
     pillar: P-02
