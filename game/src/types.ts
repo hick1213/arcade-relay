@@ -327,6 +327,9 @@ export interface RunState {
   readonly nightStage: NightStage;
   readonly drawnCard: DrawnEventCard | null;
   readonly discardedCardIds: readonly number[];
+  /** 当夜の事件卡で疲劳が適用された伙计 id（S-18「次日生效」: daybreak で本リストの成员以外の
+   *  疲劳を回復 — 前日疲劳は翌朝で解除、当夜適用分のみ翌日に持ち越される） */
+  readonly nightFatigueIds: readonly string[];
   readonly customerSeq: number;
   readonly finalBattleNight: boolean;
   readonly ended: RunEndSummary | null;
