@@ -216,6 +216,7 @@ stories:
     status: done
     notes: "S-25 lane 実装 (ui-engineer)。结局插画 (IMG-26~28) は RunEndSummary.ending (S-20 判定値・types.ts に optional 追加) が non-null のとき表示 — S-20 未合流の現状は汎用タイトルへ回落。新纪录标记は GameScene.goToResult が persist 前の best_score を bestScoreBefore として付与 (finalBattleLoss は persist 不発のため非対象)。IMG-26~28 の実ファイルは S-30 lane の落盤を待つ (未落盘時は BootScene の fallback 纹理)。CR-CODE iteration 1 (2026-09-04, MAX_ITER 到達により done): 4 findings 全件対応 — (1) 结局文 2 行換行時の SCORE_LABEL 叠字を body 下端锚定 (BODY_OFFSET_Y -122→-110, origin 0.5,1) + title -176 へ退避で修正 (2) ZH 结局题の「財結局 — 」等类型前缀を除去し EN と整合 (3) ResultScene 演出 SFX の locked 時は即 play せず unlocked 後に再生（静かな破棄を解消）(4) 明细行の贡献表示を round→floor に統一し显示行合計=总评分を厳密一致。未处理 findings なし。"
     acceptance: "3 结局各自显示结局插画（IMG-26~28）+结局文（i18n）+总评分细目（三线数值与权重贡献）; 破产败局与终战败各有专属文案/演出（账本合上、败局文）; 新纪录时显示最高分更新标记"
+    # note: CR-CODE unresolved — 参见 state/reviews/s-25.md
   - id: S-26
     title: "Menu 游戏外面板完整版（图鉴/成就/统计）"
     pillar: P-03
