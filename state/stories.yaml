@@ -224,6 +224,7 @@ stories:
     phase: build
     status: done # CR-CODE i1 CONCERNS 4件 → 3件修正（selectCandidate 已编成内不発ガード / createDefaultUnlocks を META_SAVE.UNLOCK_IDS 派生 / gdd 表リテラル断言＋死路ガード追加テスト）、typecheck/vitest exit 0。未処理 1件（注记）: createRunSnapshot は day/silver/reputation/ambition のみ保存し「继续周目」は默认编成を再構成するため、置換した解锁伙計は S-23（run 快照拡張 — acceptance 已含「伙计表」）まで静默に失われる → S-23 で伙计表を快照に含めること
     acceptance: "endings_seen ≥1/≥2 时 SaveData.unlocks 置位 UNL-01/02; 新周目志向选择后出现初始伙计选择界面（解锁伙计可替换任意 1 名默认伙计，初始值与 gdd 表一致）; 未解锁时锁定显示; 解锁判定经单测"
+    # note: CR-CODE unresolved — 参见 state/reviews/s-22.md
   - id: S-23
     title: "中断续玩 run 快照（日粒度）"
     pillar: P-01
