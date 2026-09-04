@@ -83,8 +83,12 @@ export function advanceKitchen(kitchen: KitchenState, deltaMs: number): KitchenS
 }
 
 /**
- * 上菜完了で出餐口から引き取り。dishId 指定時は該当菜 1 枚のみ（镖师の 2 菜 — S-16）。
- * 未指定時は従来通り该客の全菜を引き取る（1 菜客人の既存経路）。
+ * 上菜完了で出餐口から該当客の菜を 1 枚だけ引き取る（多菜客人＝镖师の 2 菜目は
+ * 1 枚ずつ別の上菜动作で運ぶ — S-16）。
+ * - dishId 指定時: 該当菜を 1 枚（呼出側 — customerFlow の serving 完了 — は常に指定）。
+ * - 未指定時: 該当客の菜のうち先頭の 1 枚のみ（「全量引き取り」ではない。JSDoc を
+ *   実装と一致させた — CR-CODE iteration 1 指摘）。
+ * 該当菜が無い場合は kitchen をそのまま返す（no-op）。
  */
 export function takeReadyDish(
   kitchen: KitchenState,

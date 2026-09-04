@@ -196,19 +196,51 @@ describe('S-16 镖师（第 4 日起・点 2 菜・耐心 ×1.3）', () => {
     expect(left.reputation).toBe(run.reputation - CUSTOMER.LEAVE_REPUTATION_PENALTY_ESCORT);
     expect(left.customers).toHaveLength(0);
   });
+
+  it('離店客の残置菜・製菜中チケットは後厨から掃除される（孤児菜の放置禁止）', () => {
+    const run = makeDayRun(4, ['waiter', 'standby', 'standby', 'purchaser', 'standby']);
+    const escort: CustomerState = {
+      id: 1,
+      seat: 0,
+      dishId: 1,
+      typeId: 'escort',
+      extraDishId: 2,
+      dishesServed: 0,
+      stage: 'awaitingDish',
+      patienceMs: 1,
+      maxPatienceMs: 58_500,
+      eatMs: 6_000,
+    };
+    const withOrphans = {
+      ...run,
+      customers: [escort],
+      kitchen: {
+        tickets: [{ customerId: escort.id, dishId: 2, remainingMs: 5_000 }],
+        ready: [{ customerId: escort.id, dishId: 1 }],
+      },
+      arrivalTimerMs: 600_000,
+    };
+    const left = advanceDay(withOrphans, 16);
+    expect(left.customers).toHaveLength(0);
+    expect(left.kitchen.ready).toHaveLength(0);
+    expect(left.kitchen.tickets).toHaveLength(0);
+  });
 });
 
 describe('S-16 老饕（第 7 日起・高级菜・耐心 ×0.8）', () => {
   it('菜种 <4 の日は老饕不生成（散客で代替 — 到達間隔を占有しない）', () => {
-    // random: 1 回目 0.9（镖师不発）、2 回目 0.01（老饕抽選に当選）
-    vi.spyOn(Math, 'random').mockReturnValueOnce(0.9).mockReturnValueOnce(0.01);
+    // random: 単一抽選 0.12 = 老饕区間 [w_镖师, w_镖师＋w_老饕) = [0.10, 0.15) 内 → 当選するが菜種不足
+    vi.spyOn(Math, 'random').mockReturnValue(0.12);
     const fewKinds = makeDayRun(7, ['waiter', 'standby', 'standby', 'standby', 'standby']);
     expect(availableDishKinds(fewKinds)).toBeLessThan(CUSTOMER.GOURMET_MIN_DISH_KINDS);
     expect(rollCustomerType(fewKinds)).toBe('regular');
   });
 
   it('第 7 日に抽選で生成され、高级菜（4 号以上）を指定し耐心 = 基礎 ×0.8', () => {
-    vi.spyOn(Math, 'random').mockReturnValueOnce(0.9).mockReturnValueOnce(0.01).mockReturnValue(0.5);
+    // random: 単一抽選 0.2 = 老饕区間 [0.15, 0.25) 内。菜号抽選は 0.1 → 高级菜下限
+    // GOURMET_DISH_ID_MIN そのもの（=4）になる値。旧実装（1..kinds の全菜号抽選）なら
+    // 1+floor(0.1×6)=1 となり本テストは失敗する — 範囲限定を実検出できる mock 値
+    vi.spyOn(Math, 'random').mockReturnValueOnce(0.2).mockReturnValue(0.1);
     const run = makeDayRun(10, ['waiter', 'standby', 'standby', 'purchaser', 'purchaser']);
     const arrived = advanceDay({ ...run, arrivalTimerMs: 0 }, 16);
     const gourmet = arrived.customers[0] as CustomerState;

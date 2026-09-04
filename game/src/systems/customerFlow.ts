@@ -20,6 +20,7 @@ import {
 import type {
   CustomerState,
   CustomerTypeId,
+  KitchenState,
   Point,
   RunState,
   StaffMember,
@@ -96,17 +97,21 @@ export function gourmetWeightForDay(day: number): number {
 }
 
 /**
- * 到達 1 回ごとの类型抽選。老饕は当日可选菜种 < GOURMET_MIN_DISH_KINDS で
- * 不生成 → 散客で代替（等待下一名普通客人、不占用到达间隔 — gdd「敌人与障碍物」）。
+ * 到達 1 回ごとの类型抽選。乱数 1 回を权重区間に分割（镖师 [0, w_镖师)・老饕
+ * [w_镖师, w_镖师＋w_老饕)）— 2 回の独立抽選では実効確率が名目权重（gdd「难度曲线」
+ * L225 の老饕 ≈10% 等）から (1−w_镖师)×w_老饕 に偏るため。老饕は当日可选菜种 <
+ * GOURMET_MIN_DISH_KINDS で不生成 → 散客で代替（等待下一名普通客人、不占用到达间隔 —
+ * gdd「敌人与障碍物」）。
  */
 export function rollCustomerType(run: RunState): CustomerTypeId {
-  if (Math.random() < escortWeightForDay(run.day)) {
+  const roll = Math.random();
+  const escortW = escortWeightForDay(run.day);
+  const gourmetW = gourmetWeightForDay(run.day);
+  if (roll < escortW) {
     return 'escort';
   }
-  if (Math.random() < gourmetWeightForDay(run.day)) {
-    if (availableDishKinds(run) >= CUSTOMER.GOURMET_MIN_DISH_KINDS) {
-      return 'gourmet';
-    }
+  if (roll < escortW + gourmetW && availableDishKinds(run) >= CUSTOMER.GOURMET_MIN_DISH_KINDS) {
+    return 'gourmet';
   }
   return 'regular';
 }
@@ -128,10 +133,20 @@ function rollDishId(kinds: number): number {
   return 1 + Math.floor(Math.random() * kinds);
 }
 
+/** [min, kinds] の菜号抽選（老饕の高级菜 GOURMET_DISH_ID_MIN〜6 号 — gdd「敌人与障碍物」） */
+function rollDishIdFrom(min: number, kinds: number): number {
+  return min + Math.floor(Math.random() * (kinds - min + 1));
+}
+
 /** 到達客の生成（类型ごとの菜数・耐心修正を適用 — S-16） */
 function createCustomer(run: RunState, seat: number, typeId: CustomerTypeId): CustomerState {
   const kinds = availableDishKinds(run);
-  const dishId = rollDishId(kinds);
+  // 老饕は rollCustomerType が kinds >= GOURMET_MIN_DISH_KINDS（= GOURMET_DISH_ID_MIN）を
+  // 保証するため、min..kinds の区間は常に非空
+  const dishId =
+    typeId === 'gourmet'
+      ? rollDishIdFrom(CUSTOMER.GOURMET_DISH_ID_MIN, kinds)
+      : rollDishId(kinds);
   const maxPatienceMs = maxPatienceMsFor(run, typeId);
   return {
     id: run.customerSeq + 1,
@@ -247,6 +262,7 @@ function tickPatience(run: RunState, deltaMs: number): RunState {
   let reputationDelta = 0;
   let failed = 0;
   const customers: CustomerState[] = [];
+  let departed = false;
   for (const customer of run.customers) {
     if (!isWaitingStage(customer)) {
       customers.push(customer);
@@ -259,10 +275,21 @@ function tickPatience(run: RunState, deltaMs: number): RunState {
     }
     reputationDelta -= leavePenaltyFor(customer.typeId);
     failed += 1;
+    departed = true;
   }
+  // 離店客の残置を後厨から掃除（出餐口の孤児菜・製菜中のチケット — 逸れると完了菜が
+  // 永遠に残り、dispatchToServe が「菜はあるが客は不在」の no-op を量産する）
+  const remainingIds = new Set(customers.map((customer) => customer.id));
+  const kitchen: KitchenState = departed
+    ? {
+        tickets: run.kitchen.tickets.filter((ticket) => remainingIds.has(ticket.customerId)),
+        ready: run.kitchen.ready.filter((dish) => remainingIds.has(dish.customerId)),
+      }
+    : run.kitchen;
   return {
     ...run,
     customers,
+    kitchen,
     reputation: run.reputation + reputationDelta,
     daySummary: {
       ...run.daySummary,
@@ -500,11 +527,16 @@ function completeAction(run: RunState, action: WaiterAction): RunState {
     case 'moveToWindow':
       return followUp(withoutAction, action, 'serving', customer, waiter, SERVICE.SERVE_S, 'serving');
     case 'serving': {
-      // 上菜完了 → 出餐口から 1 枚引き取り。全菜が揃うまで多菜客人（镖师）は食べない — S-16
+      // 上菜完了 → 出餐口から該当菜 1 枚引き取り。全菜が揃うまで多菜客人（镖师）は食べない — S-16
       const servedDish = withoutAction.kitchen.ready.find((dish) => dish.customerId === customer.id);
+      if (servedDish === undefined) {
+        // 出餐口に菜が無い（二重派遣・離店後の残票などの異常系 — 正常経路では発生しない）。
+        // 幻影上菜を防ぐ: dishesServed を進めず eating にも遷移させない（跑堂のみ解放）
+        return withoutAction;
+      }
       const withTaken = {
         ...withoutAction,
-        kitchen: takeReadyDish(withoutAction.kitchen, customer.id, servedDish?.dishId),
+        kitchen: takeReadyDish(withoutAction.kitchen, customer.id, servedDish.dishId),
       };
       return afterDishServed(withTaken, customer);
     }
