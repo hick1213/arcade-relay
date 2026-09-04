@@ -1,0 +1,82 @@
+{
+ "composition_plan": {
+  "title": "Inn Day",
+  "negative_global_styles": [
+   "vocals",
+   "electronic"
+  ],
+  "sections": [
+   {
+    "text": "Gentle cheerful guzheng arpeggios, light woodblock pulse",
+    "duration_ms": 12000,
+    "section_name": "intro",
+    "positive_local_styles": [
+     "guzheng",
+     "bamboo dizi",
+     "warm acoustic"
+    ],
+    "negative_local_styles": [
+     "vocals",
+     "electronic",
+     "distortion"
+    ],
+    "lines": []
+   },
+   {
+    "text": "Lilting bamboo dizi melody enters over the arpeggios",
+    "duration_ms": 24000,
+    "section_name": "verse",
+    "positive_local_styles": [
+     "guzheng",
+     "bamboo dizi",
+     "warm acoustic"
+    ],
+    "negative_local_styles": [
+     "vocals",
+     "electronic",
+     "distortion"
+    ],
+    "lines": []
+   },
+   {
+    "text": "Full warm ensemble, contented working groove",
+    "duration_ms": 24000,
+    "section_name": "groove",
+    "positive_local_styles": [
+     "guzheng",
+     "bamboo dizi",
+     "warm acoustic"
+    ],
+    "negative_local_styles": [
+     "vocals",
+     "electronic",
+     "distortion"
+    ],
+    "lines": []
+   },
+   {
+    "text": "Return to opening guzheng figure for a clean loop turn",
+    "duration_ms": 12000,
+    "section_name": "outro",
+    "positive_local_styles": [
+     "guzheng",
+     "bamboo dizi",
+     "warm acoustic"
+    ],
+    "negative_local_styles": [
+     "vocals",
+     "electronic",
+     "distortion"
+    ],
+    "lines": []
+   }
+  ],
+  "positive_global_styles": [
+   "chinese traditional",
+   "guzheng",
+   "bamboo flute",
+   "light instrumental"
+  ]
+ },
+ "seed": 920301
+}

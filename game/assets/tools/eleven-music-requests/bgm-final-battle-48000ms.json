@@ -1,0 +1,13 @@
+{
+  "composition_plan": {
+    "title": "Final Battle",
+    "positive_global_styles": ["chinese traditional", "guzheng", "taiko drums", "cinematic tension"],
+    "negative_global_styles": ["vocals", "electronic"],
+    "sections": [
+      {"section_name": "intro", "text": "Fast guzheng tremolo runs with big taiko hits on beats 1 and 3", "duration_ms": 16000, "positive_local_styles": ["guzheng tremolo", "taiko"], "negative_local_styles": ["vocals", "electronic"], "lines": []},
+      {"section_name": "clash", "text": "Sharp short dizi stabs over driving tremolo, low gong accents", "duration_ms": 16000, "positive_local_styles": ["bamboo dizi stabs", "gong accents", "driving drums"], "negative_local_styles": ["vocals", "electronic"], "lines": []},
+      {"section_name": "loop-turn", "text": "Thinned percussion returning to the opening tremolo figure for a clean loop turn", "duration_ms": 16000, "positive_local_styles": ["guzheng tremolo", "restrained drums"], "negative_local_styles": ["vocals", "electronic"], "lines": []}
+    ]
+  },
+  "seed": 920301
+}

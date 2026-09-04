@@ -122,6 +122,12 @@ BGM 共通 style block（机械前置）:
 - **时长偏差**: 规格 72s/48s 为生成时长意图；交付为 92 BPM×27 小节=70.43s、132 BPM×26 小节=47.27s（循环长度必须落在整数小节。占位资产反正须替换，付费生成时以 `composition_plan` 精确指定 72000/48000ms）
 - **未解决事项（Checkpoint 必须展示）**: BGM-01/02 为 must-replace 占位（音色为 chip 音源近似，非古筝/笛子实录质感）。解锁条件: ElevenLabs 付费计划（Music API 需 Starter 以上）后以 composition_plan＋seed 920301 重生成，SFX 批次的生成日志已包含所需的完整请求 schema
 
+### 生成实绩（Phase 3、S-31 BGM 重试、2026-09-04T00:25:50Z）
+
+- **S-31（[BGM] BGM-01/02 生成与循环验证）执行结果: Primary 再实测仍 402，占位交付维持**。退避 5s 重试后 `POST /v1/music/detailed`（完整 composition_plan＋seed 920301）再 402、`POST /v1/music`（simple＋force_instrumental）再 402、subscription 200 实测 tier 仍 free — 402 为确定性计划限制，非瞬时故障。fallback 全段再确认: local:stable-audio-open-small 未安装 → local:jsfxr-ambient（现占位，循环验证已 PASS）— 无新产物，sha256 未变
+- **正面产出 — 请求 schema 完全实测验证并持久化**: 本次把前批未验证的 detailed 请求逐字段跑通 422 验证链到 paywall 之前（此后仅 402 拦截），确证的 API 制约: (1) `force_instrumental` 与 `composition_plan` **互斥**（422）— 人声排除用 `negative_global_styles:["vocals"]` (2) `music_length_ms` 与 `composition_plan` 互斥 — 曲长由 sections 的 `duration_ms` 合计承担 (3) top-level `prompt` 与 `composition_plan` 互斥（422 exactly one of）(4) sections 必填 `section_name`/`positive_local_styles`/`negative_local_styles`/`lines`（instrumental 也要 `[]`），global 侧字段名为 `positive_global_styles`（非 `styles`）。验证済み请求体保存于 `game/assets/tools/eleven-music-requests/`（bgm-inn-day-72000ms.json / bgm-final-battle-48000ms.json / README.md 含执行手顺与再生成后 pipeline）— 付费计划解锁后可零探索直接重生成
+- **MANIFEST**: BGM-01/02 行 notes 追加本次重试履历（文件与 sha256 不变，must_replace: true 维持）。成本追加 $0（API 全部被 paywall 拒绝、未产生生成计费）。MANIFEST 合计 $0.28 / budget.txt $20
+
 ## 汇总与预算
 
 - 图像: 30 个（brief 上限 30 以内）/ SFX: 8 个 / BGM: 2 曲（brief 上限，满额不超 — 见「音频」节）/ 3D 模型: 0（phaser）/ 动画: 0
