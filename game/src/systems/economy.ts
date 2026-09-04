@@ -39,12 +39,19 @@ export function staffPowerTotal(run: RunState): number {
  * 周目终结摘要（ResultScene 迁移载荷）。
  * - runComplete: S-20 结局判定（judgeEnding — 达成度 argmax、封顶同值は志向决胜）→
  *   ending と endingBonus（ENDING.BONUS）と closeCall（险成标注）を填める。
+ *   **前提 = 终战胜利**（gdd「胜负条件」: 「终战胜利 → 结局判定」）—
+ *   `run.finalBattle?.status !== 'won'` の runComplete 要求（PausePanel「结束周目」の
+ *   手動終了経路 = GameScene）は结局判定を行わない: ending なし・endingBonus 0・closeCall なし
+ *   （破産/终战败と同型の败局扱い。applyRunResult も endings_seen を置位しない）。
+ *   CR-CODE iter1 finding 1: ゲートなしでは第 1 日朝の pause → 手動終了だけで
+ *   三线 0 の argmax（wealth 险成）＋结局加成 +200 の persist＋endings_seen 置位が可能だった。
  * - 败局（破产/终战败）: 结局判定は行わない — ending なし・endingBonus 0
  *   （RESULT.ENDING_BONUS_PLACEHOLDER。评分公式の结局加成項が 0 になる）。
  * - 总评分は**未封顶原值**（silver/reputation はそのまま — CAP は结局判定にのみ作用 — gdd「分数与进度」）。
  */
 export function buildRunEndSummary(run: RunState, kind: RunEndKind): RunEndSummary {
-  if (kind !== 'runComplete') {
+  const finalBattleWon = run.finalBattle?.status === 'won';
+  if (kind !== 'runComplete' || !finalBattleWon) {
     return {
       kind,
       silver: run.silver,

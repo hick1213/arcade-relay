@@ -13,25 +13,43 @@ import { describe, expect, it } from 'vitest';
 import { ENDING, META_SAVE, SCORE } from '../src/config';
 import { computeAchievements, judgeEnding } from '../src/systems/ending';
 import { buildRunEndSummary } from '../src/systems/economy';
+import { enterBattle } from '../src/systems/finalBattle';
 import { applyRunResult, computeRunScore, createRunResult } from '../src/systems/meta/metaProgression';
 import { createDefaultSaveData } from '../src/systems/meta/metaSchema';
 import { createResumeRun } from '../src/systems/runEngine';
 import type { AmbitionId, RunEndSummary, RunState } from '../src/types';
 
-/** 指定三线值＋志向の run（staff は createResumeRun 既定 — staffPower は判定に関与しない） */
-function makeRun(values: {
-  silver: number;
-  reputation: number;
-  xiaPoints: number;
-  ambition: AmbitionId;
-}): RunState {
+/**
+ * 指定三线值＋志向の run（staff は createResumeRun 既定 — staffPower は判定に関与しない）。
+ * battleWon: 结局判定の前提 = 终战胜利（gdd「胜负条件」— buildRunEndSummary のゲート）。
+ * 终战胜利相当の run は enterBattle 後の finalBattle.status を 'won' に置く模拟で作る
+ * （fight は乱数のため determinism 保証の経路を直接組まない）。
+ */
+function makeRun(
+  values: {
+    silver: number;
+    reputation: number;
+    xiaPoints: number;
+    ambition: AmbitionId;
+  },
+  options: { readonly battleWon?: boolean } = {},
+): RunState {
   const base = createResumeRun({
     ambition: values.ambition,
     silver: values.silver,
     reputation: values.reputation,
     day: 20,
   });
-  return { ...base, xiaPoints: values.xiaPoints };
+  const run = { ...base, xiaPoints: values.xiaPoints };
+  if (options.battleWon !== true) {
+    return run;
+  }
+  const battling = enterBattle(run);
+  const battle = battling.finalBattle;
+  if (battle === null) {
+    throw new Error('到達不能: enterBattle 後の finalBattle は非 null');
+  }
+  return { ...battling, finalBattle: { ...battle, status: 'won' } };
 }
 
 describe('computeAchievements（三线达成度 — 封顶は财/名のみ）', () => {
@@ -106,7 +124,7 @@ describe('judgeEnding（险成分支）', () => {
 
 describe('buildRunEndSummary（RunEndSummary 接线）', () => {
   it('runComplete: 结局/结局加成/险成を填める（封顶同值 → 志向决胜）', () => {
-    const run = makeRun({ silver: 360, reputation: 96, xiaPoints: 30, ambition: 'fame' });
+    const run = makeRun({ silver: 360, reputation: 96, xiaPoints: 30, ambition: 'fame' }, { battleWon: true });
     const summary = buildRunEndSummary(run, 'runComplete');
     expect(summary.ending).toBe('fame');
     expect(summary.endingBonus).toBe(ENDING.BONUS);
@@ -114,7 +132,7 @@ describe('buildRunEndSummary（RunEndSummary 接线）', () => {
   });
 
   it('总评分は未封顶原值 — buildRunEndSummary は silver/reputation の原值を保持する', () => {
-    const run = makeRun({ silver: 600, reputation: 120, xiaPoints: 0, ambition: 'wealth' });
+    const run = makeRun({ silver: 600, reputation: 120, xiaPoints: 0, ambition: 'wealth' }, { battleWon: true });
     const summary = buildRunEndSummary(run, 'runComplete');
     expect(summary.silver).toBe(600);
     expect(summary.reputation).toBe(120);
@@ -125,7 +143,7 @@ describe('buildRunEndSummary（RunEndSummary 接线）', () => {
   });
 
   it('险成の runComplete も结局と endingBonus を持つ（closeCall=true が RunEndSummary へ伝播）', () => {
-    const run = makeRun({ silver: 200, reputation: 32, xiaPoints: 10, ambition: 'xia' });
+    const run = makeRun({ silver: 200, reputation: 32, xiaPoints: 10, ambition: 'xia' }, { battleWon: true });
     const summary = buildRunEndSummary(run, 'runComplete');
     expect(summary.closeCall).toBe(true);
     expect(summary.ending).toBe('wealth');
@@ -142,11 +160,25 @@ describe('buildRunEndSummary（RunEndSummary 接线）', () => {
       expect(summary.endingBonus).toBe(0);
     }
   });
+
+  it('终战未胜利の runComplete 要求（手動「结束周目」経路）は结局判定を不発にする', () => {
+    // CR-CODE iter1 finding 1 の回帰: finalBattle が無い（未開戦）/ lost の状态で
+    // runComplete を要求しても三线 0 の argmax（wealth 险成）と结局加成を捏造しない
+    const notFought = makeRun({ silver: 0, reputation: 0, xiaPoints: 0, ambition: 'fame' });
+    const lost = { ...notFought, finalBattle: { ...enterBattle(notFought).finalBattle!, status: 'lost' as const } };
+    for (const run of [notFought, lost]) {
+      const summary = buildRunEndSummary(run, 'runComplete');
+      expect(summary.kind).toBe('runComplete');
+      expect(summary.ending ?? null).toBeNull();
+      expect(summary.closeCall ?? false).toBe(false);
+      expect(summary.endingBonus).toBe(0);
+    }
+  });
 });
 
 describe('metaProgression 连携（endings_seen 置位）', () => {
   it('runComplete の结局が endings_seen の该当下标に置位される', () => {
-    const run = makeRun({ silver: 360, reputation: 96, xiaPoints: 30, ambition: 'fame' });
+    const run = makeRun({ silver: 360, reputation: 96, xiaPoints: 30, ambition: 'fame' }, { battleWon: true });
     const summary = buildRunEndSummary(run, 'runComplete');
     const next = applyRunResult(createDefaultSaveData(), createRunResult(summary));
     expect(next.endings_seen[META_SAVE.ENDING_INDEX.fame]).toBe(true);
@@ -157,5 +189,14 @@ describe('metaProgression 连携（endings_seen 置位）', () => {
     const run = makeRun({ silver: 400, reputation: 100, xiaPoints: 40, ambition: 'wealth' });
     const result = createRunResult(buildRunEndSummary(run, 'bankruptcy'));
     expect(result.ending).toBeNull();
+  });
+
+  it('终战未胜利の手動 runComplete も endings_seen を置位しない（統計埋め防止 — finding 1）', () => {
+    const run = makeRun({ silver: 0, reputation: 0, xiaPoints: 0, ambition: 'fame' });
+    const next = applyRunResult(
+      createDefaultSaveData(),
+      createRunResult(buildRunEndSummary(run, 'runComplete')),
+    );
+    expect(next.endings_seen.every((seen) => seen === false)).toBe(true);
   });
 });

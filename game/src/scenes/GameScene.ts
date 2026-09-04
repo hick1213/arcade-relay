@@ -60,7 +60,10 @@ export class GameScene extends Phaser.Scene {
     const textProvider: TextProvider = createTextProvider();
 
     this.pausePanel = new PausePanel(this, textProvider, this.router, {
-      // 「结束周目」= 破产/终战判定の自動迁移（runEngine.ended）と並ぶ手動経路
+      // 「结束周目」= 破产/终战判定の自動迁移（runEngine.ended）と並ぶ手動経路。
+      // 结局判定の前提 = 终战胜利（gdd「胜负条件」）のため、终战未胜利の手動終了が
+      // runComplete を要求しても buildRunEndSummary 側のゲートが结局判定を不発にする
+      // （ending なし・endingBonus 0 — CR-CODE iter1 finding 1）
       onEndRun: () => this.goToResult(buildRunEndSummary(this.run, 'runComplete')),
       // 终战開戦前（S-19）で Menu へ抜ける時は現行 run を快照化してから遷移する —
       // 快照なしのままでは S-04 の志向确定時快照（第 1 日晨）が残り、「继续周目」が

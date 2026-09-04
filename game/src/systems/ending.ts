@@ -62,13 +62,19 @@ export function judgeEnding(
 ): EndingJudgment {
   const achievements = computeAchievements(silver, xiaPoints, reputation);
   const entries = ACHIEVEMENT_ORDER.map((id) => ({ id, value: achievements[id] }));
-  const top = entries.reduce((max, entry) => Math.max(max, entry.value), 0);
-  const tied = entries.filter((entry) => entry.value === top);
-  const first = tied[0];
-  if (first === undefined) {
+  // reduce の初期値 = 先頭要素の値（0 固定だと三线すべて负の际に top が 0 にクランプされ
+  // tied が空になる — CR-CODE iter1 finding 2。entries は非空のため先頭は常に存在）
+  const [head] = entries;
+  if (head === undefined) {
     // ACHIEVEMENT_ORDER は非空のため到達不能 — 安全側として志向線を返す
-    return { ending: ambition, achievements, closeCall: top < ENDING.ACHIEVED_THRESHOLD };
+    // （closeCall は到達不能分支なので达成度を見ない安全側の true）
+    return { ending: ambition, achievements, closeCall: true };
   }
+  const top = entries.reduce((max, entry) => Math.max(max, entry.value), head.value);
+  const tied = entries.filter((entry) => entry.value === top);
+  // tied は非空（top は head.value 以上で、いずれかの entry.value と一致）—
+  // 防御フォールバックも決勝規則（非封顶同值 = gdd 記載順 财/侠/名 の先頭）に一致させる
+  const first = tied[0] ?? head;
   const winner =
     top >= ENDING.CAP && tied.some((entry) => entry.id === ambition) ? ambition : first.id;
   return {
