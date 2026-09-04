@@ -178,7 +178,7 @@ export const EN_TABLE: Readonly<Record<string, string>> = {
   [TEXT_KEYS.CARD_11_OPT2_RESULT]: 'Your friend takes no offense; all rise fresh the next morning',
   [TEXT_KEYS.CARD_12_TITLE]: 'The Herb Merchant’s Pitch',
   [TEXT_KEYS.CARD_12_OPT1]: 'Buy tonic pills for the staff (Silver −18)',
-  [TEXT_KEYS.CARD_12_OPT1_RESULT]: 'The staff glow with vigor and work with lighter hands',
+  [TEXT_KEYS.CARD_12_OPT1_RESULT]: 'The pills are bitter; the staff swallow them and thank you for the thought',
   [TEXT_KEYS.CARD_12_OPT2]: 'Resell the herbs to a rival inn (Silver +10)',
   [TEXT_KEYS.CARD_12_OPT2_RESULT]: 'The margin is good — but your overworked staff begin to wilt',
   [TEXT_KEYS.CARD_13_TITLE]: 'Eerie Night at the Mortuary',

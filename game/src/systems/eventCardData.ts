@@ -3,6 +3,8 @@
  * build S-17 で 15 张に拡張 — #1/#5/#8 の数值は不変）。
  * 数据表与逻辑分离（eventCard.ts が本表を参照）。
  * 效果幅度は gdd テンプレート内: 银 Δ −25～+15 / 声望 Δ −10～+10 / 侠点 0–5
+ * （境界は config EVENT.SILVER_DELTA_* / REPUTATION_DELTA_* / XIA_POINT_MAX —
+ * テストの検証は本定数を参照。每卡の具体値は内容データなので直値のまま）。
  * （侠 Δ は全选项 EVENT.XIA_POINT_PER_CHOICE — 値の一元化。侠选项カードは
  * #1/#2/#3/#6/#7/#11/#13/#15 の 8 张 = gdd「侠线可行性算式」の前提）。
  * mayFatigue は伙计疲劳结果の标记（確率 roll と施加は S-18 接线 — config.EVENT.FATIGUE_CHANCE）。

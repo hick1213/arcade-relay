@@ -179,7 +179,7 @@ export const ZH_TABLE: Readonly<Record<string, string>> = {
   [TEXT_KEYS.CARD_11_OPT2_RESULT]: '好友并不见怪，次日清早各自精神',
   [TEXT_KEYS.CARD_12_TITLE]: '药材商推销',
   [TEXT_KEYS.CARD_12_OPT1]: '买十全大补丸给伙计进补（银 −18）',
-  [TEXT_KEYS.CARD_12_OPT1_RESULT]: '伙计服后精神百倍，手脚更加麻利',
+  [TEXT_KEYS.CARD_12_OPT1_RESULT]: '药丸苦涩，伙计们强忍着咽下，仍谢过掌柜的一片心意',
   [TEXT_KEYS.CARD_12_OPT2]: '把药材转卖给同行（银 +10）',
   [TEXT_KEYS.CARD_12_OPT2_RESULT]: '差价是赚了，伙计连日操劳，渐渐显出疲态',
   [TEXT_KEYS.CARD_13_TITLE]: '义庄夜惊',

@@ -2,7 +2,8 @@
  * eventCard.test.ts — S-17 事件卡全 15 张与志向偏移的验收测试（systems 层纯逻辑）。
  *
  * - 卡池 = gdd「事件卡」表全 15 张（id 1–15）、每卡 2–3 选项。
- * - 效果幅度在 gdd 模板内: 银 Δ −25～+15 / 声望 Δ −10～+10 / 侠点 0–5。
+ * - 效果幅度在 gdd 模板内: 银 Δ −25～+15 / 声望 Δ −10～+10 / 侠点 0–5
+ *   （境界は config.EVENT の SILVER_DELTA_MIN/MAX・REPUTATION_DELTA_MIN/MAX・XIA_POINT_MAX 定数を参照）。
  * - AMBITION_BIAS=0.3: 适配志向开局时同一选项的正 Δ 收益 +30%（偏移后数值断言）。
  * - 侠系选项累计侠点（侠选项卡片 = #1/2/3/6/7/11/13/15 — gdd「侠线可行性算式」）。
  * - 夜间每夜 1 张（非 summary 相位的抽卡被忽略）、弃牌堆用尽时重洗。
@@ -48,15 +49,19 @@ describe('S-17 卡池构成（gdd「事件卡」15 张一览）', () => {
     }
   });
 
-  it('效果幅度は gdd テンプレート内（银 Δ −25～+15 / 声望 ±10 / 侠点 0–5）', () => {
+  it('效果幅度は gdd テンプレート内（境界は config EVENT の定数参照）', () => {
     for (const card of EVENT_CARD_POOL) {
       for (const option of card.options) {
-        expect(option.silverDelta, `card #${card.id} silver`).toBeGreaterThanOrEqual(-25);
-        expect(option.silverDelta, `card #${card.id} silver`).toBeLessThanOrEqual(15);
-        expect(option.reputationDelta, `card #${card.id} reputation`).toBeGreaterThanOrEqual(-10);
-        expect(option.reputationDelta, `card #${card.id} reputation`).toBeLessThanOrEqual(10);
+        expect(option.silverDelta, `card #${card.id} silver`).toBeGreaterThanOrEqual(EVENT.SILVER_DELTA_MIN);
+        expect(option.silverDelta, `card #${card.id} silver`).toBeLessThanOrEqual(EVENT.SILVER_DELTA_MAX);
+        expect(option.reputationDelta, `card #${card.id} reputation`).toBeGreaterThanOrEqual(
+          EVENT.REPUTATION_DELTA_MIN,
+        );
+        expect(option.reputationDelta, `card #${card.id} reputation`).toBeLessThanOrEqual(
+          EVENT.REPUTATION_DELTA_MAX,
+        );
         expect(option.xiaDelta, `card #${card.id} xia`).toBeGreaterThanOrEqual(0);
-        expect(option.xiaDelta, `card #${card.id} xia`).toBeLessThanOrEqual(5);
+        expect(option.xiaDelta, `card #${card.id} xia`).toBeLessThanOrEqual(EVENT.XIA_POINT_MAX);
       }
     }
   });

@@ -157,9 +157,9 @@ stories:
     pillar: P-03
     assignee: gameplay-engineer
     phase: build
-    status: review
+    status: done
     acceptance: "15 张卡（gdd 一览表）全部就位、每卡 2–3 选项、效果幅度在模板内（银 Δ −25～+15、声望 ±10、侠点 0–5）; AMBITION_BIAS=0.3 使同一选项在适配志向下收益 +30%（自动测试断言偏移后数值）; 侠系选项累计侠点; 夜间每夜 1 张、弃牌堆用尽重洗"
-    note: "卡 11/12 选项设 mayFatigue 标记（gdd 疲劳概率 ≤20% = config EVENT.FATIGUE_CHANCE=0.2；roll 与 fatigue 施加接线属 S-18 acceptance）。卡 15 的伙计实力轴以结果文案表现（属性增减机制不存在，不越权自创系统 — gdd 表主要影响轴的备注）。侠 Δ 全选项统一 EVENT.XIA_POINT_PER_CHOICE=3（值一元化 + gdd 侠线可行性算式的前提）"
+    note: "卡 11/12 选项设 mayFatigue 标记（gdd 疲劳概率 ≤20% = config EVENT.FATIGUE_CHANCE=0.2；roll 与 fatigue 施加接线属 S-18 acceptance）。卡 15 的伙计实力轴以结果文案表现（属性增减机制不存在，不越权自创系统 — gdd 表主要影响轴的备注）。侠 Δ 全选项统一 EVENT.XIA_POINT_PER_CHOICE=3（值一元化 + gdd 侠线可行性算式的前提）。CR-CODE iter1: 卡 12 选项 1 结果文案改为纯风味（不暗示不存在的伙计收益）、幅度模板境界集中为 config EVENT.SILVER_DELTA_*/REPUTATION_DELTA_*/XIA_POINT_MAX（测试参照）— 详 state/reviews/s-17.md。未处理 finding 2 件: 卡 10 标题「字序不一致」经逐字节比对不成立（gdd/zhTable 两侧均为「婚礼包席」完全一致）；卡 15 伙计实力轴未建模为已记录的合理裁定（本 note 第 2 句）"
 
   - id: S-18
     title: "三属性日间效果与疲劳"
