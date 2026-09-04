@@ -187,7 +187,7 @@ stories:
     pillar: P-02
     assignee: gameplay-engineer
     phase: build
-    status: todo
+    status: in-progress
     acceptance: "第 20 日夜「迎战」→3 回合自动战力对撞（playerPower/3×(1±BATTLE_VARIANCE) vs ENEMY_POWER/3×(1±0.15)、先取 2 胜）; 「雇镖师援助」（−BATTLE_AID_COST=100 两/+8）可用且银子不足时禁用; 战败后 ResultScene「重试当日」恢复第 20 日夜开战前快照（银子/声望/侠点/伙计状态一致）; 战胜进入结局判定"
   - id: S-20
     title: "结局判定系统"
