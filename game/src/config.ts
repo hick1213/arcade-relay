@@ -670,6 +670,9 @@ export const ECONOMY = {
 export const EVENT = {
   /** 侠系事件选项的侠点（卡数据表の侠 Δ は本定数を参照 — 値の一元化） */
   XIA_POINT_PER_CHOICE: 3,
+  /** 事件卡导致的伙计疲劳概率（gdd「事件卡」テンプレート: 疲劳概率 ≤20%。
+   * roll 与施加は S-18 接线 — 卡数据表の mayFatigue 标记と対で使う） */
+  FATIGUE_CHANCE: 0.2,
 } as const;
 
 // ==== i18n（S-11 systems/i18n。缺 key 回落中文 — DEFAULT_LANGUAGE はその回落先も兼ねる）====

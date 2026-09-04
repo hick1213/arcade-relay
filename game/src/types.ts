@@ -295,6 +295,9 @@ export interface EventCardOptionData {
   readonly xiaDelta: number;
   /** 适配志向（この志向开局时、正の Δ に AMBITION_BIAS 偏移 — gdd「事件卡系统」） */
   readonly favoredAmbition: AmbitionId | null;
+  /** 疲劳标记（gdd「事件卡」テンプレート: 伙计疲劳 — 该选项的结果可令伙计疲劳。
+   * 概率 roll 与 fatigue: true 的施加（次日耗时 ×FATIGUE_PENALTY）は S-18 接线） */
+  readonly mayFatigue?: boolean;
 }
 
 export interface EventCardData {

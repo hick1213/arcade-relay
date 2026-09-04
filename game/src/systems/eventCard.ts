@@ -8,20 +8,22 @@ import { AMBITION } from '../config';
 import type { RunState } from '../types';
 import { EVENT_CARD_POOL } from './eventCardData';
 
-/** 夜间「翻卡」→ 池から 1 枚抽選（弃牌堆を除く。全弃时は弃牌堆をリセット — 保底路径） */
+/** 夜间「翻卡」→ 池から 1 枚抽選（弃牌堆を除く。弃牌堆が尽きた時点で重洗 —
+ * gdd「事件卡系统」。重洗後は弃牌堆を今回の 1 枚だけて再構成 — S-23 快照の対象も最小に保つ） */
 export function drawCard(run: RunState): RunState {
   if (run.phase !== 'night' || run.nightStage !== 'summary') {
     return run;
   }
   const remaining = EVENT_CARD_POOL.filter((card) => !run.discardedCardIds.includes(card.id));
-  const pool = remaining.length > 0 ? remaining : EVENT_CARD_POOL;
-  // pool は常に 1 枚以上（空 pool は EVENT_CARD_POOL に置換済み）
+  const reshuffled = remaining.length === 0;
+  // pool は常に 1 枚以上（重洗時は全池に戻す。EVENT_CARD_POOL は定数て非空）
+  const pool = reshuffled ? EVENT_CARD_POOL : remaining;
   const card = pool[Math.floor(Math.random() * pool.length)] as (typeof pool)[number];
   return {
     ...run,
     nightStage: 'card',
     drawnCard: { cardId: card.id, chosenIndex: null, resultTextKey: null },
-    discardedCardIds: [...run.discardedCardIds, card.id],
+    discardedCardIds: reshuffled ? [card.id] : [...run.discardedCardIds, card.id],
   };
 }
 
