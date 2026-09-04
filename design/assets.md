@@ -132,6 +132,13 @@ BGM 共通 style block（机械前置）:
 - **时长偏差**: 规格 72s/48s 为生成时长意图；交付为 92 BPM×27 小节=70.43s、132 BPM×26 小节=47.27s（循环长度必须落在整数小节。占位资产反正须替换，付费生成时以 `composition_plan` 精确指定 72000/48000ms）
 - **未解决事项（Checkpoint 必须展示）**: BGM-01/02 为 must-replace 占位（音色为 chip 音源近似，非古筝/笛子实录质感）。解锁条件: ElevenLabs 付费计划（Music API 需 Starter 以上）后以 composition_plan＋seed 920301 重生成，SFX 批次的生成日志已包含所需的完整请求 schema
 
+### 生成实绩（Phase 3、S-31 BGM 再重试、2026-09-04T06:50Z）
+
+- **Primary 再实测第三次确认 402（确定性 paywall）**: `POST /v1/music/detailed`（完整 composition_plan＋seed 920301，5s 退避重试 ×2）→ 402 `paid_plan_required` ×2、`POST /v1/music`（simple＋force_instrumental）→ 402、subscription 200 实测 tier 仍 free。三次批次（2026-09-03T15:37Z / 2026-09-04T00:25Z / 本次）结果一致 — 非瞬时故障，free 计划不含 Music API
+- **fallback 全段尝试确认**: local:stable-audio-open-small 本机未安装（CLI/python 包均无）→ local:jsfxr-ambient（现占位）维持。无新产物、$0 成本
+- **现交付物复检 PASS（fresh 实测，非沿用旧值）**: 响度 BGM-01 **-15.4 LUFS** / BGM-02 **-16.1 LUFS**（±1 内）；2 段拼接接缝扫描 — BGM-01 接缝 RMS 阶差 7.34dB ＜ 全曲攻击阶差 p95 10.5dB、BGM-02 0.48dB ＜ 3.51dB → 循环验证合格。交付格式 OGG 133.1kbps（规格 128–160 内）＋ M4A 双格式存在。文件与 sha256 未变、MANIFEST BGM 行已追加本次履历
+- **结论**: S-31 验收条件中「ElevenLabs 生成」一项因 API paywall 不可达成（未解决事项维持 — 解锁条件: ElevenLabs Starter 以上付费计划后用 `game/assets/tools/eleven-music-requests/` 的已验证请求体直接重生成）。其余条件（循环验证 PASS / loudnorm ±1 / OGG＋M4A / MANIFEST 行齐备）现占位资产全部满足
+
 ### 生成实绩（Phase 3、S-31 BGM 重试、2026-09-04T00:25:50Z）
 
 - **S-31（[BGM] BGM-01/02 生成与循环验证）执行结果: Primary 再实测仍 402，占位交付维持**。退避 5s 重试后 `POST /v1/music/detailed`（完整 composition_plan＋seed 920301）再 402、`POST /v1/music`（simple＋force_instrumental）再 402、subscription 200 实测 tier 仍 free — 402 为确定性计划限制，非瞬时故障。fallback 全段再确认: local:stable-audio-open-small 未安装 → local:jsfxr-ambient（现占位，循环验证已 PASS）— 无新产物，sha256 未变
