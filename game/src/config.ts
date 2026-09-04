@@ -1007,6 +1007,12 @@ export const AUDIO = {
   },
   /** SFX 实效输出上限（sfx_volume × volumeScale 的 clamp 值 — >1 会 clip） */
   SFX_VOLUME_MAX: 1,
+  /**
+   * 成就达成反馈 SFX（SFX-05 achievement 变调）的延迟 ms — 仅失败终结路径使用:
+   * 破产（ResultScene 的 sfxFailLeave）与终战败→Menu 迁移瞬间与场景演出音重叠、
+   * 不协和/被掩盖 → 延迟到失败演出之后再生（CR-CODE iter1 finding 3）。
+   */
+  ACHIEVEMENT_FEEDBACK_DELAY_MS: 700,
 } as const;
 
 /** SFX 复用变调变体 id（config.AUDIO.SFX_VARIANTS 的键 — 变体追加只动上面的表） */

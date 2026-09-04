@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { ASSET_KEYS, RESULT_FALLBACK_SUMMARY } from '../config';
+import { ASSET_KEYS, AUDIO, RESULT_FALLBACK_SUMMARY } from '../config';
 import { InputRouter } from '../systems/input/InputRouter';
 import { createTextProvider } from '../systems/i18n';
 import { loadSaveData, saveSaveData } from '../persistence/SaveAdapter';
@@ -92,11 +92,21 @@ export class ResultScene extends Phaser.Scene {
     }
     const loaded = loadSaveData();
     const updated = applyRunResult(loaded.data, createRunResult(summary));
-    saveSaveData(updated);
+    // QuotaExceededError 等の書込失敗でも Menu 迁移（onToMenu の scene.start）は止めない
+    // （error ログで可視化のみ — CR-CODE iter1 finding 2）
+    try {
+      saveSaveData(updated);
+    } catch (error) {
+      console.error(`[SaveWriteFailed] abandonFinalBattleLoss detail=${String(error)}`);
+    }
     // 成就达成反馈（S-21）: 终战败路径でも ACH-05/06 は成立し得る（结局不依存の判定式）。
-    // 新达成があれば SFX-05 升调变体で 1 回再生（Menu「成就」面板の达成标记 = 常时表示）
+    // 新达成があれば SFX-05 升调变体で 1 回再生（Menu「成就」面板の达成标记 = 常时表示）。
+    // Menu 迁移の瞬间の再生は场景切替演出と重なるため遅延再生（CR-CODE iter1 finding 3）
     if (diffAchievements(loaded.data.achievements, updated.achievements).length > 0) {
-      audioDirector.playSfx(ASSET_KEYS.audio.sfxCoinCollect, 'achievement');
+      window.setTimeout(
+        () => audioDirector.playSfx(ASSET_KEYS.audio.sfxCoinCollect, 'achievement'),
+        AUDIO.ACHIEVEMENT_FEEDBACK_DELAY_MS,
+      );
     }
   }
 }

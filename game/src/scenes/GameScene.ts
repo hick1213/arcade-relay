@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { ASSET_KEYS } from '../config';
+import { ASSET_KEYS, AUDIO } from '../config';
 import { InputRouter } from '../systems/input/InputRouter';
 import { advanceRun, createBattleRetryRun, createInitialRun, handleTapEvent } from '../systems/runEngine';
 import { TAP_EVENTS, type FinalBattleSnapshot, type HudState, type RunEndSummary, type RunState, type TapEventName, type TapHit, type TextProvider } from '../types';
@@ -209,11 +209,26 @@ export class GameScene extends Phaser.Scene {
     this.runResultPersisted = true;
     const loaded = loadSaveData();
     const updated = applyRunResult(loaded.data, createRunResult(summary));
-    saveSaveData(updated);
+    // QuotaExceededError 等の書込失敗でも Result 迁移は止めない（プレイヤーが GameScene に
+    // 取り残される回避 — error ログで可視化のみ。CR-CODE iter1 finding 2）
+    try {
+      saveSaveData(updated);
+    } catch (error) {
+      console.error(`[SaveWriteFailed] persistRunResult kind=${summary.kind} detail=${String(error)}`);
+    }
     // 成就达成反馈（S-21）: 新达成があれば SFX-05 升调变体で 1 回再生
-    // （Menu「成就」面板の达成标记 = 已存の常时表示。ここは达成瞬间の可感知反馈）
+    // （Menu「成就」面板の达成标记 = 已存の常时表示。ここは达成瞬间の可感知反馈）。
+    // 破产败局では ResultScene.create の失败演出音（sfxFailLeave）と同刻重なるため
+    // 失败演出の後に遅延再生（CR-CODE iter1 finding 3）
     if (diffAchievements(loaded.data.achievements, updated.achievements).length > 0) {
-      audioDirector.playSfx(ASSET_KEYS.audio.sfxCoinCollect, 'achievement');
+      if (summary.kind === 'bankruptcy') {
+        window.setTimeout(
+          () => audioDirector.playSfx(ASSET_KEYS.audio.sfxCoinCollect, 'achievement'),
+          AUDIO.ACHIEVEMENT_FEEDBACK_DELAY_MS,
+        );
+      } else {
+        audioDirector.playSfx(ASSET_KEYS.audio.sfxCoinCollect, 'achievement');
+      }
     }
   }
 }

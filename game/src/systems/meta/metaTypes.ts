@@ -8,8 +8,12 @@
  * - 字段名与 gdd「存档数据方针」表一一对应。
  */
 
-// ==== 枚举（id 一览的唯一来源 = config.META_SAVE — 调整只动 config）====
-export type AchievementId = 'ACH-01' | 'ACH-02' | 'ACH-03' | 'ACH-04' | 'ACH-05' | 'ACH-06';
+import type { META_SAVE } from '../../config';
+
+// ==== 枚举（id 一览的唯一来源 = config.META_SAVE — 调整只动 config。
+// 联合类型由 config 数组编译时派生 → 列表与类型的两源偏差不可能发生
+//（漏记/误记 id 即编译错误 — CR-CODE iter1 finding 1）====
+export type AchievementId = (typeof META_SAVE.ACHIEVEMENT_IDS)[number];
 export type UnlockId = 'UNL-01' | 'UNL-02';
 export type LanguageCode = 'zh' | 'en' | 'ja' | 'ko' | 'th';
 
