@@ -145,7 +145,7 @@ export class ResultPanel {
 
     const panel = scene.add.image(centerX, centerY, ASSET_KEYS.uiPlaceholder.resultPanel);
     const title = scene.add
-      .text(centerX, centerY + RESULT.TITLE_OFFSET_Y, textProvider(this.titleKey(summary)), this.titleStyle())
+      .text(centerX, centerY + RESULT.TITLE_OFFSET_Y, this.titleText(summary, textProvider), this.titleStyle())
       .setOrigin(0.5);
     const body = this.createBodyText(summary, textProvider, centerX, centerY);
 
@@ -262,6 +262,16 @@ export class ResultPanel {
           ? ENDING_PRESENTATION[summary.ending].titleKey
           : RESULT_TEXT_KEYS.RESULT_TITLE_COMPLETE;
     }
+  }
+
+  /** 标题文（S-20: 险成标注 — 三线达成度全部 < ACHIEVED_THRESHOLD の周目完成は
+   *  结局标题に「（险成）」後置を結合。判定真值は Systems 層 RunEndSummary.closeCall —
+   *  UI は表示のみ。败局标题は対象外） */
+  private titleText(summary: RunEndSummary, textProvider: TextProvider): string {
+    const base = textProvider(this.titleKey(summary));
+    return summary.kind === 'runComplete' && summary.closeCall === true
+      ? `${base}${textProvider(RESULT_TEXT_KEYS.RESULT_CLOSE_CALL)}`
+      : base;
   }
 
   /** 结局文/败局文（标题下 1〜2 行。**下端锚定**（BODY_OFFSET_Y = 下端）— 多行换行でも上へ

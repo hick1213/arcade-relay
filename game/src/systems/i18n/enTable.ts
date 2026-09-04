@@ -44,6 +44,7 @@ export const EN_TABLE: Readonly<Record<string, string>> = {
   [RESULT_TEXT_KEYS.RESULT_ENDING_FAME_TITLE]: 'Renown Shakes the Realm',
   [RESULT_TEXT_KEYS.RESULT_ENDING_FAME_BODY]: 'Every table is taken — the name of the inn is on every lip.',
   [RESULT_TEXT_KEYS.RESULT_NEW_RECORD]: '★ New Record',
+  [RESULT_TEXT_KEYS.RESULT_CLOSE_CALL]: ' (Close Call)',
   // Title (S-12)
   [TITLE_TEXT_KEYS.TITLE_GAME_TITLE]: 'Jianghu Ke Man',
   [TITLE_TEXT_KEYS.TITLE_START_PROMPT]: 'Tap to Start',

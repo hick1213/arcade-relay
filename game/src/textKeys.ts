@@ -199,6 +199,8 @@ export const RESULT_TEXT_KEYS = {
   RESULT_ENDING_FAME_TITLE: 'result.ending.fame.title',
   RESULT_ENDING_FAME_BODY: 'result.ending.fame.body',
   RESULT_NEW_RECORD: 'result.newRecord',
+  // ==== S-20: 结局判定（险成标注 — RunEndSummary.closeCall 时に结局标题へ後置結合）====
+  RESULT_CLOSE_CALL: 'result.ending.closeCall',
 } as const;
 
 /** 玩家可见文本 key（Title 场景 — S-12） */

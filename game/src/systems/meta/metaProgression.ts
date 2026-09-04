@@ -36,15 +36,16 @@ export const computeRunScore = (result: RunResult): number =>
       result.endingBonus,
   );
 
-/** RunEndSummary（Systems 层 buildRunEndSummary 的产物）→ RunResult（结局/统计源接线前） */
+/** RunEndSummary（Systems 层 buildRunEndSummary 的产物）→ RunResult（结局/统计源） */
 export const createRunResult = (summary: RunEndSummary): RunResult => ({
   kind: summary.kind,
   silver: summary.silver,
   reputation: summary.reputation,
   staffPower: summary.staffPower,
   endingBonus: summary.endingBonus,
-  // 结局判定（S-20）接线前 prototype 无结局 — endings_seen 不置位（判断事項）
-  ending: null,
+  // S-20 结局判定接线済み: runComplete 时は buildRunEndSummary が ending を填める
+  // （applyRunResult が endings_seen を置位 — gdd「统计」表。败局は null）
+  ending: summary.ending ?? null,
 });
 
 /** endings_seen 的下标（config.META_SAVE.ENDING_INDEX — 调整只动 config） */

@@ -45,6 +45,7 @@ export const ZH_TABLE: Readonly<Record<string, string>> = {
   [RESULT_TEXT_KEYS.RESULT_ENDING_FAME_TITLE]: '名动天下',
   [RESULT_TEXT_KEYS.RESULT_ENDING_FAME_BODY]: '一桌难求，名号传遍四方，江湖客满于此。',
   [RESULT_TEXT_KEYS.RESULT_NEW_RECORD]: '★ 新纪录',
+  [RESULT_TEXT_KEYS.RESULT_CLOSE_CALL]: '（险成）',
   // Title（S-12）
   [TITLE_TEXT_KEYS.TITLE_GAME_TITLE]: '江湖客满',
   [TITLE_TEXT_KEYS.TITLE_START_PROMPT]: '点击开始',

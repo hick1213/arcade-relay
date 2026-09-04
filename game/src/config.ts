@@ -268,6 +268,23 @@ export const SCORE = {
   WEIGHT_POWER: 20,
 } as const;
 
+// ==== 结局判定（S-20。出处: gdd「胜负条件」终战胜利 + 「数值表」SILVER_GOAL/XIA_GOAL/REP_GOAL/
+// ENDING_CAP。达成度 = min(值/目标, CAP) — **封顶仅施加于财/名**、侠点无被动来源不封顶）====
+export const ENDING = {
+  /** 财线达成目标（silverEnd 两） */
+  SILVER_GOAL: 300,
+  /** 侠线达成目标（侠点） */
+  XIA_GOAL: 32,
+  /** 名线达成目标（repEnd） */
+  REP_GOAL: 80,
+  /** 单线达成度封顶（仅财/名。总评分使用未封顶原值 — 封顶不作用于分数） */
+  CAP: 1.2,
+  /** 「险成」判定线（三线とも达成度 < 此值时仍取最高并标注 — gdd「胜负条件」） */
+  ACHIEVED_THRESHOLD: 1.0,
+  /** 结局加成（财/侠/名结局同权 200 — gdd「分数与进度」。分差来自三线数值本身 = P-03 数值如实兑现） */
+  BONUS: 200,
+} as const;
+
 // ==== Result 场景（S-15: ResultScene 与场景循环闭合 — ui-engineer。布局由 GAME_WIDTH/HEIGHT
 // 基准分辨率推导，Scale.FIT 下不错位。配色复用 art-bible 调色板的 UI.PANEL_* / HUD_* 常量）====
 export const RESULT = {

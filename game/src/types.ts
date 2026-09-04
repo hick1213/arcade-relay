@@ -141,6 +141,12 @@ export interface RunEndSummary {
    */
   readonly ending?: AmbitionId | null;
   /**
+   * 险成标记（S-20）: 三线达成度すべて < ENDING.ACHIEVED_THRESHOLD の周目完成。
+   * 结局は达成度最高线のまま取るが、Result 标题に「（险成）」を标注する
+   * （runComplete＋结局确定时のみ付与 — 败局は省略）。
+   */
+  readonly closeCall?: boolean;
+  /**
    * persist 直前の best_score（S-25 新纪录标记の判定基準。GameScene.goToResult が
    * applyRunResult 適用前に取得して付与 — finalBattleLoss は persist 不発のため未更新値）。
    */

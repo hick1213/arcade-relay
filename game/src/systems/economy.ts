@@ -2,7 +2,8 @@
  * economy — 经济系统（S-08。gdd「经济系统」: 银子/声望加算、夜间工钱、破产判定）。
  * 纯函数・Phaser 非依赖。
  */
-import { ECONOMY, RESULT } from '../config';
+import { ENDING, ECONOMY, RESULT } from '../config';
+import { judgeEnding } from './ending';
 import type { RunEndKind, RunEndSummary, RunState } from '../types';
 
 export function applyDeltas(run: RunState, silverDelta: number, reputationDelta: number): RunState {
@@ -34,13 +35,33 @@ export function staffPowerTotal(run: RunState): number {
   return run.staff.reduce((sum, member) => sum + member.speed + member.craft + member.stamina, 0);
 }
 
-/** 周目终结摘要（ResultScene 迁移载荷。endingBonus は S-20 结局判定接线まで占位 0） */
+/**
+ * 周目终结摘要（ResultScene 迁移载荷）。
+ * - runComplete: S-20 结局判定（judgeEnding — 达成度 argmax、封顶同值は志向决胜）→
+ *   ending と endingBonus（ENDING.BONUS）と closeCall（险成标注）を填める。
+ * - 败局（破产/终战败）: 结局判定は行わない — ending なし・endingBonus 0
+ *   （RESULT.ENDING_BONUS_PLACEHOLDER。评分公式の结局加成項が 0 になる）。
+ * - 总评分は**未封顶原值**（silver/reputation はそのまま — CAP は结局判定にのみ作用 — gdd「分数与进度」）。
+ */
 export function buildRunEndSummary(run: RunState, kind: RunEndKind): RunEndSummary {
+  if (kind !== 'runComplete') {
+    return {
+      kind,
+      silver: run.silver,
+      reputation: run.reputation,
+      staffPower: staffPowerTotal(run),
+      endingBonus: RESULT.ENDING_BONUS_PLACEHOLDER,
+      ending: null,
+    };
+  }
+  const judgment = judgeEnding(run.silver, run.xiaPoints, run.reputation, run.ambition);
   return {
     kind,
     silver: run.silver,
     reputation: run.reputation,
     staffPower: staffPowerTotal(run),
-    endingBonus: RESULT.ENDING_BONUS_PLACEHOLDER,
+    endingBonus: ENDING.BONUS,
+    ending: judgment.ending,
+    closeCall: judgment.closeCall,
   };
 }
