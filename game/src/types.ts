@@ -145,6 +145,11 @@ export interface RunEndSummary {
    * applyRunResult 適用前に取得して付与 — finalBattleLoss は persist 不発のため未更新値）。
    */
   readonly bestScoreBefore?: number;
+  /**
+   * 第 20 日夜開戦前快照（S-19 重试当日の恢复源。finalBattleLoss 时のみ遷移方が付与 —
+   * ResultScene の「重试当日」→ GameScene へ scene data で返す。他 kind は null）。
+   */
+  readonly preBattleSnapshot?: FinalBattleSnapshot | null;
 }
 
 // ==== 元进度存档（gdd「元进度（游戏外）」「存档数据方针」节）====
@@ -278,7 +283,42 @@ export interface DaySummary {
   readonly wage: number;
 }
 
-export type NightStage = 'summary' | 'card' | 'result';
+/** 夜间小阶段（summary→card→result→翌晨。'battle' = 第 20 日夜の終戦開戦前選択 — S-19） */
+export type NightStage = 'summary' | 'card' | 'result' | 'battle';
+
+// ==== 终战（S-19 finalBattle。gdd「胜负条件」: 第 20 日夜 3 回合自动战力对撞）====
+
+/** 单回合の对撞结果（roll 值 = 该侧战力/3 ×(1±BATTLE_VARIANCE) 的实际抽样值。UI 不再表示） */
+export interface BattleRoundResult {
+  readonly round: number;
+  readonly playerRoll: number;
+  readonly enemyRoll: number;
+  readonly outcome: 'playerWin' | 'enemyWin';
+}
+
+/**
+ * 第 20 日夜開戦前快照（gdd「重新开始」: 银子/声望/侠点/伙计状态（岗位・疲劳込み）＋志向）。
+ * 终战败「重试当日」で runEngine.createBattleRetryRun が復帰に使う。
+ */
+export interface FinalBattleSnapshot {
+  readonly ambition: AmbitionId;
+  readonly silver: number;
+  readonly reputation: number;
+  readonly xiaPoints: number;
+  readonly staff: readonly StaffMember[];
+}
+
+/**
+ * 终战状态（RunState.finalBattle。nightStage='battle' 期间に持有）。
+ * 战力は状態に持たない（二重管理禁止）— staffPowerTotal(run) ＋援助加成を都度导出
+ * （systems/finalBattle.playerPowerOf）。enemyPower も config.ENEMY_POWER が权威。
+ */
+export interface FinalBattleState {
+  readonly status: 'prelude' | 'won' | 'lost';
+  readonly aidHired: boolean;
+  readonly rounds: readonly BattleRoundResult[];
+  readonly preSnapshot: FinalBattleSnapshot;
+}
 
 export interface DrawnEventCard {
   readonly cardId: number;
@@ -332,5 +372,7 @@ export interface RunState {
   readonly nightFatigueIds: readonly string[];
   readonly customerSeq: number;
   readonly finalBattleNight: boolean;
+  /** 终战状态（第 20 日夜「迎战」以降。それ以前は null — S-19） */
+  readonly finalBattle: FinalBattleState | null;
   readonly ended: RunEndSummary | null;
 }
