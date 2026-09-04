@@ -5,6 +5,7 @@
  */
 import { KITCHEN, MS_PER_SECOND } from '../config';
 import type { KitchenState, RunState } from '../types';
+import { craftReduction } from './dayEffects';
 
 export function emptyKitchen(): KitchenState {
   return { tickets: [], ready: [] };
@@ -41,9 +42,9 @@ export function dishPrice(dishId: number): number {
   );
 }
 
-/** DISH_PREP(n) = BASE + (n−1)×STEP、掌勺手艺で短缩（CRAFT_CAP clamp） */
+/** DISH_PREP(n) = BASE + (n−1)×STEP、掌勺手艺で短缩（短缩率は craftReduction — CRAFT_CAP 封顶） */
 export function prepTimeMs(dishId: number, craft: number): number {
-  const reduction = Math.min(KITCHEN.CRAFT_CAP, KITCHEN.CRAFT_FACTOR * craft);
+  const reduction = craftReduction(craft);
   const seconds = KITCHEN.PREP_BASE_S + (dishId - 1) * KITCHEN.PREP_STEP_S;
   return seconds * (1 - reduction) * MS_PER_SECOND;
 }

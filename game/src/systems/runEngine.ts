@@ -36,6 +36,7 @@ function createRunForPack(pack: AmbitionPack): RunState {
     nightStage: 'summary',
     drawnCard: null,
     discardedCardIds: [],
+    nightFatigueIds: [],
     customerSeq: 0,
     finalBattleNight: false,
     ended: null,

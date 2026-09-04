@@ -4,7 +4,7 @@
  * 适配志向の选项は正の Δ に AMBITION_BIAS 偏移（gdd「数值表」AMBITION_BIAS）。
  * 纯函数・Phaser 非依赖。
  */
-import { AMBITION } from '../config';
+import { AMBITION, EVENT } from '../config';
 import type { RunState } from '../types';
 import { EVENT_CARD_POOL } from './eventCardData';
 
@@ -27,6 +27,32 @@ export function drawCard(run: RunState): RunState {
   };
 }
 
+/**
+ * 事件卡の疲劳適用（S-18。gdd「事件卡」テンプレート: 疲劳概率 ≤20% = EVENT.FATIGUE_CHANCE）。
+ * mayFatigue 选项が選ばれた夜に roll（roll < FATIGUE_CHANCE で成立）し、指定伙计 1 名に
+ * 疲劳を标记する。適用は「翌日の晨间以降の动作耗时」に効く（run.nightFatigueIds に記録し、
+ * daybreak が本夜の適用分のみ翌日に持ち越して前日分を回復 — 次日生效）。
+ * roll と対象選択は呼出側（chooseOption — Math.random）から注入する纯函数（单测は決定的に検証）。
+ */
+export function applyEventFatigue(run: RunState, roll: number, targetIndex: number): RunState {
+  if (roll >= EVENT.FATIGUE_CHANCE) {
+    return run;
+  }
+  const target = run.staff[targetIndex];
+  if (target === undefined) {
+    return run;
+  }
+  return {
+    ...run,
+    staff: run.staff.map((member) =>
+      member.id === target.id ? { ...member, fatigue: true } : member,
+    ),
+    nightFatigueIds: run.nightFatigueIds.includes(target.id)
+      ? run.nightFatigueIds
+      : [...run.nightFatigueIds, target.id],
+  };
+}
+
 /** 点击事件卡选项 → Δ 执行（结果反馈を読むまで「天明」は出ない — nightStage='result'） */
 export function chooseOption(run: RunState, optionIndex: number): RunState {
   if (run.drawnCard === null || run.drawnCard.chosenIndex !== null) {
@@ -39,11 +65,23 @@ export function chooseOption(run: RunState, optionIndex: number): RunState {
   }
   const bias = option.favoredAmbition === run.ambition ? 1 + AMBITION.BIAS : 1;
   const biased = (delta: number): number => (delta > 0 ? Math.round(delta * bias) : delta);
-  return {
+  const withDelta = {
     ...run,
     silver: run.silver + biased(option.silverDelta),
     reputation: run.reputation + biased(option.reputationDelta),
     xiaPoints: run.xiaPoints + biased(option.xiaDelta),
+  };
+  // 疲劳 roll は mayFatigue 选项のみ（S-17 卡数据表の标记と対 — gdd 疲劳概率 ≤20%）
+  const applied =
+    option.mayFatigue === true
+      ? applyEventFatigue(
+          withDelta,
+          Math.random(),
+          Math.floor(Math.random() * run.staff.length),
+        )
+      : withDelta;
+  return {
+    ...applied,
     nightStage: 'result',
     drawnCard: { ...run.drawnCard, chosenIndex: optionIndex, resultTextKey: option.resultTextKey },
   };

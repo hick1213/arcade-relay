@@ -28,6 +28,7 @@ import type {
   WaiterActionKind,
 } from '../types';
 import { applyDeltas } from './economy';
+import { fatigueMultiplier, speedMultiplier } from './dayEffects';
 import {
   advanceKitchen,
   availableDishKinds,
@@ -188,13 +189,9 @@ function totalDishesFor(customer: CustomerState): number {
 
 // ==== 耗时算式（S-07: 速度属性の可见差分 + gdd「三属性的日间效果」の体力/疲劳）====
 
-/** 动作耗时 ×(1 − SPEED_FACTOR×速度)、疲劳时 ×体力减免后の倍率 */
+/** 动作耗时 ×速度倍率（speedMultiplier）、疲劳时 ×体力减免后の倍率（fatigueMultiplier — S-18） */
 function actionDurationMs(baseSeconds: number, member: StaffMember): number {
-  const speedFactor = Math.max(STAFF.ACTION_FACTOR_MIN, 1 - STAFF.SPEED_FACTOR * member.speed);
-  const fatigueFactor = member.fatigue
-    ? 1 + (STAFF.FATIGUE_PENALTY - 1) * (1 - STAFF.STAMINA_RESIST * member.stamina)
-    : 1;
-  return baseSeconds * speedFactor * fatigueFactor * MS_PER_SECOND;
+  return baseSeconds * speedMultiplier(member.speed) * fatigueMultiplier(member.stamina, member.fatigue) * MS_PER_SECOND;
 }
 
 function moveDurationMs(from: Point, to: Point): number {

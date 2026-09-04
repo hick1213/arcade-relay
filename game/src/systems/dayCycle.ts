@@ -58,7 +58,14 @@ export function daybreak(run: RunState): RunState {
     daySummary: { income: 0, reputationNet: 0, served: 0, failed: 0, wage: 0 },
     nightStage: 'summary',
     drawnCard: null,
-    staff: run.staff.map((member) => ({ ...member, post: 'standby' as const })),
+    // 疲劳は「次日生效」（S-18）: 当夜の事件卡適用分（nightFatigueIds）のみ翌日に残り、
+    // 前日から持ち越りの疲劳はここで回復する
+    staff: run.staff.map((member) => ({
+      ...member,
+      post: 'standby' as const,
+      fatigue: run.nightFatigueIds.includes(member.id),
+    })),
+    nightFatigueIds: [],
     finalBattleNight: isFinalBattleNight(run.day + 1),
   };
 }
