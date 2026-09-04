@@ -3,7 +3,9 @@
  *
  * - 客人到達（阶段间隔常量）→入座→点单气泡→点击派空闲跑堂点单→后厨制菜→出餐口→
  *   点击派跑堂上菜→吃完→银两气泡→点击收钱（有掌柜时自动）。
- * - 收入 = round(菜价 ×(1＋剩余耐心比例 ×TIP_FACTOR))。耐心归零=离店・声望 −2。
+ * - 客人类型（S-16）: 散客（全日）/镖师（第 4 日起・点 2 菜・耐心 ×1.3・離店 −3）/
+ *   老饕（第 7 日起・高级菜 4〜6・耐心 ×0.8・離店 −4・服务 +2・菜种 <4 で不生成）。
+ * - 收入 = round(菜价合计 ×(1＋剩余耐心比例 ×TIP_FACTOR))。耐心归零=离店・声望惩罚は类型別。
  * - 伙计の移动・动作は全部 delta 驱动（remainingMs 累计）且同一伙计は同時に 1 动作。
  * - 立绘は占位色块（S-06 acceptance）。
  * - 纯函数・Phaser 非依赖（画面座標は config.GAME_LAYOUT の定数のみ参照）。
@@ -17,6 +19,7 @@ import {
 } from '../config';
 import type {
   CustomerState,
+  CustomerTypeId,
   Point,
   RunState,
   StaffMember,
@@ -60,6 +63,112 @@ export function basePatienceSecondsForDay(day: number): number {
     return CUSTOMER.PATIENCE_D10_15_S;
   }
   return CUSTOMER.PATIENCE_D16_20_S;
+}
+
+// ==== 客人类型（S-16。gdd「敌人与障碍物」: 散客/镖师/老饕）====
+
+/** 镖师の到達抽選权重（第 4 日起、权重渐增 — 段階常量は config） */
+export function escortWeightForDay(day: number): number {
+  if (day < CUSTOMER.ESCORT_FIRST_DAY) {
+    return 0;
+  }
+  if (day <= 9) {
+    return CUSTOMER.ESCORT_WEIGHT_D4_9;
+  }
+  if (day <= 15) {
+    return CUSTOMER.ESCORT_WEIGHT_D10_15;
+  }
+  return CUSTOMER.ESCORT_WEIGHT_D16_20;
+}
+
+/** 老饕の到達抽選权重（第 7 日起、权重渐增 — 段階常量は config） */
+export function gourmetWeightForDay(day: number): number {
+  if (day < CUSTOMER.GOURMET_FIRST_DAY) {
+    return 0;
+  }
+  if (day <= 9) {
+    return CUSTOMER.GOURMET_WEIGHT_D7_9;
+  }
+  if (day <= 15) {
+    return CUSTOMER.GOURMET_WEIGHT_D10_15;
+  }
+  return CUSTOMER.GOURMET_WEIGHT_D16_20;
+}
+
+/**
+ * 到達 1 回ごとの类型抽選。老饕は当日可选菜种 < GOURMET_MIN_DISH_KINDS で
+ * 不生成 → 散客で代替（等待下一名普通客人、不占用到达间隔 — gdd「敌人与障碍物」）。
+ */
+export function rollCustomerType(run: RunState): CustomerTypeId {
+  if (Math.random() < escortWeightForDay(run.day)) {
+    return 'escort';
+  }
+  if (Math.random() < gourmetWeightForDay(run.day)) {
+    if (availableDishKinds(run) >= CUSTOMER.GOURMET_MIN_DISH_KINDS) {
+      return 'gourmet';
+    }
+  }
+  return 'regular';
+}
+
+/** 类型ごとの耐心修正（基礎耐心 × 类型倍率 − 無采购惩罚 — gdd「难度曲线」注记） */
+function maxPatienceMsFor(run: RunState, typeId: CustomerTypeId): number {
+  const factor =
+    typeId === 'escort'
+      ? CUSTOMER.PATIENCE_FACTOR_ESCORT
+      : typeId === 'gourmet'
+        ? CUSTOMER.PATIENCE_FACTOR_GOURMET
+        : 1;
+  const penaltyS = purchaserCount(run) === 0 ? CUSTOMER.NO_PURCHASE_PATIENCE_PENALTY_S : 0;
+  return (basePatienceSecondsForDay(run.day) * factor - penaltyS) * MS_PER_SECOND;
+}
+
+/** 菜号の抽選（1..kinds。kinds<1 の呼出は systems の生成を保証 — ガードは kitchen 側） */
+function rollDishId(kinds: number): number {
+  return 1 + Math.floor(Math.random() * kinds);
+}
+
+/** 到達客の生成（类型ごとの菜数・耐心修正を適用 — S-16） */
+function createCustomer(run: RunState, seat: number, typeId: CustomerTypeId): CustomerState {
+  const kinds = availableDishKinds(run);
+  const dishId = rollDishId(kinds);
+  const maxPatienceMs = maxPatienceMsFor(run, typeId);
+  return {
+    id: run.customerSeq + 1,
+    seat,
+    dishId,
+    typeId,
+    extraDishId:
+      typeId === 'escort' && kinds >= CUSTOMER.ESCORT_DISH_COUNT ? rollDishId(kinds) : null,
+    stage: 'awaitingOrder',
+    dishesServed: 0,
+    patienceMs: maxPatienceMs,
+    maxPatienceMs,
+    eatMs: CUSTOMER.EAT_S * MS_PER_SECOND,
+  };
+}
+
+/** 类型ごとの離店声望惩罚（散客 −2 / 镖师 −3 / 老饕 −4 — gdd「敌人与障碍物」） */
+function leavePenaltyFor(typeId: CustomerTypeId): number {
+  if (typeId === 'escort') {
+    return CUSTOMER.LEAVE_REPUTATION_PENALTY_ESCORT;
+  }
+  if (typeId === 'gourmet') {
+    return CUSTOMER.LEAVE_REPUTATION_PENALTY_GOURMET;
+  }
+  return CUSTOMER.LEAVE_REPUTATION_PENALTY;
+}
+
+/** 类型ごとの服务成功声望（散客/镖师 +1、老饕 +2 — gdd「分数与进度」） */
+function serveReputationFor(typeId: CustomerTypeId): number {
+  return typeId === 'gourmet'
+    ? CUSTOMER.SERVE_SUCCESS_REPUTATION_GOURMET
+    : CUSTOMER.SERVE_SUCCESS_REPUTATION;
+}
+
+/** 该客の菜数（镖师 = ESCORT_DISH_COUNT、他は 1） */
+function totalDishesFor(customer: CustomerState): number {
+  return customer.extraDishId === null ? 1 : CUSTOMER.ESCORT_DISH_COUNT;
 }
 
 // ==== 耗时算式（S-07: 速度属性の可见差分 + gdd「三属性的日间效果」の体力/疲劳）====
@@ -133,7 +242,7 @@ export function advanceDay(run: RunState, deltaMs: number): RunState {
   return next;
 }
 
-/** 耐心倒计时（待ちステージのみ進む）。归零で离店・声望 −2（S-06 acceptance） */
+/** 耐心倒计时（待ちステージのみ進む）。归零で离店・声望惩罚は类型別（散客 −2/镖师 −3/老饕 −4 — S-16） */
 function tickPatience(run: RunState, deltaMs: number): RunState {
   let reputationDelta = 0;
   let failed = 0;
@@ -148,7 +257,7 @@ function tickPatience(run: RunState, deltaMs: number): RunState {
       customers.push({ ...customer, patienceMs });
       continue;
     }
-    reputationDelta -= CUSTOMER.LEAVE_REPUTATION_PENALTY;
+    reputationDelta -= leavePenaltyFor(customer.typeId);
     failed += 1;
   }
   return {
@@ -163,7 +272,7 @@ function tickPatience(run: RunState, deltaMs: number): RunState {
   };
 }
 
-/** 到达计时（delta 累计）。空席があれば散客を入座させる */
+/** 到达计时（delta 累计）。空席があれば类型抽選の上で客を入座させる */
 function tryArrival(run: RunState, deltaMs: number): RunState {
   if (run.customers.length >= CUSTOMER.SEATS) {
     return { ...run, arrivalTimerMs: 0 };
@@ -176,20 +285,7 @@ function tryArrival(run: RunState, deltaMs: number): RunState {
   if (seat === null) {
     return { ...run, arrivalTimerMs: 0 };
   }
-  const kindCount = availableDishKinds(run);
-  const dishId = 1 + Math.floor(Math.random() * kindCount);
-  const patiencePenaltyS =
-    purchaserCount(run) === 0 ? CUSTOMER.NO_PURCHASE_PATIENCE_PENALTY_S : 0;
-  const maxPatienceMs = (basePatienceSecondsForDay(run.day) - patiencePenaltyS) * MS_PER_SECOND;
-  const customer: CustomerState = {
-    id: run.customerSeq + 1,
-    seat,
-    dishId,
-    stage: 'awaitingOrder',
-    patienceMs: maxPatienceMs,
-    maxPatienceMs,
-    eatMs: CUSTOMER.EAT_S * MS_PER_SECOND,
-  };
+  const customer = createCustomer(run, seat, rollCustomerType(run));
   return {
     ...run,
     customers: [...run.customers, customer],
@@ -235,18 +331,23 @@ function autoCollectWithManager(run: RunState): RunState {
   return payable.reduce((state, customer) => collectCustomer(state, customer), run);
 }
 
-/** 收钱: 收入 = round(菜价 ×(1＋剩余耐心比例 ×TIP_FACTOR))、声望 +1（S-06 acceptance） */
+/** 收钱: 收入 = round(菜价合计 ×(1＋剩余耐心比例 ×TIP_FACTOR))、声望は类型別（老饕 +2 — S-16） */
 function collectCustomer(run: RunState, customer: CustomerState): RunState {
+  const dishesPrice =
+    customer.extraDishId === null
+      ? dishPrice(customer.dishId)
+      : dishPrice(customer.dishId) + dishPrice(customer.extraDishId);
   const patienceRatio = Math.max(0, customer.patienceMs) / customer.maxPatienceMs;
-  const income = Math.round(dishPrice(customer.dishId) * (1 + patienceRatio * CUSTOMER.TIP_FACTOR));
-  const withDeltas = applyDeltas(run, income, CUSTOMER.SERVE_SUCCESS_REPUTATION);
+  const income = Math.round(dishesPrice * (1 + patienceRatio * CUSTOMER.TIP_FACTOR));
+  const reputationGain = serveReputationFor(customer.typeId);
+  const withDeltas = applyDeltas(run, income, reputationGain);
   return {
     ...withDeltas,
     customers: withDeltas.customers.filter((candidate) => candidate.id !== customer.id),
     daySummary: {
       ...withDeltas.daySummary,
       income: withDeltas.daySummary.income + income,
-      reputationNet: withDeltas.daySummary.reputationNet + CUSTOMER.SERVE_SUCCESS_REPUTATION,
+      reputationNet: withDeltas.daySummary.reputationNet + reputationGain,
       served: withDeltas.daySummary.served + 1,
     },
   };
@@ -388,27 +489,24 @@ function completeAction(run: RunState, action: WaiterAction): RunState {
         'ordering',
       );
     case 'takingOrder': {
-      // 点单完了 → 后厨へ制菜依頼（掌勺手艺で短缩）、客人は等菜へ
-      const withPrep = {
-        ...withoutAction,
-        kitchen: startPrep(
-          withoutAction.kitchen,
-          customer.id,
-          customer.dishId,
-          headChefCraft(withoutAction),
-        ),
-      };
-      return setStage(withPrep, customer.id, 'awaitingDish');
+      // 点单完了 → 后厨へ制菜依頼（掌勺手艺で短缩）。镖师は第 2 菜も依頼（S-16）、客人は等菜へ
+      const craft = headChefCraft(withoutAction);
+      let kitchen = startPrep(withoutAction.kitchen, customer.id, customer.dishId, craft);
+      if (customer.extraDishId !== null) {
+        kitchen = startPrep(kitchen, customer.id, customer.extraDishId, craft);
+      }
+      return setStage({ ...withoutAction, kitchen }, customer.id, 'awaitingDish');
     }
     case 'moveToWindow':
       return followUp(withoutAction, action, 'serving', customer, waiter, SERVICE.SERVE_S, 'serving');
     case 'serving': {
-      // 上菜完了 → 出餐口から引き取り、客人は食べる
+      // 上菜完了 → 出餐口から 1 枚引き取り。全菜が揃うまで多菜客人（镖师）は食べない — S-16
+      const servedDish = withoutAction.kitchen.ready.find((dish) => dish.customerId === customer.id);
       const withTaken = {
         ...withoutAction,
-        kitchen: takeReadyDish(withoutAction.kitchen, customer.id),
+        kitchen: takeReadyDish(withoutAction.kitchen, customer.id, servedDish?.dishId),
       };
-      return setStage(withTaken, customer.id, 'eating');
+      return afterDishServed(withTaken, customer);
     }
     case 'moveToCollect':
       return followUp(
@@ -446,6 +544,24 @@ function followUp(
     waiterActions: [...run.waiterActions, nextAction],
     customers: run.customers.map((candidate) =>
       candidate.id === customer.id ? { ...candidate, stage } : candidate,
+    ),
+  };
+}
+
+/** 上菜 1 枚の完了処理（S-16）: 全菜揃いなら eating、残りがあれば awaitingDish へ差し戻し */
+function afterDishServed(run: RunState, customer: CustomerState): RunState {
+  const dishesServed = customer.dishesServed + 1;
+  const allServed = dishesServed >= totalDishesFor(customer);
+  return {
+    ...run,
+    customers: run.customers.map((candidate) =>
+      candidate.id === customer.id
+        ? {
+            ...candidate,
+            dishesServed,
+            stage: (allServed ? 'eating' : 'awaitingDish') as CustomerState['stage'],
+          }
+        : candidate,
     ),
   };
 }

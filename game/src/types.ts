@@ -216,6 +216,9 @@ export type CustomerStage =
   | 'awaitingPayment'
   | 'collecting';
 
+/** 客人类型（S-16。gdd「敌人与障碍物」: 散客/镖师/老饕） */
+export type CustomerTypeId = 'regular' | 'escort' | 'gourmet';
+
 export interface CustomerState {
   readonly id: number;
   readonly seat: number;
@@ -224,6 +227,12 @@ export interface CustomerState {
   readonly patienceMs: number;
   readonly maxPatienceMs: number;
   readonly eatMs: number;
+  /** 客人类型（S-16。散客=regular） */
+  readonly typeId: CustomerTypeId;
+  /** 第 2 菜（镖师のみ。他类型は null — gdd「点 2 菜」） */
+  readonly extraDishId: number | null;
+  /** 已经上菜的菜数（多菜客人は全菜上菜が揃ってから食べる — S-16） */
+  readonly dishesServed: number;
 }
 
 /** 跑堂の单一动作（移动→动作の 2 段。同一伙计は同時に 1 动作 — S-06 acceptance） */

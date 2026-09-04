@@ -150,7 +150,7 @@ stories:
     pillar: P-01
     assignee: gameplay-engineer
     phase: build
-    status: in-progress
+    status: review
     acceptance: "D1–3/D4–9/D10–15/D16–20 各阶段到达间隔与耐心使用 config 阶段常量（12/10/8/7s、50/45/40/35s）; 镖师第 4 日起（点 2 菜、耐心 ×1.3）、老饕第 7 日起（高级菜、耐心 ×0.8、可选菜种 <4 时不生成）; 教学期 TEACHING_DISH_CAP=3 生效、无采购时 −10s 耐心; 单日日间仍可 3 分钟内读完（快进测试验证计时不超时）"
   - id: S-17
     title: "事件卡全 15 张与志向偏移"

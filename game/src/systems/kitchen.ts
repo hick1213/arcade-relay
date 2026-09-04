@@ -82,7 +82,20 @@ export function advanceKitchen(kitchen: KitchenState, deltaMs: number): KitchenS
   };
 }
 
-/** 上菜完了で出餐口から引き取り */
-export function takeReadyDish(kitchen: KitchenState, customerId: number): KitchenState {
-  return { ...kitchen, ready: kitchen.ready.filter((dish) => dish.customerId !== customerId) };
+/**
+ * 上菜完了で出餐口から引き取り。dishId 指定時は該当菜 1 枚のみ（镖师の 2 菜 — S-16）。
+ * 未指定時は従来通り该客の全菜を引き取る（1 菜客人の既存経路）。
+ */
+export function takeReadyDish(
+  kitchen: KitchenState,
+  customerId: number,
+  dishId?: number,
+): KitchenState {
+  const index = kitchen.ready.findIndex(
+    (dish) => dish.customerId === customerId && (dishId === undefined || dish.dishId === dishId),
+  );
+  if (index === -1) {
+    return kitchen;
+  }
+  return { ...kitchen, ready: kitchen.ready.filter((_, i) => i !== index) };
 }
