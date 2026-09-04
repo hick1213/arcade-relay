@@ -775,6 +775,9 @@ export const MORNING = {
   POST_FONT_SIZE: '17px',
   CAPACITY_FONT_SIZE: '14px',
   AVATAR_NAME_FONT_SIZE: '15px',
+  /** 名前ラベルの縦オフセット（头像中心から。CR-CODE iter1 finding 3: 表情贴片の顔域
+   *  （0.4×表示高さ−MOUTH_FROWN_DY 上端）と重ならない位置へ S-07 の直書き 26 から移動） */
+  AVATAR_NAME_OFFSET_Y: 18,
   AVATAR_POST_FONT_SIZE: '13px',
   AVATAR_STAT_FONT_SIZE: '12px',
   /** 成长阶段別の台词（S-07。头像下 1 行 — 文案は systems/i18n 言語表） */
@@ -912,15 +915,18 @@ export const STAGE_FX = {
   GLOW_ALPHA: 0.4,
   GLOW_PULSE_MS: 700,
   GLOW_PULSE_SCALE: 1.25,
-  /** 表情贴片（ Graphics 描画 — 眼 2 点＋口弧。阶段: 0=しょんぼり/1=真顔/2=笑顔） */
+  /** 表情贴片（ Graphics 描画 — 眼 2 点＋口弧。阶段: 0=しょんぼり/1=真顔/2=笑顔）
+   *  CR-CODE iter1 finding 3: 顔域を名前ラベル（AVATAR_NAME_OFFSET_Y）の上側に退避 —
+   *  HEAD_FROM_TOP_RATIO を下げて貼片全体（口下端 = 0.4×表示高さ−MOUTH_FROWN_DY）を
+   *  ラベル帯（中心から 18−8〜18+8px）より上に置く（最小缩放 1.0 でも 3px 以上の空き） */
   EXPRESSION: {
     /** 立绘表示高さに対する顔中心の位置（立绘上端からの比率） */
-    HEAD_FROM_TOP_RATIO: 0.18,
+    HEAD_FROM_TOP_RATIO: 0.10,
     EYE_DX: 4,
     EYE_RADIUS: 2,
     MOUTH_RADIUS: 4,
     MOUTH_SMILE_DY: 5,
-    MOUTH_FROWN_DY: 11,
+    MOUTH_FROWN_DY: 9,
     /** 口弧の端の切り欠き（radian — 弧を描きすぎて完全半円にならないようの余白） */
     MOUTH_ARC_INSET: 0.35,
     LINE_WIDTH: 2,
