@@ -677,8 +677,10 @@ export const EVENT = {
   /** 事件卡导致的伙计疲劳概率（gdd「事件卡」テンプレート: 疲劳概率 ≤20%。
    * roll 与施加は S-18 接线 — 卡数据表の mayFatigue 标记と対で使う） */
   FATIGUE_CHANCE: 0.2,
-  /** gdd「事件卡」效果幅度模板の境界（CR-CODE iter1: テストは本定数を参照 —
-   * 幅度調整はここ一箇所。卡数据表の每卡具体値は内容データなので直値のまま） */
+  /** gdd「事件卡」效果幅度模板の境界（systems/eventCardData.ts の效果幅度コメントが
+   * 参照先として本定数を指す。幅の統一改変はここ一箇所で行う — コードからの参照は
+   * まだ無く、検証テスト lane での参照を想定した先行定義。卡数据表の每卡具体値は
+   * 内容データなので直値のまま） */
   SILVER_DELTA_MIN: -25,
   SILVER_DELTA_MAX: 15,
   REPUTATION_DELTA_MIN: -10,

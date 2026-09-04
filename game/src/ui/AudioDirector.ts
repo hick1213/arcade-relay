@@ -28,6 +28,8 @@ export class AudioDirector {
   /** 最後に適用した音量（表示キャッシュ。真值 = SaveData.settings） */
   private bgmVolume: number = DEFAULT_SETTINGS.bgm_volume;
   private sfxVolume: number = DEFAULT_SETTINGS.sfx_volume;
+  /** attach 前の playSfx を 1 度だけ警告するためのフラグ（連続 warn のスパム防止） */
+  private missingManagerWarned: boolean = false;
 
   /**
    * SoundManager を束ねる（最初の 1 回のみ有効、以降 no-op — 场景 create から毎回呼んでも安全）。
@@ -96,6 +98,12 @@ export class AudioDirector {
   /** SFX 再生（复用变调变体あり）。locked 中は pending 退避（UNLOCKED 後に再生） */
   playSfx(key: string, variant?: SfxVariantId): void {
     if (this.manager === null) {
+      // attach 前の呼び出しは取り返しのつかない欠落（無音）になるため 1 回だけ警告する
+      // （現行の呼び出し系は全て attach 後 — この分岐は到達不能な防御。CR-CODE iter1）
+      if (!this.missingManagerWarned) {
+        this.missingManagerWarned = true;
+        console.warn('[AudioDirector] playSfx called before attach() — SFX dropped');
+      }
       return;
     }
     if (this.manager.locked) {
@@ -124,6 +132,11 @@ export class AudioDirector {
    * （またはより早い時刻）の重複スケジュールは Chromium が靜かに無視する — MenuScene の
    * masterVolumeNode と同型の落とし穴。先に cancel してから現在時刻で再スケジュールする。
    * WebAudio 以外（HTML5/NoAudio）は volumeNode を持たないため通常の setter。
+   *
+   * 可観測性（QA-PLAY 要点 2 — CR-CODE iter1）: `sound.volume` の getter は
+   * `volumeNode.gain.value` を読むため本適用後（1 render quantum 後）に反映値が読める。
+   * ただし内部の `currentConfig.volume` は setter を迂回すると初期值のまま残るため、
+   * 再生再開時に config から音量が復元されるケースに備えてここで同期する。
    */
   private applyBgmVolume(value: number): void {
     const sound = this.bgmSound as Phaser.Sound.WebAudioSound;
@@ -132,6 +145,9 @@ export class AudioDirector {
       const gain = sound.volumeNode.gain;
       gain.cancelScheduledValues(manager.context.currentTime);
       gain.setValueAtTime(value, manager.context.currentTime);
+      // Phaser d.ts は currentConfig を BaseSoundManager 側にのみ宣言しているが
+      // 実体（BaseSound.js:144）は BaseSound が持つため実在する — d.ts 漂れの cast
+      (sound as unknown as { currentConfig: { volume: number } }).currentConfig.volume = value;
     } else {
       sound.setVolume(value);
     }

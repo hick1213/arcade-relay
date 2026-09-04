@@ -19,18 +19,15 @@ export interface SfxCue {
 
 const cue = (key: string, variant: SfxVariantId | null = null): SfxCue => ({ key, variant });
 
-/** 客人の待ちステージ（customerFlow.tickPatience の対象 — この段階で patience 切离店=服务失败） */
-const isWaitingStage = (customer: CustomerState): boolean =>
-  customer.stage === 'awaitingOrder' || customer.stage === 'awaitingDish';
-
-/** 耐心归零离店（服务失败 → SFX-06）客がいたか。收钱后の正常离店は対象外 */
-const hasFailedDeparture = (
-  prev: readonly CustomerState[],
-  next: readonly CustomerState[],
-): boolean => {
-  const remainingIds = new Set(next.map((customer) => customer.id));
-  return prev.some((customer) => !remainingIds.has(customer.id) && isWaitingStage(customer));
-};
+/**
+ * 耐心归零离店（服务失败 → SFX-06）があったか。判定信号は daySummary.failed の増分
+ * （tickPatience が真实归零时のみ加算 — customerFlow）のみ。客集合の差分判定は
+ * 日終了の残客清算（advanceDayPhase が清算なしで customers を空にする＝非服务失败）を
+ * 耐心切れと誤検知するため使わない（CR-CODE iter1 修正）。failed は daybreak で
+ * リセットされるが、その迁移では next < prev となるため誤検知しない。
+ */
+const hasFailedDeparture = (prev: RunState, next: RunState): boolean =>
+  next.daySummary.failed > prev.daySummary.failed;
 
 /** 上菜动作の完成（同 id 客の菜数増加または eating へ迁移 → SFX-04）。SERVE_WINDOW tap は
  * 派跑堂のみで完成ではないため、完成の差分側で 1 回だけ鳴らす（重複鳴動防止） */
@@ -113,8 +110,12 @@ export function collectAudioCues(
   if (prev.phase === 'day' && next.phase === 'night') {
     cues.push(cue(ASSET_KEYS.audio.sfxAbacusLedger));
   }
-  // 终战「开战」（第 20 日夜への进入 = SFX-08。daybreakTap 前の advanceRun 中にも成立させる）
+  // 终战「开战」（第 20 日夜への进入 = SFX-08。daybreakTap 前の advanceRun 中にも成立させる）。
+  // FIGHT_CONFIRM tap 自体が直接この迁移を起こす場合は tap 側で既に gong を鳴らすため
+  // 差分側は排除（二重鳴動防止 — CR-CODE iter1。S-19 接線時に FIGHT_CONFIRM が
+  // 相位を night+finalBattleNight へ進める場合も本 guard で排他的に保たれる）
   if (
+    tapEvent !== TAP_EVENTS.FIGHT_CONFIRM &&
     next.phase === 'night' &&
     next.finalBattleNight &&
     !(prev.phase === 'night' && prev.finalBattleNight)
@@ -126,13 +127,12 @@ export function collectAudioCues(
   if (hasServeCompleted(prev.customers, next.customers)) {
     cues.push(cue(ASSET_KEYS.audio.sfxDishServe));
   }
-  if (hasFailedDeparture(prev.customers, next.customers)) {
+  if (hasFailedDeparture(prev, next)) {
     cues.push(cue(ASSET_KEYS.audio.sfxFailLeave));
   }
-  // 破产败局（SFX-06 低速变调 — assets.md「复用映射」）
-  if (prev.ended === null && next.ended !== null && next.ended.kind === 'bankruptcy') {
-    cues.push(cue(ASSET_KEYS.audio.sfxFailLeave, 'bankruptcy'));
-  }
+  // 破产败局の SFX-06 低速变调は ResultScene.create が敗局演出音の所有者として再生する
+  // （GameScene の ended 差分では scene 迁移の直後に ResultScene でも鳴り二重鳴動するため
+  // こちらでは鳴らさない — CR-CODE iter1 修正）
 
   return cues;
 }
