@@ -187,12 +187,19 @@ stories:
     pillar: P-02
     assignee: gameplay-engineer
     phase: build
-    status: review
+    status: done
     acceptance: "第 20 日夜「迎战」→3 回合自动战力对撞（playerPower/3×(1±BATTLE_VARIANCE) vs ENEMY_POWER/3×(1±0.15)、先取 2 胜）; 「雇镖师援助」（−BATTLE_AID_COST=100 两/+8）可用且银子不足时禁用; 战败后 ResultScene「重试当日」恢复第 20 日夜开战前快照（银子/声望/侠点/伙计状态一致）; 战胜进入结局判定"
     # note: systems/finalBattle.ts（纯逻辑、random 注入式）+ runEngine 接线（FIGHT_CONFIRM/AID_HIRE/
     # 「迎战」→ nightStage='battle'）+ createBattleRetryRun（快照復帰）。開戦前快照は FinalBattleState.
     # preSnapshot が权威（in-memory scene data で Result⇄Game を往復 — 永続化は S-23 の run 快照契約）。
     # 終戦敗「回到菜单」時のみ ResultScene 側で applyRunResult→persist（run := null — gdd 存档数据方针）。
+    # CR-CODE iter1 (REJECT, MAX_ITER 到達 — findings 全件処置済みで done): (1) blocker —
+    # goToResult の preBattleSnapshot を finalBattleLoss 時のみ付与へ修正（runComplete 他で
+    # 付与すると「再来一周目」が retry 扱いして applyRunResult 二重適用） (2) GameplayView
+    # buildStructuralKey に finalBattle.status:aidHired を追加（hireAid 後の戦力/ボタン表示更新）
+    # (3) 終戦敗 Result 入場時に run 快照破棄（run := null — 放置でも「继续周目」が死周目を复活
+    # させない）＋终战開戦前で Menu 抜けする時は現行 run を快照化（第 1 日晨への巻き戻り防止）。
+    # 未処置なし。meta 適用は従来どおり Result ボタン時点（重试当日は不適用 — 二重計上なし）。
     # 判断事項: (1) 单回合 roll の同值は玩家侧胜 (2) 「开战」は自动 3 回合即决（演出带 timing は UI 层
     # 打磨 — rounds 数据は FinalBattleState.rounds に保持済み） (3) 战胜時の ended=runComplete は
     # S-20 结局判定接线まで占位経路（endingBonus=0）。tests/finalBattle.test.ts 16 件 PASS。

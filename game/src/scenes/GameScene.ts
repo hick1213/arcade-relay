@@ -62,7 +62,15 @@ export class GameScene extends Phaser.Scene {
     this.pausePanel = new PausePanel(this, textProvider, this.router, {
       // 「结束周目」= 破产/终战判定の自動迁移（runEngine.ended）と並ぶ手動経路
       onEndRun: () => this.goToResult(buildRunEndSummary(this.run, 'runComplete')),
-      onQuitToMenu: () => this.scene.start('Menu'),
+      // 终战開戦前（S-19）で Menu へ抜ける時は現行 run を快照化してから遷移する —
+      // 快照なしのままでは S-04 の志向确定時快照（第 1 日晨）が残り、「继续周目」が
+      // 第 20 日→第 1 日へ巻き戻る（CR-CODE iter1 finding 3）
+      onQuitToMenu: () => {
+        if (this.run.finalBattle !== null && this.run.ended === null) {
+          this.persistRunSnapshot();
+        }
+        this.scene.start('Menu');
+      },
     });
     this.hud = new Hud(this, textProvider, this.router, () => this.pausePanel.open());
     this.view = new GameplayView(this, textProvider, this.router);
@@ -135,6 +143,19 @@ export class GameScene extends Phaser.Scene {
     saveSaveData({ ...loaded.data, run: createRunSnapshot(this.run) });
   }
 
+  /**
+   * 终战败进入 Result 时点で run 快照を破棄（run := null。CR-CODE iter1 finding 3）。
+   * meta 適用はしない（重试当日なら失败としてカウントしない — persistRunResult の契約）。
+   * メニュー复活防止のみが目的の I/O は persistence 層経由。
+   */
+  private discardRunSnapshot(): void {
+    const loaded = loadSaveData();
+    if (loaded.data.run === null) {
+      return;
+    }
+    saveSaveData({ ...loaded.data, run: null });
+  }
+
   /** 破产/周目终结の自動迁移 → Result（runEngine.ended が真値 — S-08/S-15） */
   private syncView(delta = 0): void {
     if (this.run.ended !== null) {
@@ -153,8 +174,19 @@ export class GameScene extends Phaser.Scene {
     // 新纪录标记（S-25）の基準値 — applyRunResult による best_score 更新の前に取得
     const bestScoreBefore = loadSaveData().data.best_score;
     this.persistRunResult(summary);
-    // 第 20 日夜開戦前快照を同梱（S-19: finalBattleLoss の「重试当日」復帰源。他 kind は null）
-    const preBattleSnapshot = this.run.finalBattle?.preSnapshot ?? null;
+    // 第 20 日夜開戦前快照を同梱（S-19: finalBattleLoss の「重试当日」復帰源）。
+    // 他 kind は null — types.ts の契約（finalBattleLoss 时のみ付与）。これを守らないと
+    // 「再来一周目」ボタンが retry 快照として扱い、既 persist 済み周目の再戦結果で
+    // applyRunResult が二重適用される（CR-CODE iter1 finding 1）
+    const preBattleSnapshot =
+      summary.kind === 'finalBattleLoss' ? (this.run.finalBattle?.preSnapshot ?? null) : null;
+    // 终战败は Result 入場時点で run 快照を破棄（CR-CODE iter1 finding 3）:
+    // meta 適用（applyRunResult）は Result 側ボタン时点（重试当日なら不適用）だが、
+    // 快照だけはここで null 化する — 放置（标签关闭/刷新）しても Menu「继续周目」が
+    // 死周目を复活させない（gdd「存档数据方针」）。
+    if (summary.kind === 'finalBattleLoss') {
+      this.discardRunSnapshot();
+    }
     this.scene.start('Result', { ...summary, bestScoreBefore, preBattleSnapshot });
   }
 

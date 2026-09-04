@@ -957,6 +957,9 @@ export const BATTLE_UI = {
   POWER_LINE_START_OFFSET_Y: -130,
   POWER_LINE_GAP: 42,
   POWER_FONT_SIZE: '19px',
+  /** 战力行のラベル列／値列の横オフセット（パネル中心基準。CR-CODE iter1 finding 4） */
+  POWER_LABEL_OFFSET_X: -180,
+  POWER_VALUE_OFFSET_X: 180,
   /** 援助の费用/战力表示行（值側は config の BATTLE_AID_COST/BATTLE_AID_POWER を补间） */
   AID_INFO_OFFSET_Y: -30,
   AID_INFO_FONT_SIZE: '15px',

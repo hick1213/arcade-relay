@@ -149,6 +149,10 @@ export class GameplayView {
       run.selectedPost ?? '-',
       run.noticeKey ?? '-',
       run.finalBattleNight ? 'F' : '-',
+      // 终战状态/雇援助（S-19）: hireAid で status/aidHired 以外（nightStage/day/岗位）が
+      // 不変のため、戦力表示＋援助按钮の不活性を反映させるには鍵への組込みが必須
+      // （CR-CODE iter1 finding 2）
+      run.finalBattle ? `${run.finalBattle.status}:${run.finalBattle.aidHired}` : '-',
       run.staff.map((member) => member.post).join(','),
       run.customers.map((customer) => `${customer.id}:${customer.stage}`).join(','),
       run.kitchen.ready.map((dish) => dish.customerId).join(','),
@@ -709,8 +713,8 @@ export class GameplayView {
     ];
     powerLines.forEach(([key, value], index) => {
       const y = NIGHT.PANEL_Y + BATTLE_UI.POWER_LINE_START_OFFSET_Y + index * BATTLE_UI.POWER_LINE_GAP;
-      container.add(this.label(NIGHT.PANEL_X - 180, y, this.textProvider(key), BATTLE_UI.POWER_FONT_SIZE));
-      container.add(this.label(NIGHT.PANEL_X + 180, y, value, BATTLE_UI.POWER_FONT_SIZE));
+      container.add(this.label(NIGHT.PANEL_X + BATTLE_UI.POWER_LABEL_OFFSET_X, y, this.textProvider(key), BATTLE_UI.POWER_FONT_SIZE));
+      container.add(this.label(NIGHT.PANEL_X + BATTLE_UI.POWER_VALUE_OFFSET_X, y, value, BATTLE_UI.POWER_FONT_SIZE));
     });
     // 援助の费用/战力（数值は config 直参照 — 文案は i18n key。単位を含まない数式表示）
     container.add(
