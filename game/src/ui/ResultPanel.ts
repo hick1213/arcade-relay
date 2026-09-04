@@ -82,11 +82,13 @@ const createBreakdownRows = (summary: RunEndSummary): readonly BreakdownRow[] =>
   },
 ];
 
-/** 明细行的值表示（三线数值×权重→贡献。行は显示用の四舍五入 — 总评分本身按公式 floor） */
+/** 明细行的值表示（三线数值×权重→贡献。行の贡献も **floor** — 显示行の合計が总评分（floor）と
+ *  厳密一致させる（S-25 fix: round では WEIGHT_SILVER=0.5 × 奇数银子の .5 貢献が行と总分で
+ *  食い違う）。raw は整数カウントのため表示はそのまま） */
 const formatBreakdown = (row: BreakdownRow): string =>
   row.weight === null
-    ? `+${Math.round(row.contribution)}`
-    : `${Math.round(row.raw)} × ${row.weight} → ${Math.round(row.contribution)}`;
+    ? `+${Math.floor(row.contribution)}`
+    : `${Math.round(row.raw)} × ${row.weight} → ${Math.floor(row.contribution)}`;
 
 /** 新纪录（S-25）: persist 基準値を上回った周目终了のみ。终战败は persist 不発のため非対象 */
 const isNewRecord = (summary: RunEndSummary): boolean =>
@@ -257,7 +259,8 @@ export class ResultPanel {
     }
   }
 
-  /** 结局文/败局文（标题下 1〜2 行。runComplete 且结局未确定时は表示なし） */
+  /** 结局文/败局文（标题下 1〜2 行。**下端锚定**（BODY_OFFSET_Y = 下端）— 多行换行でも上へ
+   *  伸長し总评分ラベルと重叠しない。runComplete 且结局未确定时は表示なし） */
   private createBodyText(
     summary: RunEndSummary,
     textProvider: TextProvider,
@@ -279,7 +282,7 @@ export class ResultPanel {
         wordWrap: { width: RESULT.BODY_WRAP_WIDTH },
         align: 'center',
       })
-      .setOrigin(0.5, 0);
+      .setOrigin(0.5, 1);
     return [text];
   }
 

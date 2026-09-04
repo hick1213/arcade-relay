@@ -48,11 +48,18 @@ export class ResultScene extends Phaser.Scene {
     });
   }
 
-  /** 演出 SFX（SFX-07/08）。ユーザー操作済みの遷移後のため通常 unlocked — 念のため unlock */
+  /** 演出 SFX（SFX-07/08）。ユーザー操作済みの遷移後のため通常 unlocked。
+   *  locked の場合も静かに捨てない（S-25 fix: unlock() は非同期のため即 play すると
+   *  内部 warn のみで無音になる）— unlocked 発効後に確実に再生する */
   private playResultSfx(key: string): void {
-    if (this.sound.locked) {
-      this.sound.unlock();
+    const volume = loadSaveData().data.settings.sfx_volume;
+    if (!this.sound.locked) {
+      this.sound.play(key, { volume });
+      return;
     }
-    this.sound.play(key, { volume: loadSaveData().data.settings.sfx_volume });
+    this.sound.once(Phaser.Sound.Events.UNLOCKED, () => {
+      this.sound.play(key, { volume });
+    });
+    this.sound.unlock();
   }
 }

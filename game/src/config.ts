@@ -270,8 +270,8 @@ export const RESULT = {
   PANEL_WIDTH: 560,
   PANEL_HEIGHT: 460,
 
-  // 标题（败局 / 周目结果）
-  TITLE_OFFSET_Y: -158,
+  // 标题（败局 / 周目结果。2 行换行的结局文の伸長領域を確保するため S-25 fix で -158 → -176）
+  TITLE_OFFSET_Y: -176,
   TITLE_FONT_SIZE: '34px',
 
   // 总评分（大字号 — 一眼可读的单一数字化）
@@ -305,8 +305,10 @@ export const RESULT = {
 
   // ==== S-25: Result 结局演出完整版（结局插画/结局文/败局演出/新纪录标记。追加のみ —
   // 既存キー（S-15 レイアウト）は不変。配色は UI.PANEL_* / HUD_* の調色板定数を再利用）====
-  /** 结局文/败局文（标题下 1 行 — 换行幅度内の短文。文案は systems/i18n の言語表） */
-  BODY_OFFSET_Y: -122,
+  /** 结局文/败局文（**下端锚定** — 多行换行でも上方向へ伸長し、总评分ラベルとの間隔は一定
+   *  （S-25 fix: 旧 -122 上端锚定では 2 行換行時に SCORE_LABEL と叠字）。标题側は
+   *  TITLE_OFFSET_Y -176 へ退避 — 2 行換行まで非重叠。文案は systems/i18n の言語表） */
+  BODY_OFFSET_Y: -110,
   BODY_FONT_SIZE: '15px',
   BODY_WRAP_WIDTH: 520,
 
@@ -547,6 +549,36 @@ export const CUSTOMER = {
   LEAVE_REPUTATION_PENALTY: 2,
   /** 吃完→银两气泡までの時間。gdd 数值表に未定義 — 実装側初始值（調整は本定数のみ） */
   EAT_S: 6,
+
+  // ---- 客人类型（S-16。出处: gdd「敌人与障碍物」「难度曲线」表）----
+  /** 镖师初日（第 4 日起登場、权重渐增） */
+  ESCORT_FIRST_DAY: 4,
+  /** 老饕初日（第 7 日起登場 — gdd「难度曲线」D4–9 段の後半） */
+  GOURMET_FIRST_DAY: 7,
+  /** 镖师の点菜数（点 2 菜 — 2 枚とも制菜・上菜が必要） */
+  ESCORT_DISH_COUNT: 2,
+  /** 老饕が生成される当日可选菜种の下限（<4 = 4 号以上菜なし → 散客で代替 — gdd「敌人与障碍物」） */
+  GOURMET_MIN_DISH_KINDS: 4,
+  /** 老饕の指定高级菜の菜号下限（4〜6 号菜） */
+  GOURMET_DISH_ID_MIN: 4,
+  /** 耐心の类型倍率（基礎耐心 × 本値。無采购 −10s は倍率適用後に減算 — gdd「难度曲线」注记） */
+  PATIENCE_FACTOR_ESCORT: 1.3,
+  PATIENCE_FACTOR_GOURMET: 0.8,
+  /** 服务成功の声望: 散客/镖师 +1（SERVE_SUCCESS_REPUTATION）、老饕 +2（gdd「分数与进度」） */
+  SERVE_SUCCESS_REPUTATION_GOURMET: 2,
+  /** 耐心归零離店の声望惩罚: 散客 −2（LEAVE_REPUTATION_PENALTY）、镖师 −3、老饕 −4 */
+  LEAVE_REPUTATION_PENALTY_ESCORT: 3,
+  LEAVE_REPUTATION_PENALTY_GOURMET: 4,
+  /**
+   * 出現权重（到達 1 回ごとの抽選に使用。gdd は「权重渐增」・老饕 ≈10% のみ指定 —
+   * 段階別の具体值は実装側初始值。調整は本定数のみ）
+   */
+  ESCORT_WEIGHT_D4_9: 0.1,
+  ESCORT_WEIGHT_D10_15: 0.15,
+  ESCORT_WEIGHT_D16_20: 0.2,
+  GOURMET_WEIGHT_D7_9: 0.05,
+  GOURMET_WEIGHT_D10_15: 0.1,
+  GOURMET_WEIGHT_D16_20: 0.15,
 } as const;
 
 // ==== 点单/上菜/收钱动作（S-06/S-07。出处: gdd「数值表」ORDER_TAKE_S/SERVE_S/STAFF_SPEED_FACTOR）====
