@@ -261,8 +261,9 @@ stories:
     pillar: P-02
     assignee: ui-engineer
     phase: build
-    status: review
+    status: done
     acceptance: "各伙计的 3 档成长阶段有肉眼可辨的独立表现组合（tint/表情/速度/台词至少 3 项中 2 项变化）; 出菜金光/黑烟、残影等 gdd 差分表条目按阶段呈现; 全部效果为程序化、无新增资产文件"
+    note: "CR-CODE iter1: findings 1-5 已处理（黑烟/金光 gate 到铁牛本人/掌勺導出改为消费 systems/kitchen.headChefCraft/表情贴片与名字标签几何分离/淡出 tween 纳入 rebuildTweens/stagePresentation 单测 12 件）。未处理: GameplayView 914 行超过 800 行指引（纯展示 helper 抽出推迟 — 并行 lane 中避免无谓 churn，参照 state/reviews/s-28.md）。systems 侧 identity getter 追加依赖仍向 gameplay-engineer 报告中"
   - id: S-29
     title: "教学期引导（第 1–3 日）"
     pillar: P-01

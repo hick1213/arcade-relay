@@ -9,6 +9,7 @@
  */
 import { GAMEPLAY, STAGE_FX } from '../config';
 import { TEXT_KEYS } from '../textKeys';
+import { headChefCraft } from '../systems/kitchen';
 import { growthStage } from '../systems/training';
 import type { RunState, StaffMember } from '../types';
 
@@ -70,6 +71,13 @@ const TRAIL_STAGE: Stage = 2;
 /** 小蝶の低位のみぐらつき（gdd 差分表: 小蝶「低位走路同手同脚」） */
 const WADDLE_STAFF_ID = 'xiaodie';
 const WADDLE_STAGE: Stage = 0;
+/** 铁牛の低位のみ黑烟/高阶のみ金光（gdd 差分表: 铁牛「低位制菜冒黑烟；高阶出菜带金光」—
+ *  CR-CODE iter1 finding 1: 残影/ぐらつきと同型の伙计条件ゲートに統一。掌勺が谁であれ
+ *  铁牛本人が掌勺のときのみ出る） */
+const SMOKE_STAFF_ID = 'tieniu';
+const SMOKE_STAGE: Stage = 0;
+const GLOW_STAFF_ID = 'tieniu';
+const GLOW_STAGE: Stage = 2;
 
 export function staffStagePresentation(staffId: string, stage: Stage): StagePresentation {
   return {
@@ -84,26 +92,42 @@ export function staffStagePresentation(staffId: string, stage: Stage): StagePres
 }
 
 /**
- * 当日の掌勺（岗位≠修练で手艺最高の伙计 — systems/kitchen.headChefCraft と同一规则の
- * 実体 ident 版。表示（黑烟/金光の出现条件）のための導出のみで、UI 側で値を保存しない。
- * 招待側に identity getter が無いための ui 側導出 — kitchen 側に変更が入った場合は
- * gameplay-engineer へ getter 追加を依頼すること（判断事項として報告済み）。
+ * 当日の掌勺（岗位≠修练で手艺最高の伙计）。CR-CODE iter1 finding 2: 選定ルールの ui 側
+ * 再実装をやめ、systems/kitchen.headChefCraft（掌勺手艺 = 非修练中の最高 craft）の値を
+ * 直接参照して同値のメンバーを引く — systems 側の短縮ルール変更には自動追従する。
+ * （identity getter が systems 側に無いための同値照合 — getter が追加されれば置き換える。
+ *  判断事項として gameplay-engineer への getter 追加依頼は報告済み）
  */
 export function headChefStaff(run: RunState): StaffMember | null {
-  let chef: StaffMember | null = null;
-  for (const member of run.staff) {
-    if (member.post === 'training') {
-      continue;
-    }
-    if (chef === null || member.craft > chef.craft) {
-      chef = member;
-    }
-  }
-  return chef;
+  const maxCraft = headChefCraft(run);
+  return run.staff.find((member) => member.post !== 'training' && member.craft === maxCraft) ?? null;
 }
 
 /** 掌勺の成长阶段（掌勺不在 = null — 黑烟/金光とも出さない） */
-export function headChefStage(run: RunState): Stage | null {
+function headChefStage(run: RunState): Stage | null {
   const chef = headChefStaff(run);
   return chef === null ? null : growthStage(chef.speed + chef.craft + chef.stamina);
+}
+
+/** 黑烟/金光の表示条件（gdd 差分表 — 铁牛本人が掌勺のときのみ。CR-CODE iter1 finding 1） */
+export interface HeadChefFx {
+  /** 铁牛（掌勺）が低位 → 制菜黑烟 */
+  readonly smoke: boolean;
+  /** 铁牛（掌勺）が高阶 → 出菜金光 */
+  readonly glow: boolean;
+}
+
+const HEAD_CHEF_FX_OFF: HeadChefFx = { smoke: false, glow: false };
+
+/** 黑烟/金光の出現判定（表示導出のみ — 值は保存しない。掌勺不在/铁牛以外は両方 off） */
+export function headChefFx(run: RunState): HeadChefFx {
+  const chef = headChefStaff(run);
+  if (chef === null) {
+    return HEAD_CHEF_FX_OFF;
+  }
+  const stage = headChefStage(run);
+  return {
+    smoke: chef.id === SMOKE_STAFF_ID && stage === SMOKE_STAGE,
+    glow: chef.id === GLOW_STAFF_ID && stage === GLOW_STAGE,
+  };
 }

@@ -46,7 +46,7 @@ import {
   staffSpriteKey,
 } from '../systems/visualAssets';
 import { addCoverBackground, addScaledSprite } from './assetSprites';
-import { headChefStage, staffStagePresentation, type StagePresentation } from './stagePresentation';
+import { headChefFx, staffStagePresentation, type HeadChefFx, type StagePresentation } from './stagePresentation';
 import { HUD_TEXT_KEYS, TEXT_KEYS } from '../textKeys';
 import {
   TAP_EVENTS,
@@ -103,8 +103,8 @@ export class GameplayView {
   private readonly waiterMarkers = new Map<string, WaiterMarkerView>();
   private progressFill: Phaser.GameObjects.Rectangle | null = null;
   private pulseTween: Phaser.Tweens.Tween | null = null;
-  /** 当日掌勺の成长阶段（S-28 黑烟/金光の出現条件 — buildDay での表示導出キャッシュ） */
-  private dayHeadChefStage: 0 | 1 | 2 | null = null;
+  /** 当日の黑烟/金光表示条件（S-28 — buildDay での表示導出キャッシュ。正は Systems の RunState） */
+  private dayHeadChefFx: HeadChefFx = { smoke: false, glow: false };
   /** 黑烟の emission 間隔キャッシュ（delta 驱动 — S-28） */
   private smokeTimerMs = 0;
   /** rebuild 寿命の無限 tween（出菜金光パルス — 前回描画分を確実に停止） */
@@ -163,7 +163,7 @@ export class GameplayView {
     this.patienceBars.clear();
     this.waiterMarkers.clear();
     this.progressFill = null;
-    this.dayHeadChefStage = null;
+    this.dayHeadChefFx = { smoke: false, glow: false };
     this.smokeTimerMs = 0;
     this.pulseTween?.remove();
     this.pulseTween = null;
@@ -331,7 +331,12 @@ export class GameplayView {
         .setStrokeStyle(UI.PANEL_STROKE_WIDTH, UI.PANEL_STROKE);
       container.add(rect);
       container.add(
-        this.label(position.x, position.y - 26, this.textProvider(member.nameKey), MORNING.AVATAR_NAME_FONT_SIZE),
+        this.label(
+          position.x,
+          position.y - MORNING.AVATAR_NAME_OFFSET_Y,
+          this.textProvider(member.nameKey),
+          MORNING.AVATAR_NAME_FONT_SIZE,
+        ),
       );
       container.add(
         this.label(position.x, position.y, this.postLabel(member.post), MORNING.AVATAR_POST_FONT_SIZE),
@@ -405,9 +410,9 @@ export class GameplayView {
 
   private buildDay(run: RunState, container: Phaser.GameObjects.Container): void {
     container.add(addCoverBackground(this.scene, backgroundKeyForPhase('day')));
-    // 当日掌勺の成长阶段（S-28: 黑烟=阶段 0 / 出菜金光=阶段 2 の出現条件。表示導出のみ —
+    // 黑烟/金光の出現条件（S-28 — gdd 差分表: 铁牛本人が掌勺のときのみ。表示導出のみ —
     // 正は Systems 层の RunState。値は保存せず rebuild ごとに導出し直す）
-    this.dayHeadChefStage = headChefStage(run);
+    this.dayHeadChefFx = headChefFx(run);
 
     // 日间唯一硬计时の進行バー（S-03: DAY_SERVICE_DURATION_S）
     container.add(
@@ -442,7 +447,7 @@ export class GameplayView {
       const x = GAME_LAYOUT.SERVE_WINDOW.x + GAMEPLAY.SERVE_RACK_X_OFFSET + (index % 3) * GAMEPLAY.SERVE_RACK_CELL;
       const y = GAME_LAYOUT.SERVE_WINDOW.y + GAMEPLAY.SERVE_RACK_Y_OFFSET + Math.floor(index / 3) * GAMEPLAY.SERVE_RACK_CELL;
       // 掌勺高阶の「出菜带金光」（S-28 gdd 差分表 — 菜の背後に金色パルス。程序化、新規资产なし）
-      if (this.dayHeadChefStage === 2) {
+      if (this.dayHeadChefFx.glow) {
         const glow = this.scene.add.circle(x, y, STAGE_FX.GLOW_RADIUS, STAGE_FX.GLOW_COLOR, STAGE_FX.GLOW_ALPHA);
         container.add(glow);
         this.rebuildTweens.push(
@@ -775,9 +780,9 @@ export class GameplayView {
       this.progressFill.width = GAMEPLAY.PROGRESS_WIDTH * ratio;
       this.progressFill.setSize(this.progressFill.width, GAMEPLAY.PROGRESS_HEIGHT);
     }
-    // 制菜冒黑烟（S-28 gdd 差分表）: 制菜 ticket 進行中 × 掌勺が成长阶段 0 —
+    // 制菜冒黑烟（S-28 gdd 差分表）: 制菜 ticket 進行中 × 铁牛（低位）が掌勺 —
     // delta 驱动の間隔 emission（フレーム率に依存しない）
-    if (run.phase === 'day' && this.dayHeadChefStage === 0 && run.kitchen.tickets.length > 0) {
+    if (run.phase === 'day' && this.dayHeadChefFx.smoke && run.kitchen.tickets.length > 0) {
       this.smokeTimerMs += delta;
       if (this.smokeTimerMs >= STAGE_FX.SMOKE_INTERVAL_MS) {
         this.smokeTimerMs -= STAGE_FX.SMOKE_INTERVAL_MS;
@@ -847,14 +852,19 @@ export class GameplayView {
     const ghost = addScaledSprite(this.scene, marker.spriteKey, marker.container.x, marker.container.y, marker.displayHeight);
     ghost.setAlpha(STAGE_FX.TRAIL_ALPHA);
     this.container.add(ghost);
-    this.scene.tweens.add({
-      targets: ghost,
-      alpha: 0,
-      duration: STAGE_FX.TRAIL_FADE_MS,
-      onComplete: (): void => {
-        ghost.destroy();
-      },
-    });
+    // fade tween も rebuild 寿命管理に登録（CR-CODE iter1 finding 4 — rebuild/destroy 中の
+    // 描画対象破棄と tween 残置の二重管理を防ぐ。remove されれば onComplete は発火しないが
+    // container.destroy(true) が子を破棄するため破棄漏れはない）
+    this.rebuildTweens.push(
+      this.scene.tweens.add({
+        targets: ghost,
+        alpha: 0,
+        duration: STAGE_FX.TRAIL_FADE_MS,
+        onComplete: (): void => {
+          ghost.destroy();
+        },
+      }),
+    );
   }
 
   /** 制菜黑烟（S-28 — 柜台上端から立ち上る煙パフ。Graphics 円で程序化） */
@@ -871,16 +881,19 @@ export class GameplayView {
       STAGE_FX.SMOKE_ALPHA,
     );
     this.container.add(puff);
-    this.scene.tweens.add({
-      targets: puff,
-      y: puff.y - STAGE_FX.SMOKE_RISE_PX,
-      scale: STAGE_FX.SMOKE_END_SCALE,
-      alpha: 0,
-      duration: STAGE_FX.SMOKE_FADE_MS,
-      onComplete: (): void => {
-        puff.destroy();
-      },
-    });
+    // fade tween も rebuild 寿命管理に登録（CR-CODE iter1 finding 4 — spawnTrailGhost と同型）
+    this.rebuildTweens.push(
+      this.scene.tweens.add({
+        targets: puff,
+        y: puff.y - STAGE_FX.SMOKE_RISE_PX,
+        scale: STAGE_FX.SMOKE_END_SCALE,
+        alpha: 0,
+        duration: STAGE_FX.SMOKE_FADE_MS,
+        onComplete: (): void => {
+          puff.destroy();
+        },
+      }),
+    );
   }
 
   // ==== 共通ヘルパ ====
@@ -930,6 +943,8 @@ export class GameplayView {
    * 表情贴片（S-28 — Graphics 描画のみの程序化差分。眼 2 点＋口弧で 3 段を表現）。
    * gdd 差分表「色调/表情贴片/缩放」の表情贴片。位置は立绘表示高さの上半分（顔域）に固定 —
    * 立绘ごとの顔位置の個差は HEAD_FROM_TOP_RATIO で吸収する（pixel 完全一致は狙わない）。
+   * CR-CODE iter1 finding 3: 顔域を名前ラベル帯（AVATAR_NAME_OFFSET_Y）より上に置く —
+   * 贴片は名前ラベルより後に add されるため、重なると文字に乗ってしまう。
    */
   private addExpressionPatch(
     x: number,
