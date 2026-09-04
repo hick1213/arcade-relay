@@ -36,13 +36,18 @@ export const beginStaffSelect = (run: RunState, unlockedIds: readonly string[]):
   },
 });
 
-/** 候補 tap: 解锁済み候補を選択（再点击で解除。未解锁・锁定中は不発 — 二重ガード） */
+/** 候補 tap: 解锁済み候補を選択（再点击で解除。未解锁・锁定中・既に编成内は不発 — 二重ガード） */
 export const selectCandidate = (run: RunState, candidateId: string): RunState => {
   const state = run.staffSelect;
   if (run.phase !== 'staffSelect' || state === null) {
     return run;
   }
   if (!state.unlockedCandidateIds.includes(candidateId)) {
+    return run;
+  }
+  // 既に编成内の候補は選択させない（置換不可のため pending のまま进むと
+  // replaceStaffMember の二重置換ガードで全 tap が黙って無視される死路になる — CR-CODE i1）
+  if (run.staff.some((member) => member.id === candidateId)) {
     return run;
   }
   const pendingCandidateId = state.pendingCandidateId === candidateId ? null : candidateId;

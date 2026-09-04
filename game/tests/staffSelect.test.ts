@@ -114,7 +114,7 @@ describe('初始伙计选择（志向确认後の相位）', () => {
     expect(unlockedCandidateIds(unlocks)).toEqual([UNLOCK_STAFF[0]?.id]);
   });
 
-  it('解锁伙计で默认伙计 1 名を置き換える（初期值 = gdd「解锁」表どおり）', () => {
+  it('解锁伙计で默认伙计 1 名を置き換える（初期值 = gdd「解锁」表のリテラル: 柳镖头 速2/艺1/体4）', () => {
     const run = confirmAmbition(createInitialRun({ 'UNL-01': true, 'UNL-02': false }), 'xia');
     const candidate = UNLOCK_STAFF[0]!;
     expect(candidate).toBeDefined();
@@ -138,10 +138,11 @@ describe('初始伙计选择（志向确认後の相位）', () => {
     });
     const replaced = next.staff.find((member) => member.id === candidate.id);
     expect(replaced).toMatchObject({
-      id: candidate.id,
-      speed: candidate.speed,
-      craft: candidate.craft,
-      stamina: candidate.stamina,
+      id: 'liubiaotou',
+      // gdd「解锁」表 UNL-01 のリテラル（config 转写ミスは本テストで検出 — CR-CODE i1）
+      speed: 2,
+      craft: 1,
+      stamina: 4,
       post: 'standby',
       fatigue: false,
     });
@@ -192,6 +193,47 @@ describe('初始伙计选择（志向确认後の相位）', () => {
     });
     expect(next.staff.find((m) => m.id === candidate2.id)).toBeUndefined();
     expect(next.staff.length).toBe(STAFF_ROSTER.length);
+  });
+
+  it('既に编成内の候補は選択できない（置換不可 — pending 死路ガード。CR-CODE i1）', () => {
+    const run = confirmAmbition(createInitialRun({ 'UNL-01': true, 'UNL-02': false }), 'xia');
+    const candidate = UNLOCK_STAFF[0]!;
+    expect(candidate).toBeDefined();
+    const target = run.staff[0]!;
+    expect(target).toBeDefined();
+    const swapped = handleTapEvent(
+      handleTapEvent(run, {
+        zoneId: 'test',
+        event: TAP_EVENTS.STAFF_SELECT_CANDIDATE,
+        payload: { candidateId: candidate.id },
+        x: 0,
+        y: 0,
+      }),
+      {
+        zoneId: 'test',
+        event: TAP_EVENTS.STAFF_SELECT_REPLACE,
+        payload: { staffId: target.id },
+        x: 0,
+        y: 0,
+      },
+    );
+    // 编成内に入った候補を再 tap しても pending にならず、以後の置換 tap も不発のまま
+    const reTapped = handleTapEvent(swapped, {
+      zoneId: 'test',
+      event: TAP_EVENTS.STAFF_SELECT_CANDIDATE,
+      payload: { candidateId: candidate.id },
+      x: 0,
+      y: 0,
+    });
+    expect(reTapped.staffSelect?.pendingCandidateId).toBeNull();
+    const afterReplace = handleTapEvent(reTapped, {
+      zoneId: 'test',
+      event: TAP_EVENTS.STAFF_SELECT_REPLACE,
+      payload: { staffId: swapped.staff[1]?.id ?? '' },
+      x: 0,
+      y: 0,
+    });
+    expect(afterReplace.staff.map((m) => m.id)).toEqual(swapped.staff.map((m) => m.id));
   });
 
   it('未解锁候補は選択できない（二重ガード）', () => {

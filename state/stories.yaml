@@ -222,7 +222,7 @@ stories:
     pillar: P-02
     assignee: gameplay-engineer
     phase: build
-    status: review # systems/meta/unlocks.ts（judgeUnlocks/mergeUnlocks 纯函数）を applyRunResult が呼び出し（endings_seen 更新後を判定源）。初始伙计选择 = systems/staffSelect.ts ＋新 phase 'staffSelect'（志向确认直後。GameScene で update 進行を停止、router 3 tap を接线）。GameplayView.buildStaffSelect（解锁候補 2 枠＝锁定表示・置換先 5 枠）。tests/staffSelect.test.ts 22 件＋runAmbition 更新、typecheck/vitest 148 件 exit 0
+    status: done # CR-CODE i1 CONCERNS 4件 → 3件修正（selectCandidate 已编成内不発ガード / createDefaultUnlocks を META_SAVE.UNLOCK_IDS 派生 / gdd 表リテラル断言＋死路ガード追加テスト）、typecheck/vitest exit 0。未処理 1件（注记）: createRunSnapshot は day/silver/reputation/ambition のみ保存し「继续周目」は默认编成を再構成するため、置換した解锁伙計は S-23（run 快照拡張 — acceptance 已含「伙计表」）まで静默に失われる → S-23 で伙计表を快照に含めること
     acceptance: "endings_seen ≥1/≥2 时 SaveData.unlocks 置位 UNL-01/02; 新周目志向选择后出现初始伙计选择界面（解锁伙计可替换任意 1 名默认伙计，初始值与 gdd 表一致）; 未解锁时锁定显示; 解锁判定经单测"
   - id: S-23
     title: "中断续玩 run 快照（日粒度）"

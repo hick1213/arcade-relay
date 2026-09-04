@@ -3,7 +3,7 @@
  * GameScene は本モジュールの createInitialRun / advanceRun / handleTapEvent だけを呼ぶ
  * （Scene 轻薄 — tech-stack 规范 3）。状态は不可变更新、纯逻辑のみ（Phaser 非依赖）。
  */
-import { AMBITION, DAY_CYCLE, MS_PER_SECOND, STAFF_ROSTER } from '../config';
+import { AMBITION, DAY_CYCLE, META_SAVE, MS_PER_SECOND, STAFF_ROSTER } from '../config';
 import type {
   AmbitionId,
   FinalBattleSnapshot,
@@ -88,9 +88,13 @@ export function createInitialRun(
   };
 }
 
-/** 全 false の unlocks（createInitialRun 既定值。metaSchema.createDefaultSaveData と同形） */
+/** 全 false の unlocks（createInitialRun 既定值。META_SAVE.UNLOCK_IDS から派生 —
+ * 新解锁 id 追加時に createDefaultSaveData（metaSchema）との重複が枯れない — CR-CODE i1） */
 function createDefaultUnlocks(): Record<UnlockId, boolean> {
-  return { 'UNL-01': false, 'UNL-02': false };
+  return META_SAVE.UNLOCK_IDS.reduce(
+    (acc, id) => ({ ...acc, [id]: false }),
+    {} as Record<UnlockId, boolean>,
+  );
 }
 
 /**
