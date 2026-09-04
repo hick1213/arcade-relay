@@ -45,6 +45,23 @@ export const TEXT_KEYS = {
   STAFF_LINE_STAGE_1: 'staff.line.stage1',
   STAFF_LINE_STAGE_2: 'staff.line.stage2',
   STAFF_LINE_STAGE_3: 'staff.line.stage3',
+  // 成长阶段別台词の伙计別库（S-28: gdd「伙计初始值」差分表 — 台词库按 伙计×阶段 切换。
+  // 未登记 id（UNL-01/02 解锁伙计）は STAFF_LINE_STAGE_x にフォールバック）
+  STAFF_LINE_AFU_1: 'staff.line.afu.1',
+  STAFF_LINE_AFU_2: 'staff.line.afu.2',
+  STAFF_LINE_AFU_3: 'staff.line.afu.3',
+  STAFF_LINE_TIENIU_1: 'staff.line.tieniu.1',
+  STAFF_LINE_TIENIU_2: 'staff.line.tieniu.2',
+  STAFF_LINE_TIENIU_3: 'staff.line.tieniu.3',
+  STAFF_LINE_WENQU_1: 'staff.line.wenqu.1',
+  STAFF_LINE_WENQU_2: 'staff.line.wenqu.2',
+  STAFF_LINE_WENQU_3: 'staff.line.wenqu.3',
+  STAFF_LINE_XIAODIE_1: 'staff.line.xiaodie.1',
+  STAFF_LINE_XIAODIE_2: 'staff.line.xiaodie.2',
+  STAFF_LINE_XIAODIE_3: 'staff.line.xiaodie.3',
+  STAFF_LINE_DASONG_1: 'staff.line.dasong.1',
+  STAFF_LINE_DASONG_2: 'staff.line.dasong.2',
+  STAFF_LINE_DASONG_3: 'staff.line.dasong.3',
   // 事件卡（垂直切片 3 张 — gdd「事件卡」表の #1/#5/#8。build S-17 で 15 张に拡張）
   CARD_1_TITLE: 'card.1.title',
   CARD_1_OPT1: 'card.1.opt1',

@@ -91,7 +91,7 @@ export class GameScene extends Phaser.Scene {
     const prev = this.run;
     this.run = advanceRun(this.run, delta);
     this.syncAudio(prev);
-    this.syncView();
+    this.syncView(delta);
   }
 
   private applyTap(hit: TapHit): void {
@@ -125,12 +125,12 @@ export class GameScene extends Phaser.Scene {
   }
 
   /** 破产/周目终结の自動迁移 → Result（runEngine.ended が真値 — S-08/S-15） */
-  private syncView(): void {
+  private syncView(delta = 0): void {
     if (this.run.ended !== null) {
       this.goToResult(this.run.ended);
       return;
     }
-    this.view.render(this.run);
+    this.view.render(this.run, delta);
     this.hud.update(this.toHudState());
   }
 

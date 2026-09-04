@@ -25,6 +25,7 @@ import {
   NIGHT,
   POST_CAPACITY,
   SPRITE_DISPLAY,
+  STAGE_FX,
   UI,
 } from '../config';
 import type { InputRouter } from '../systems/input/InputRouter';
@@ -40,6 +41,7 @@ import {
   staffSpriteKey,
 } from '../systems/visualAssets';
 import { addCoverBackground, addScaledSprite } from './assetSprites';
+import { headChefStage, staffStagePresentation, type StagePresentation } from './stagePresentation';
 import { HUD_TEXT_KEYS, TEXT_KEYS } from '../textKeys';
 import {
   TAP_EVENTS,
@@ -71,16 +73,21 @@ const POST_DEFINITIONS: readonly PostDefinition[] = [
 
 const STAGE_DOTS = ['○○○', '●○○', '●●○'];
 
-/** 成长阶段 → 台词 key（S-07: 台词按成长阶段切换。文案は systems/i18n 言語表） */
-const STAFF_LINE_KEYS = [
-  TEXT_KEYS.STAFF_LINE_STAGE_1,
-  TEXT_KEYS.STAFF_LINE_STAGE_2,
-  TEXT_KEYS.STAFF_LINE_STAGE_3,
-] as const;
-
 /** 配列インデックス参照の undefined 抑止（index は常に範囲内 — 布局定数は固定長） */
 function pointAt(list: readonly { readonly x: number; readonly y: number }[], index: number) {
   return list[index] as { readonly x: number; readonly y: number };
+}
+
+/** 跑堂 marker の表示参照（S-28 motion/残影演出用の描画キャッシュ — state の正は Systems 側） */
+interface WaiterMarkerView {
+  readonly container: Phaser.GameObjects.Container;
+  readonly sprite: Phaser.GameObjects.Image | null;
+  readonly spriteKey: string | null;
+  readonly displayHeight: number;
+  readonly presentation: StagePresentation;
+  /** ボブ位相・残影スパン（delta で進める演出キャッシュ — systems state の複製ではない） */
+  bobPhaseMs: number;
+  trailTimerMs: number;
 }
 
 export class GameplayView {
@@ -88,9 +95,15 @@ export class GameplayView {
   private structuralKey = '';
   private readonly zoneIds = new Set<string>();
   private readonly patienceBars = new Map<number, Phaser.GameObjects.Rectangle>();
-  private readonly waiterMarkers = new Map<string, Phaser.GameObjects.Container>();
+  private readonly waiterMarkers = new Map<string, WaiterMarkerView>();
   private progressFill: Phaser.GameObjects.Rectangle | null = null;
   private pulseTween: Phaser.Tweens.Tween | null = null;
+  /** 当日掌勺の成长阶段（S-28 黑烟/金光の出現条件 — buildDay での表示導出キャッシュ） */
+  private dayHeadChefStage: 0 | 1 | 2 | null = null;
+  /** 黑烟の emission 間隔キャッシュ（delta 驱动 — S-28） */
+  private smokeTimerMs = 0;
+  /** rebuild 寿命の無限 tween（出菜金光パルス — 前回描画分を確実に停止） */
+  private readonly rebuildTweens: Phaser.Tweens.Tween[] = [];
 
   constructor(
     private readonly scene: Phaser.Scene,
@@ -98,13 +111,13 @@ export class GameplayView {
     private readonly router: InputRouter,
   ) {}
 
-  render(run: RunState): void {
+  render(run: RunState, deltaMs = 0): void {
     const key = this.buildStructuralKey(run);
     if (key !== this.structuralKey || this.container === null) {
       this.rebuild(run);
       this.structuralKey = key;
     }
-    this.updateDynamic(run);
+    this.updateDynamic(run, deltaMs);
   }
 
   destroy(): void {
@@ -113,6 +126,10 @@ export class GameplayView {
     this.container = null;
     this.pulseTween?.remove();
     this.pulseTween = null;
+    for (const tween of this.rebuildTweens) {
+      tween.remove();
+    }
+    this.rebuildTweens.length = 0;
   }
 
   // ==== 構造キー（変わった時だけ再構築）====
@@ -141,8 +158,14 @@ export class GameplayView {
     this.patienceBars.clear();
     this.waiterMarkers.clear();
     this.progressFill = null;
+    this.dayHeadChefStage = null;
+    this.smokeTimerMs = 0;
     this.pulseTween?.remove();
     this.pulseTween = null;
+    for (const tween of this.rebuildTweens) {
+      tween.remove();
+    }
+    this.rebuildTweens.length = 0;
     this.container?.destroy(true);
 
     const container = this.scene.add.container(0, 0).setDepth(UI.DEPTH_HUD - 1);
@@ -274,8 +297,10 @@ export class GameplayView {
       const position = pointAt(MORNING.AVATARS, index);
       const total = member.speed + member.craft + member.stamina;
       const stage = growthStage(total);
+      const presentation = staffStagePresentation(member.id, stage);
       // 伙计立绘（IMG-04～10 — systems/visualAssets.ts の対応づけ。選択表示は枠线 rect が担う）
       const spriteKey = staffSpriteKey(member.id);
+      let avatarSprite: Phaser.GameObjects.Image | null = null;
       if (spriteKey !== null) {
         const sprite = addScaledSprite(
           this.scene,
@@ -286,6 +311,7 @@ export class GameplayView {
         );
         // 成长阶段別の差分（S-07）: 立绘の表示倍率（缩放 — STAGE_SCALES）
         sprite.setScale(sprite.scale * GAMEPLAY.STAGE_SCALES[stage]);
+        avatarSprite = sprite;
         container.add(sprite);
       }
       const rect = this.scene.add
@@ -313,16 +339,28 @@ export class GameplayView {
           MORNING.AVATAR_STAT_FONT_SIZE,
         ),
       );
-      // 成长阶段別の差分（S-07）: 台词按阶段切换（plate の色は半透明 — 立绘の視認性を壊さない）
-      rect.setFillStyle(GAMEPLAY.STAGE_TINTS[stage], GAMEPLAY.SPRITE_PLATE_ALPHA);
+      // 成长阶段別の差分（S-28）: 台词は伙计別库（gdd 差分表 — P-02 成长可视化）。
+      // plate の色は半透明蒙层（立绘の視認性を壊さない）— 色调は伙计別 ramp（STAGE_FX.TINTS_BY_STAFF）
+      rect.setFillStyle(presentation.tint, GAMEPLAY.SPRITE_PLATE_ALPHA);
       container.add(
         this.label(
           position.x,
           position.y + MORNING.AVATAR_LINE_OFFSET_Y,
-          this.textProvider(STAFF_LINE_KEYS[stage]),
+          this.textProvider(presentation.lineKey),
           MORNING.AVATAR_LINE_FONT_SIZE,
         ),
       );
+      // 成长阶段別の差分（S-28）: 表情贴片（Graphics 描画 — 0=しょんぼり/1=真顔/2=笑顔。新規资产なし）
+      if (avatarSprite !== null) {
+        container.add(
+          this.addExpressionPatch(
+            position.x,
+            position.y,
+            MORNING.AVATAR_HEIGHT * GAMEPLAY.STAGE_SCALES[stage],
+            stage,
+          ),
+        );
+      }
       this.registerZone(
         GAMEPLAY_ZONES.STAFF_AVATAR(member.id),
         position,
@@ -362,6 +400,9 @@ export class GameplayView {
 
   private buildDay(run: RunState, container: Phaser.GameObjects.Container): void {
     container.add(addCoverBackground(this.scene, backgroundKeyForPhase('day')));
+    // 当日掌勺の成长阶段（S-28: 黑烟=阶段 0 / 出菜金光=阶段 2 の出現条件。表示導出のみ —
+    // 正は Systems 层の RunState。値は保存せず rebuild ごとに導出し直す）
+    this.dayHeadChefStage = headChefStage(run);
 
     // 日间唯一硬计时の進行バー（S-03: DAY_SERVICE_DURATION_S）
     container.add(
@@ -395,6 +436,20 @@ export class GameplayView {
     run.kitchen.ready.forEach((dish, index) => {
       const x = GAME_LAYOUT.SERVE_WINDOW.x + GAMEPLAY.SERVE_RACK_X_OFFSET + (index % 3) * GAMEPLAY.SERVE_RACK_CELL;
       const y = GAME_LAYOUT.SERVE_WINDOW.y + GAMEPLAY.SERVE_RACK_Y_OFFSET + Math.floor(index / 3) * GAMEPLAY.SERVE_RACK_CELL;
+      // 掌勺高阶の「出菜带金光」（S-28 gdd 差分表 — 菜の背後に金色パルス。程序化、新規资产なし）
+      if (this.dayHeadChefStage === 2) {
+        const glow = this.scene.add.circle(x, y, STAGE_FX.GLOW_RADIUS, STAGE_FX.GLOW_COLOR, STAGE_FX.GLOW_ALPHA);
+        container.add(glow);
+        this.rebuildTweens.push(
+          this.scene.tweens.add({
+            targets: glow,
+            scale: STAGE_FX.GLOW_PULSE_SCALE,
+            duration: STAGE_FX.GLOW_PULSE_MS,
+            yoyo: true,
+            repeat: -1,
+          }),
+        );
+      }
       container.add(addScaledSprite(this.scene, dishSpriteKey(dish.dishId), x, y, SPRITE_DISPLAY.DISH_RACK_SIZE));
       this.registerZone(GAMEPLAY_ZONES.SERVE_DISH(dish.customerId), { x, y }, GAMEPLAY.SERVE_RACK_CELL, GAMEPLAY.SERVE_RACK_CELL, {
         event: TAP_EVENTS.SERVE_WINDOW,
@@ -453,18 +508,20 @@ export class GameplayView {
     }
 
     // 跑堂マーカー（每フレーム位置更新 — delta 驱动移动の可視化）。
-    // 立绘（IMG-04～10）＋成长阶段別の差分（S-07）: 缩放
+    // 立绘（IMG-04～10）＋成长阶段別の差分（S-07 缩放 ＋ S-28 motion/残影 — stagePresentation）
     run.staff
       .filter((member) => member.post === 'waiter')
       .forEach((member, index) => {
         const stage = growthStage(member.speed + member.craft + member.stamina);
+        const presentation = staffStagePresentation(member.id, stage);
         const marker = this.scene.add.container(
           GAME_LAYOUT.COUNTER.x + index * GAMEPLAY.WAITER_STAND_GAP,
           GAME_LAYOUT.COUNTER.y,
         );
         const spriteKey = staffSpriteKey(member.id);
+        let sprite: Phaser.GameObjects.Image | null = null;
         if (spriteKey !== null) {
-          const sprite = addScaledSprite(this.scene, spriteKey, 0, 0, SPRITE_DISPLAY.WAITER_MARKER_HEIGHT);
+          sprite = addScaledSprite(this.scene, spriteKey, 0, 0, SPRITE_DISPLAY.WAITER_MARKER_HEIGHT);
           sprite.setScale(sprite.scale * GAMEPLAY.STAGE_SCALES[stage]);
           marker.add(sprite);
         }
@@ -472,7 +529,15 @@ export class GameplayView {
           this.label(0, GAMEPLAY.MARKER_NAME_OFFSET_Y, this.textProvider(member.nameKey), MORNING.AVATAR_STAT_FONT_SIZE),
         );
         container.add(marker);
-        this.waiterMarkers.set(member.id, marker);
+        this.waiterMarkers.set(member.id, {
+          container: marker,
+          sprite,
+          spriteKey,
+          displayHeight: SPRITE_DISPLAY.WAITER_MARKER_HEIGHT * GAMEPLAY.STAGE_SCALES[stage],
+          presentation,
+          bobPhaseMs: 0,
+          trailTimerMs: 0,
+        });
       });
   }
 
@@ -619,7 +684,7 @@ export class GameplayView {
 
   // ==== 每フレームの動的更新 ====
 
-  private updateDynamic(run: RunState): void {
+  private updateDynamic(run: RunState, delta: number): void {
     // 耐心バー（待ちステージの客人のみ表示）
     for (const [customerId, bar] of this.patienceBars) {
       const customer = run.customers.find((candidate) => candidate.id === customerId);
@@ -638,27 +703,112 @@ export class GameplayView {
       this.progressFill.width = GAMEPLAY.PROGRESS_WIDTH * ratio;
       this.progressFill.setSize(this.progressFill.width, GAMEPLAY.PROGRESS_HEIGHT);
     }
-    // 跑堂移动（move 種別のみ补间。动作中は対象位置に静止）
+    // 制菜冒黑烟（S-28 gdd 差分表）: 制菜 ticket 進行中 × 掌勺が成长阶段 0 —
+    // delta 驱动の間隔 emission（フレーム率に依存しない）
+    if (run.phase === 'day' && this.dayHeadChefStage === 0 && run.kitchen.tickets.length > 0) {
+      this.smokeTimerMs += delta;
+      if (this.smokeTimerMs >= STAGE_FX.SMOKE_INTERVAL_MS) {
+        this.smokeTimerMs -= STAGE_FX.SMOKE_INTERVAL_MS;
+        this.emitSmokePuff();
+      }
+    } else {
+      this.smokeTimerMs = 0;
+    }
+    // 跑堂移动（move 種別のみ补间。动作中は対象位置に静止）＋成长阶段別の移動演出（S-28）
     for (const [staffId, marker] of this.waiterMarkers) {
       const action = run.waiterActions.find((candidate) => candidate.staffId === staffId);
       if (action === undefined) {
         const index = run.staff.findIndex((member) => member.id === staffId);
-        marker.setPosition(GAME_LAYOUT.COUNTER.x + index * GAMEPLAY.WAITER_STAND_GAP, GAME_LAYOUT.COUNTER.y);
+        marker.container.setPosition(GAME_LAYOUT.COUNTER.x + index * GAMEPLAY.WAITER_STAND_GAP, GAME_LAYOUT.COUNTER.y);
+        this.updateMarkerMotion(marker, 0, false);
         continue;
       }
       const target =
         action.kind === 'moveToWindow'
           ? GAME_LAYOUT.SERVE_WINDOW
           : pointAt(GAME_LAYOUT.TABLES, action.seat);
-      if (action.kind !== 'moveToOrder' && action.kind !== 'moveToWindow' && action.kind !== 'moveToCollect') {
-        marker.setPosition(target.x, target.y);
+      const moving =
+        action.kind === 'moveToOrder' || action.kind === 'moveToWindow' || action.kind === 'moveToCollect';
+      if (!moving) {
+        marker.container.setPosition(target.x, target.y);
+        this.updateMarkerMotion(marker, 0, false);
         continue;
       }
       const progress = action.totalMs > 0 ? 1 - action.remainingMs / action.totalMs : 1;
       const x = GAME_LAYOUT.COUNTER.x + (target.x - GAME_LAYOUT.COUNTER.x) * progress;
       const y = GAME_LAYOUT.COUNTER.y + (target.y - GAME_LAYOUT.COUNTER.y) * progress;
-      marker.setPosition(x, y);
+      marker.container.setPosition(x, y);
+      this.updateMarkerMotion(marker, delta, true);
     }
+  }
+
+  /**
+   * 跑堂の成长阶段別移動演出（S-28 — gdd 差分表の速度/动作の可視化）。
+   * 位置の正は Systems 側（waiterActions）で、ここは delta で進める表示演出のみ。
+   */
+  private updateMarkerMotion(marker: WaiterMarkerView, delta: number, moving: boolean): void {
+    marker.bobPhaseMs = moving ? marker.bobPhaseMs + delta : 0;
+    if (marker.sprite !== null) {
+      const phaseRad = (marker.bobPhaseMs / MS_PER_SECOND) * Math.PI * 2 * marker.presentation.bobFreqHz;
+      marker.sprite.y = moving
+        ? -Math.abs(Math.sin(phaseRad)) * marker.presentation.bobAmpPx
+        : 0;
+      marker.sprite.setRotation(moving ? Math.sin(phaseRad) * marker.presentation.waddleRad : 0);
+    }
+    // 阿福高阶の「残影」（移動中のみ等間隔で立绘 ghost を残す — 程序化、テクスチャ再利用）
+    if (moving && marker.presentation.trail && marker.spriteKey !== null) {
+      marker.trailTimerMs += delta;
+      if (marker.trailTimerMs >= STAGE_FX.TRAIL_INTERVAL_MS) {
+        marker.trailTimerMs -= STAGE_FX.TRAIL_INTERVAL_MS;
+        this.spawnTrailGhost(marker);
+      }
+    } else {
+      marker.trailTimerMs = 0;
+    }
+  }
+
+  /** 残影 ghost（S-28 — 既存立绘テクスチャの再利用。fade 後に破棄） */
+  private spawnTrailGhost(marker: WaiterMarkerView): void {
+    if (this.container === null || marker.spriteKey === null) {
+      return;
+    }
+    const ghost = addScaledSprite(this.scene, marker.spriteKey, marker.container.x, marker.container.y, marker.displayHeight);
+    ghost.setAlpha(STAGE_FX.TRAIL_ALPHA);
+    this.container.add(ghost);
+    this.scene.tweens.add({
+      targets: ghost,
+      alpha: 0,
+      duration: STAGE_FX.TRAIL_FADE_MS,
+      onComplete: (): void => {
+        ghost.destroy();
+      },
+    });
+  }
+
+  /** 制菜黑烟（S-28 — 柜台上端から立ち上る煙パフ。Graphics 円で程序化） */
+  private emitSmokePuff(): void {
+    if (this.container === null) {
+      return;
+    }
+    const driftX = (Math.random() * 2 - 1) * STAGE_FX.SMOKE_DRIFT_X;
+    const puff = this.scene.add.circle(
+      GAME_LAYOUT.COUNTER.x + driftX,
+      GAME_LAYOUT.COUNTER.y - GAMEPLAY.COUNTER_HEIGHT / 2,
+      STAGE_FX.SMOKE_RADIUS,
+      STAGE_FX.SMOKE_COLOR,
+      STAGE_FX.SMOKE_ALPHA,
+    );
+    this.container.add(puff);
+    this.scene.tweens.add({
+      targets: puff,
+      y: puff.y - STAGE_FX.SMOKE_RISE_PX,
+      scale: STAGE_FX.SMOKE_END_SCALE,
+      alpha: 0,
+      duration: STAGE_FX.SMOKE_FADE_MS,
+      onComplete: (): void => {
+        puff.destroy();
+      },
+    });
   }
 
   // ==== 共通ヘルパ ====
@@ -702,6 +852,40 @@ export class GameplayView {
         strokeThickness: UI.HUD_STROKE_WIDTH,
       })
       .setOrigin(0.5);
+  }
+
+  /**
+   * 表情贴片（S-28 — Graphics 描画のみの程序化差分。眼 2 点＋口弧で 3 段を表現）。
+   * gdd 差分表「色调/表情贴片/缩放」の表情贴片。位置は立绘表示高さの上半分（顔域）に固定 —
+   * 立绘ごとの顔位置の個差は HEAD_FROM_TOP_RATIO で吸収する（pixel 完全一致は狙わない）。
+   */
+  private addExpressionPatch(
+    x: number,
+    centerY: number,
+    displayHeight: number,
+    stage: 0 | 1 | 2,
+  ): Phaser.GameObjects.Graphics {
+    const fx = STAGE_FX.EXPRESSION;
+    const headY = centerY - displayHeight * (0.5 - fx.HEAD_FROM_TOP_RATIO);
+    const patch = this.scene.add.graphics();
+    patch.fillStyle(fx.COLOR, 1);
+    patch.fillCircle(x - fx.EYE_DX, headY, fx.EYE_RADIUS);
+    patch.fillCircle(x + fx.EYE_DX, headY, fx.EYE_RADIUS);
+    patch.lineStyle(fx.LINE_WIDTH, fx.COLOR, 1);
+    patch.beginPath();
+    if (stage === 2) {
+      // 笑顔 — 下向きの弧（口角が上がる）
+      patch.arc(x, headY + fx.MOUTH_SMILE_DY, fx.MOUTH_RADIUS, fx.MOUTH_ARC_INSET, Math.PI - fx.MOUTH_ARC_INSET);
+    } else if (stage === 0) {
+      // しょんぼり — 上向きの弧（口角が下がる）
+      patch.arc(x, headY + fx.MOUTH_FROWN_DY, fx.MOUTH_RADIUS, Math.PI + fx.MOUTH_ARC_INSET, Math.PI * 2 - fx.MOUTH_ARC_INSET);
+    } else {
+      // 真顔 — 直线
+      patch.moveTo(x - fx.MOUTH_RADIUS, headY + fx.MOUTH_SMILE_DY);
+      patch.lineTo(x + fx.MOUTH_RADIUS, headY + fx.MOUTH_SMILE_DY);
+    }
+    patch.strokePath();
+    return patch;
   }
 
   private registerZone(
