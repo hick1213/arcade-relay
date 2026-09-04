@@ -13,6 +13,7 @@ import { ASSET_KEYS, GAME_WIDTH, SPRITE_DISPLAY, TITLE, UI } from '../config';
 import { loadSaveData } from '../persistence/SaveAdapter';
 import { createFallbackTextProvider, TITLE_TEXT_KEYS } from '../ui/hudStrings';
 import { ensureUiPlaceholderTextures } from '../ui/placeholderTextures';
+import { audioDirector } from '../ui/AudioDirector';
 import type { TextProvider } from '../types';
 
 /** 脉动闪烁的相位换算（1 周期 = PROMPT_PULSE_MS 的余弦波） */
@@ -32,9 +33,16 @@ export class TitleScene extends Phaser.Scene {
     ensureUiPlaceholderTextures(this);
 
     // 存档读取（经 persistence 层 — 损坏协议在 SaveAdapter。recovered 时显示 1 次通知）
-    if (loadSaveData().recovered) {
+    const loaded = loadSaveData();
+    if (loaded.recovered) {
       this.createRecoveredNotice();
     }
+
+    // 音频接线（S-27）: 音量初期值 = SaveData.settings、BGM-01 を要求。
+    // autoplay 制限により locked 中は AudioDirector が退避し、首次输入の unlock 後に
+    // 再生する（tech-stack 规范 6 — unlock 操作は下の首次输入 handler）。
+    audioDirector.attach(this, loaded.data.settings.bgm_volume, loaded.data.settings.sfx_volume);
+    audioDirector.requestBgm(ASSET_KEYS.audio.bgmInnDay);
 
     this.createEmblem();
     this.createTitleText();

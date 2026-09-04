@@ -28,6 +28,7 @@ import { MENU_TEXT_KEYS } from '../ui/hudStrings';
 import { createFallbackTextProvider } from '../ui/hudStrings';
 import { ensureUiPlaceholderTextures } from '../ui/placeholderTextures';
 import { createUiButton, playPressFeedback } from '../ui/UiButton';
+import { audioDirector } from '../ui/AudioDirector';
 
 interface MenuButtonEntry {
   readonly zoneId: string;
@@ -79,8 +80,11 @@ export class MenuScene extends Phaser.Scene {
       this.save.settings.sfx_volume,
     );
 
-    // 音量接线到实际音频输出（conventions 规则 8。BGM 走主音量 — QA 验证项）
-    this.applyMasterVolume(this.save.settings.bgm_volume);
+    // 音频接线（S-27）: BGM-01 循环（Title から継続 — 同一轨道の再要求は no-op）。
+    // 音量真值 = SaveData.settings（conventions 规则 8）。滑块变更は handleVolumeChange が
+    // setBgmVolume/setSfxVolume へ実時反映し、同時に persist する（QA-PLAY 要点 2 の音量实效）。
+    audioDirector.attach(this, this.save.settings.bgm_volume, this.save.settings.sfx_volume);
+    audioDirector.requestBgm(ASSET_KEYS.audio.bgmInnDay);
   }
 
   private createTitle(): void {
@@ -178,10 +182,8 @@ export class MenuScene extends Phaser.Scene {
   }
 
   private playUiTap(): void {
-    if (this.sound.locked) {
-      return;
-    }
-    this.sound.play(ASSET_KEYS.audio.sfxUiTap, { volume: this.save.settings.sfx_volume });
+    // SFX-01（菜单确认）。SFX 音量 = SaveData.settings（AudioDirector の表示キャッシュ経由）
+    audioDirector.playSfx(ASSET_KEYS.audio.sfxUiTap);
   }
 
   /**
@@ -207,27 +209,9 @@ export class MenuScene extends Phaser.Scene {
     };
     saveSaveData(this.save);
     this.settingsPanel.renderVolumes(bgmVolume, sfxVolume);
-    if (channel === 'bgm') {
-      this.applyMasterVolume(bgmVolume);
-    }
-  }
-
-  /**
-   * BGM 主音量を实际音频输出（主增益节点）へ反映。
-   * Phaser 3.90 的 WebAudioSoundManager#volume setter 每次都调度 `setValueAtTime(value, 0)`，
-   * 与 timeline 上已有的事件同时刻（或更早）重复调度时 Chromium 会静默忽略 — 表现为
-   * 「第二次之后的音量变更不生效」。因此先 cancel 再以当前 AudioContext 时刻重新调度。
-   * WebAudio 以外的 SoundManager（HTML5/NoAudio）没有该节点，走普通 setter（可靠）。
-   */
-  private applyMasterVolume(value: number): void {
-    const manager = this.sound as Phaser.Sound.WebAudioSoundManager;
-    if (manager.masterVolumeNode !== undefined && manager.context !== undefined) {
-      const gain = manager.masterVolumeNode.gain;
-      gain.cancelScheduledValues(manager.context.currentTime);
-      gain.setValueAtTime(value, manager.context.currentTime);
-    } else {
-      manager.volume = value;
-    }
+    // 実時反映（S-27 音量实效 — QA-PLAY 要点 2: 滑块变更が音频出力へ即時に効く）。
+    // BGM は再生中の音へ、SFX は次回の再生から適用。
+    audioDirector.setVolumes(bgmVolume, sfxVolume);
   }
 
   private buttonStyle(): Phaser.Types.GameObjects.Text.TextStyle {

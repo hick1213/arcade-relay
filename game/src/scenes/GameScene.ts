@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { InputRouter } from '../systems/input/InputRouter';
 import { advanceRun, createInitialRun, handleTapEvent } from '../systems/runEngine';
-import { TAP_EVENTS, type HudState, type RunEndSummary, type RunState, type TapHit, type TextProvider } from '../types';
+import { TAP_EVENTS, type HudState, type RunEndSummary, type RunState, type TapEventName, type TapHit, type TextProvider } from '../types';
 import { buildRunEndSummary } from '../systems/economy';
 import { applyRunResult, createRunResult } from '../systems/meta/metaProgression';
 import { loadSaveData, saveSaveData } from '../persistence/SaveAdapter';
@@ -10,6 +10,8 @@ import { createTextProvider } from '../systems/i18n';
 import { Hud } from '../ui/Hud';
 import { PausePanel } from '../ui/PausePanel';
 import { GameplayView } from '../ui/GameplayView';
+import { audioDirector } from '../ui/AudioDirector';
+import { bgmKeyForRun, collectAudioCues } from '../systems/audio/audioTriggers';
 
 /**
  * GameScene — 周目内游戏画面（晨/日/夜三段在场景内状态机推进，无场景跳跃）。
@@ -69,6 +71,12 @@ export class GameScene extends Phaser.Scene {
 
     this.view.render(this.run);
     this.hud.update(this.toHudState());
+
+    // 音频接线（S-27）: 音量初期值 = SaveData.settings、BGM 轨道 = 初期相位
+    // （第 20 日夜 resume 時は BGM-02。autoplay 制限下では AudioDirector が退避）。
+    const settings = loadSaveData().data.settings;
+    audioDirector.attach(this, settings.bgm_volume, settings.sfx_volume);
+    audioDirector.requestBgm(bgmKeyForRun(this.run));
   }
 
   update(_time: number, delta: number): void {
@@ -80,18 +88,34 @@ export class GameScene extends Phaser.Scene {
     if (this.pausePanel.isOpen) {
       return;
     }
+    const prev = this.run;
     this.run = advanceRun(this.run, delta);
+    this.syncAudio(prev);
     this.syncView();
   }
 
   private applyTap(hit: TapHit): void {
     const previousPhase = this.run.phase;
+    const prev = this.run;
     this.run = handleTapEvent(this.run, hit);
     // 志向确认の瞬間に run 快照を SaveData へ書き出し（S-04 acceptance）
     if (previousPhase === 'ambition' && this.run.phase !== 'ambition') {
       this.persistRunSnapshot();
     }
+    this.syncAudio(prev, hit.event);
     this.syncView();
+  }
+
+  /**
+   * 音频接线（S-27）: 迁移差分＋tap → SFX cue 再生与 BGM 轨道更新。
+   * 「何を鳴らすか」の判定は systems/audio/audioTriggers（纯逻辑 — Scene 薄薄）、
+   * 出力は ui/AudioDirector（音量真值 = SaveData.settings の表示キャッシュ経由）。
+   */
+  private syncAudio(prev: RunState, tapEvent: TapEventName | null = null): void {
+    for (const cue of collectAudioCues(prev, this.run, tapEvent)) {
+      audioDirector.playSfx(cue.key, cue.variant ?? undefined);
+    }
+    audioDirector.requestBgm(bgmKeyForRun(this.run));
   }
 
   /** 志向确定 → run 快照を SaveData.run へ（Menu「继续周目」の表示条件 — S-04） */

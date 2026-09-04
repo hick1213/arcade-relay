@@ -4,6 +4,7 @@ import { InputRouter } from '../systems/input/InputRouter';
 import { createTextProvider } from '../systems/i18n';
 import { loadSaveData } from '../persistence/SaveAdapter';
 import type { RunEndSummary, TextProvider } from '../types';
+import { audioDirector } from '../ui/AudioDirector';
 import { ResultPanel } from '../ui/ResultPanel';
 
 /**
@@ -38,28 +39,29 @@ export class ResultScene extends Phaser.Scene {
     const textProvider: TextProvider = createTextProvider();
     const summary = data ?? RESULT_FALLBACK_SUMMARY;
 
+    // 音频接线（S-27）: BGM-01（基础氛围の継続。终战败の待機 = assets.md BGM-02 用途の
+    // 「重试时的待机」→ BGM-02 継続）。locked 中は AudioDirector が退避（UNLOCKED 後に再生）。
+    const settings = loadSaveData().data.settings;
+    audioDirector.attach(this, settings.bgm_volume, settings.sfx_volume);
+    audioDirector.requestBgm(
+      summary.kind === 'finalBattleLoss'
+        ? ASSET_KEYS.audio.bgmFinalBattle
+        : ASSET_KEYS.audio.bgmInnDay,
+    );
+    // 破产败局 = SFX-06 低速变调（assets.md「复用映射」。演出 SFX は S-25 の退避方針どおり
+    // AudioDirector 側で locked 時は UNLOCKED 後に再生）
+    if (summary.kind === 'bankruptcy') {
+      audioDirector.playSfx(ASSET_KEYS.audio.sfxFailLeave, 'bankruptcy');
+    }
+
     new ResultPanel(this, textProvider, this.router, summary, {
       onRetry: () => this.scene.start('Game'),
       onToMenu: () => this.scene.start('Menu'),
-      // 破产演出「账本合上」の瞬间 → SFX-07（音量は SaveData.settings — persistence 層経由の取得）
-      onLedgerClosed: () => this.playResultSfx(ASSET_KEYS.audio.sfxAbacusLedger),
+      // 破产演出「账本合上」の瞬间 → SFX-07（音量は AudioDirector の表示キャッシュ =
+      // SaveData.settings。persistence 層経由の取得）
+      onLedgerClosed: () => audioDirector.playSfx(ASSET_KEYS.audio.sfxAbacusLedger),
       // 终战败演出の開始瞬间 → SFX-08
-      onDefeatSting: () => this.playResultSfx(ASSET_KEYS.audio.sfxBattleGong),
+      onDefeatSting: () => audioDirector.playSfx(ASSET_KEYS.audio.sfxBattleGong),
     });
-  }
-
-  /** 演出 SFX（SFX-07/08）。ユーザー操作済みの遷移後のため通常 unlocked。
-   *  locked の場合も静かに捨てない（S-25 fix: unlock() は非同期のため即 play すると
-   *  内部 warn のみで無音になる）— unlocked 発効後に確実に再生する */
-  private playResultSfx(key: string): void {
-    const volume = loadSaveData().data.settings.sfx_volume;
-    if (!this.sound.locked) {
-      this.sound.play(key, { volume });
-      return;
-    }
-    this.sound.once(Phaser.Sound.Events.UNLOCKED, () => {
-      this.sound.play(key, { volume });
-    });
-    this.sound.unlock();
   }
 }

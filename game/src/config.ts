@@ -53,6 +53,10 @@ export const ASSET_KEYS = {
     sfxFailLeave: 'assets/audio/sfx-fail-leave', // SFX-06
     sfxAbacusLedger: 'assets/audio/sfx-abacus-ledger', // SFX-07
     sfxBattleGong: 'assets/audio/sfx-battle-gong', // SFX-08
+    // BGM-01/02（S-31 Phase 3 落盘 — design/assets.md「生成实绩」。OGG+M4A 双格式、循环前提。
+    // 循环播放与轨道选择是 S-27 AudioDirector — 用途划分见 assets.md「BGM」节）
+    bgmInnDay: 'assets/audio/bgm-inn-day', // BGM-01（Title/Menu/晨/日/夜 的基础氛围）
+    bgmFinalBattle: 'assets/audio/bgm-final-battle', // BGM-02（第 20 日夜终战）
   },
 
   // 背景/精灵（S-33: IMG-01～30 正式资产 — design/assets.md。登録は S-32 コミットに同梱）
@@ -673,6 +677,13 @@ export const EVENT = {
   /** 事件卡导致的伙计疲劳概率（gdd「事件卡」テンプレート: 疲劳概率 ≤20%。
    * roll 与施加は S-18 接线 — 卡数据表の mayFatigue 标记と対で使う） */
   FATIGUE_CHANCE: 0.2,
+  /** gdd「事件卡」效果幅度模板の境界（CR-CODE iter1: テストは本定数を参照 —
+   * 幅度調整はここ一箇所。卡数据表の每卡具体値は内容データなので直値のまま） */
+  SILVER_DELTA_MIN: -25,
+  SILVER_DELTA_MAX: 15,
+  REPUTATION_DELTA_MIN: -10,
+  REPUTATION_DELTA_MAX: 10,
+  XIA_POINT_MAX: 5,
 } as const;
 
 // ==== i18n（S-11 systems/i18n。缺 key 回落中文 — DEFAULT_LANGUAGE はその回落先も兼ねる）====
@@ -860,3 +871,23 @@ export const GAMEPLAY_ZONES = {
   CARD_OPTION: (index: number): string => `game.night.option.${index}`,
   DAYBREAK: 'game.night.daybreak',
 } as const;
+
+// ==== 音频接线（S-27 — BGM 循环与 SFX 复用变调。design/assets.md「音频」节）====
+export const AUDIO = {
+  /**
+   * SFX 复用变调变体（assets.md「复用映射」: 变调一律由 Phaser 侧 detune/rate 承担、
+   * 不新增文件）。detune = 音分（100 = 半音）/ rate = 播放速度 /
+   * volumeScale = 对 sfx_volume 的倍率（输出时 clamp 到 SFX_VOLUME_MAX）。
+   */
+  SFX_VARIANTS: {
+    trainingDone: { detune: 400, rate: 1, volumeScale: 1.2 }, // 修练完成 = SFX-01 高音量＋升调
+    postAssign: { detune: -200, rate: 1, volumeScale: 0.9 }, // 晨间岗位指派确认（两次点击的第二击。变调/音量差区分场景）
+    cardConfirm: { detune: 300, rate: 1.35, volumeScale: 0.85 }, // 事件卡选项确定 = SFX-07 尾段纸页音
+    bankruptcy: { detune: -400, rate: 0.6, volumeScale: 1 }, // 破产败局 = SFX-06 低速变调
+  },
+  /** SFX 实效输出上限（sfx_volume × volumeScale 的 clamp 值 — >1 会 clip） */
+  SFX_VOLUME_MAX: 1,
+} as const;
+
+/** SFX 复用变调变体 id（config.AUDIO.SFX_VARIANTS 的键 — 变体追加只动上面的表） */
+export type SfxVariantId = keyof typeof AUDIO.SFX_VARIANTS;
